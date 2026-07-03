@@ -1,3 +1,3 @@
 {:coordinate codethread/devflow
  :provides   [skein.spools.devflow]
- :docs       {skein.spools.devflow "Devflow lifecycle spool for Skein: stage workflows (intake → proposal → spec-plan → tasks/implementation) with HITL checkpoints, built on skein.spools.workflow. Contract doc: README.md."}}
+ :docs       {skein.spools.devflow "Devflow lifecycle spool for Skein: stage workflows (intake → proposal → spec-plan → tasks/implementation) with HITL checkpoints, built on skein.spools.workflow. Contract doc: devflow.md."}}

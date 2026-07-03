@@ -1,18 +1,9 @@
 # Skein Devflow Spool
 
-> **Source has moved.** `skein.spools.devflow` no longer ships on the weaver
-> classpath from this repo. Its source lives in the external
-> [`codethread/devflow.spool`](https://github.com/codethread/devflow.spool)
-> repository and is consumed as an RFC-017 git-distributed spool: this workspace
-> approves it with a sha-pinned `:git/url`+`:git/sha` coordinate in
-> `.skein/spools.edn` and activates it (`:required? true`) from `.skein/init.clj`.
-> The test JVM pins the same sha as a tools.deps git dep (`deps.edn`), and
-> developers override the coordinate with a gitignored `spools.local.edn` local
-> root to work against a checkout. See
-> [Writing shared spools](../docs/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
-> for the distribution mechanism. This contract doc will migrate into the
-> `devflow.spool` repo in a follow-up; it stays here for now as the shipped
-> reference.
+`skein.spools.devflow` is an external git-distributed spool consumed by
+Skein workspaces with a sha-pinned `:git/url`+`:git/sha` coordinate. See
+[Skein's writing-shared-spools guide](https://github.com/codethread/skein/blob/main/docs/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
+for the distribution mechanism.
 
 ## 1. Overview
 
@@ -33,7 +24,7 @@ lifecycle, routing, revision loops, and `done?` all come from
 This document covers the stage graph and the devflow attribute conventions.
 For the engine (`start!`/`complete!`/`choose!` mechanics, checkpoints, routing
 transactions, gates, molecule ops, the `workflow/*` vocabulary), see
-[workflow.md](./workflow.md).
+[Skein workflow.md](https://github.com/codethread/skein/blob/main/spools/workflow.md).
 
 ## 2. Stage map
 
@@ -275,9 +266,9 @@ The intake root additionally carries `devflow/worktree-check`
 
 ## 7. See also
 
-- [workflow.md](./workflow.md) — the engine this spool is built on: run
+- [Skein workflow.md](https://github.com/codethread/skein/blob/main/spools/workflow.md) — the engine this spool is built on: run
   lifecycle, checkpoints and `:next` routing, revise-by-routing loops, gates,
   molecule ops, and the full `workflow/*` attribute vocabulary.
 - `(skein.spools.workflow/explain topic)` — machine-readable builder contracts
   agents can call before constructing workflow data.
-- [README.md](./README.md) — shipped spools index and loading notes.
+- [README.md](./README.md) — this spool repo's loading notes.
