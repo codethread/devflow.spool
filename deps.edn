@@ -1,1 +1,9 @@
-{:paths ["src"]}
+{:paths ["src"]
+ :aliases
+ {:test {:extra-paths ["test"]
+         ;; Point this at the Skein checkout you want to test against.
+         ;; This repo is developed beside skein-src, so the default works for
+         ;; local owner checkouts and CI layouts that place the repos as siblings.
+         :extra-deps {io.skein/skein {:local/root "../skein-src__devflow-selfhost"}}
+         :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
+         :main-opts ["-m" "skein.spools.devflow-test"]}}}

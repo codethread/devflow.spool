@@ -15,5 +15,4 @@ pinned sha in your workspace `spools.edn`:
 then `sync!` and `use!` with `:ns skein.spools.devflow` /
 `:call skein.spools.devflow/install!` from trusted config.
 
-Full contract documentation currently lives in the Skein repo
-(`spools/devflow.md`) and will migrate here in a follow-up docs pass.
+Full contract documentation lives in [devflow.md](./devflow.md).
