@@ -19,6 +19,10 @@
     (runtime/with-runtime-binding (:runtime ctx)
       #(f (:runtime ctx) (:config-dir ctx)))))
 
+(deftest devflow-maven-dependency-is-observable
+  (is (= "devflow-spool" (devflow/dependency-sentinel)))
+  (is (= "devflow-spool" (:dependency-sentinel (devflow/install!)))))
+
 (deftest devflow-proposal-revise-loops-back-through-the-proposal-stage
   (with-runtime
     (fn [rt _]

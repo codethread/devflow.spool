@@ -4,7 +4,8 @@
   These helpers encode the agent-facing devflow checkpoints as Skein workflow
   data. They intentionally produce ordinary workflow definitions that callers
   can inspect, compose, pour as molecules, or materialize as wisps."
-  (:require [clojure.string :as str]
+  (:require [camel-snake-kebab.core :as csk]
+            [clojure.string :as str]
             [skein.spools.workflow :as workflow]))
 
 (defn- titled
@@ -27,6 +28,15 @@
   "AFK task ids become workflow step ids (`:task-<id>`), so they must be
   token-safe: no whitespace, slashes, colons, or leading punctuation."
   #"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+(defn dependency-sentinel
+  "Return a stable value produced through the Maven dependency declared by this spool.
+
+  This is intentionally operationally harmless; runtime/demo validation calls it
+  only to prove `camel-snake-kebab` was resolved through the approved spool's
+  top-level `deps.edn :deps`."
+  []
+  (csk/->kebab-case-string "devflow_spool"))
 
 (defn- non-blank-string? [v]
   (and (string? v) (not (str/blank? v))))
@@ -673,6 +683,7 @@
   []
   {:installed true
    :namespace 'skein.spools.devflow
+   :dependency-sentinel (dependency-sentinel)
    :commands command-registry
    :workflows workflow-registry
    :registered (register-workflows!)})

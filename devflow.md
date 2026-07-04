@@ -235,8 +235,11 @@ trusted resolution:
   `:start`, `:next-step`, `:next-steps`, `:choice-details`, `:choice-detail`,
   `:choose`, `:complete`, `:advance`, `:describe`, `:history`, and `:archive`.
 - `(install!)` returns `{:installed true :namespace 'skein.spools.devflow
-  :commands command-registry :workflows workflow-registry :registered <map>}`,
-  where `:registered` is the engine registration result.
+  :dependency-sentinel "devflow-spool" :commands command-registry
+  :workflows workflow-registry :registered <map>}`, where `:registered` is the
+  engine registration result. `:dependency-sentinel` is produced through this
+  spool's declared `camel-snake-kebab` Maven dependency so runtime validation can
+  observe that approved spool dependencies were resolved.
 
 ## 6. Attribute conventions
 
