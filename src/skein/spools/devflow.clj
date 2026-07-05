@@ -143,6 +143,7 @@
                                       "workflow/instruction" "Create a new feature worktree before doing discovery or code work. If this agent is already running inside the correct feature worktree, choose already-in-worktree."})
     (workflow/step :capture-brief
                    (titled "Capture user brief for ")
+                   :self
                    :depends-on [:create-or-confirm-worktree]
                    :attributes {"devflow/artifact" "brief"})
     (workflow/checkpoint :discuss-scope
@@ -170,6 +171,7 @@
     (workflow/step :review
                    (fn [{:keys [feature artifact]}]
                      (str "Run agent review for " feature " " artifact))
+                   :self
                    :attributes {"review" "agent"})))
 
 (defn proposal-workflow
@@ -188,11 +190,13 @@
                   "devflow/feature" (param-value :feature)}}
     (workflow/step :inspect-context
                    (titled "Inspect relevant RFCs, spikes, root specs, and active feature context for ")
+                   :self
                    :condition [:!= :revision true]
                    :attributes {"workflow/action-ref" "devflow.proposal.orient"
                                 "workflow/instruction" "Inspect relevant active RFCs, spikes, root specs, active feature folders, and affected code before writing the proposal."})
     (workflow/step :write-proposal
                    (titled "Write devflow proposal for ")
+                   :self
                    :depends-on [:inspect-context]
                    :attributes {"devflow/artifact" "proposal.md"
                                 "skills" "devflow"})
@@ -256,10 +260,12 @@
                   "devflow/feature" (param-value :feature)}}
     (workflow/step :write-spec-deltas
                    (titled "Write needed spec deltas for ")
+                   :self
                    :attributes {"devflow/artifact" "specs/*.delta.md"
                                 "skills" "devflow"})
     (workflow/step :write-plan
                    (titled "Write implementation plan for ")
+                   :self
                    :depends-on [:write-spec-deltas]
                    :attributes {"devflow/artifact" "<feature>.plan.md"
                                 "skills" "devflow"})
@@ -330,6 +336,7 @@
                                    :attributes {"workflow/decision-point" "afk-accepted"})]
              [(workflow/step :run-afk-loop
                              (titled "Run or hand off AFK task loop for ")
+                             :self
                              :attributes {"workflow/action-ref" "devflow.tasks.run-afk-loop"
                                           "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off."})]))))
 
@@ -346,6 +353,7 @@
                   "devflow/feature" (param-value :feature)}}
     (workflow/step :write-tasks
                    (titled "Write AFK/HITL task queue for ")
+                   :self
                    :attributes {"devflow/artifact" "tasks/index.yml"
                                 "skills" "devflow"})
     (workflow/call :agent-review-tasks
@@ -388,10 +396,12 @@
                   "devflow/feature" (param-value :feature)}}
     (workflow/step :implement
                    (titled "Implement reviewed plan for ")
+                   :self
                    :attributes {"workflow/action-ref" "devflow.implementation.direct"
                                 "workflow/instruction" "Implement the reviewed plan directly because the signed-off scope does not need a separate task breakdown."})
     (workflow/step :validate
                    (titled "Validate implementation for ")
+                   :self
                    :depends-on [:implement]
                    :attributes {"workflow/action-ref" "devflow.implementation.validate"
                                 "workflow/instruction" "Run validation relevant to the touched implementation and report failures before review."})
@@ -430,6 +440,7 @@
     (workflow/step :record-abort
                    (fn [{:keys [feature reason]}]
                      (str "Record abort for " feature ": " reason))
+                   :self
                    :attributes {"workflow/action-ref" "devflow.abort.record"
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
