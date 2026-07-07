@@ -3,10 +3,39 @@
 
   These helpers encode the agent-facing devflow checkpoints as Skein workflow
   data. They intentionally produce ordinary workflow definitions that callers
-  can inspect, compose, pour as molecules, or materialize as wisps."
+  can inspect, compose, pour as molecules, or materialize as wisps.
+
+  Authoring knowledge for the artifacts each stage produces (proposal, specs,
+  plan, task queue, ...) lives in `skein.spools.devflow.guidance` and is served
+  by `guidance`; steps advertise their guide key via the `devflow/guide`
+  attribute and ready step views surface it as `:guide`."
   (:require [camel-snake-kebab.core :as csk]
             [clojure.string :as str]
+            [skein.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]))
+
+(def artifact-guides
+  "Maps each `devflow/artifact` value an authoring step advertises to the
+  guidance key holding its authoring rules (see `guidance` and
+  `skein.spools.devflow.guidance/guides`). The brief has no guide; it is
+  captured conversationally during intake."
+  {"proposal.md" :proposal
+   "specs/*.delta.md" :spec
+   "<feature>.plan.md" :plan
+   "tasks/index.yml" :tasks})
+
+(defn- guided-artifact
+  "Attributes for a step that authors a guided artifact: the artifact path, its
+  guide key, and the instruction telling the driving agent to fetch that guide."
+  [artifact]
+  (let [guide (or (artifact-guides artifact)
+                  (throw (ex-info "No guide registered for artifact"
+                                  {:artifact artifact :artifacts (vec (keys artifact-guides))})))]
+    {"devflow/artifact" artifact
+     "devflow/guide" (name guide)
+     "workflow/instruction" (str "Call (skein.spools.devflow/guidance " guide ") for the "
+                                 "authoring procedure, constraints, template, and validation "
+                                 "checklist before writing " artifact ".")}))
 
 (defn- titled
   ([prefix]
@@ -198,8 +227,7 @@
                    (titled "Write devflow proposal for ")
                    :self
                    :depends-on [:inspect-context]
-                   :attributes {"devflow/artifact" "proposal.md"
-                                "skills" "devflow"})
+                   :attributes (guided-artifact "proposal.md"))
     (workflow/call :agent-review-proposal
                    agent-review-workflow
                    {:artifact "proposal"}
@@ -261,14 +289,12 @@
     (workflow/step :write-spec-deltas
                    (titled "Write needed spec deltas for ")
                    :self
-                   :attributes {"devflow/artifact" "specs/*.delta.md"
-                                "skills" "devflow"})
+                   :attributes (guided-artifact "specs/*.delta.md"))
     (workflow/step :write-plan
                    (titled "Write implementation plan for ")
                    :self
                    :depends-on [:write-spec-deltas]
-                   :attributes {"devflow/artifact" "<feature>.plan.md"
-                                "skills" "devflow"})
+                   :attributes (guided-artifact "<feature>.plan.md"))
     (workflow/call :agent-review-spec-plan
                    agent-review-workflow
                    {:artifact "spec deltas and plan"}
@@ -338,7 +364,8 @@
                              (titled "Run or hand off AFK task loop for ")
                              :self
                              :attributes {"workflow/action-ref" "devflow.tasks.run-afk-loop"
-                                          "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off."})]))))
+                                          "devflow/guide" "afk"
+                                          "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (skein.spools.devflow/guidance :afk) for the loop contract and queue checks."})]))))
 
 (defn task-breakdown-workflow
   "Return the reviewed task queue workflow.
@@ -354,8 +381,7 @@
     (workflow/step :write-tasks
                    (titled "Write AFK/HITL task queue for ")
                    :self
-                   :attributes {"devflow/artifact" "tasks/index.yml"
-                                "skills" "devflow"})
+                   :attributes (guided-artifact "tasks/index.yml"))
     (workflow/call :agent-review-tasks
                    agent-review-workflow
                    {:artifact "task queue"}
@@ -466,10 +492,13 @@
         (get-in root [:attributes "devflow/stage"]))))
 
 (defn- add-stage
-  "Add stage to a ready step view when both are present."
+  "Add the devflow stage and artifact guide key to a ready step view."
   [stage step]
   (when step
-    (cond-> step stage (assoc :stage stage))))
+    (let [guide (artifact-guides (:artifact step))]
+      (cond-> step
+        stage (assoc :stage stage)
+        guide (assoc :guide guide)))))
 
 (defn- add-current-stage
   "Add the feature's current stage to every ready step in a mutation result."
@@ -629,6 +658,20 @@
      (workflow/describe ((requiring-resolve sym) describe-placeholder-params)
                         describe-placeholder-params))))
 
+(defn guidance
+  "Return devflow authoring guidance as inspectable data.
+
+  With no argument, returns the workspace overview: layout, paths, invariants,
+  the document-ID convention, document ownership, and an index of guide keys.
+  With a guide key (keyword or string, e.g. `:proposal`), returns that
+  artifact's guide: purpose, prerequisites, knowledge, procedures, constraints,
+  validation checklist, and templates. Ready step views advertise their guide
+  key as `:guide`; unknown keys fail loudly."
+  ([]
+   (guidance/overview))
+  ([guide]
+   (guidance/guide (if (string? guide) (keyword guide) guide))))
+
 (defn history
   "Return the ordered run history for devflow `feature` (see
   `skein.spools.workflow/run-history`)."
@@ -638,7 +681,9 @@
 (defn archive!
   "Archive a finished devflow `feature` into one closed digest strand (see
   `skein.spools.workflow/archive-run!`). Fails loudly if the feature still has an
-  active root. opts may include `:title` and `:attributes`."
+  active root. opts may include `:title` and `:attributes`. For the workspace
+  side — spec promotion, plan status, and moving the feature folder into
+  `devflow/archive/` — follow `(guidance :finish-archive)`."
   ([feature]
    (workflow/archive-run! feature))
   ([feature opts]
@@ -672,6 +717,7 @@
    :complete 'skein.spools.devflow/complete!
    :advance 'skein.spools.devflow/advance!
    :describe 'skein.spools.devflow/describe
+   :guidance 'skein.spools.devflow/guidance
    :history 'skein.spools.devflow/history
    :archive 'skein.spools.devflow/archive!})
 

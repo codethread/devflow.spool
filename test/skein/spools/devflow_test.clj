@@ -2,8 +2,10 @@
   "Tests for the skein.spools.devflow lifecycle spool: stage workflows,
   decision-point checkpoints, revision loops, and the small operational
   loop layered over skein.spools.workflow runs."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
             [skein.spools.devflow :as devflow]
+            [skein.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]
             [skein.test.alpha :as t]
             [skein.core.weaver.runtime :as runtime]))
@@ -101,7 +103,7 @@
                (get-in intake-root [:attributes :devflow/worktree-check])))
         (is (some #(= "Create or confirm feature worktree for workflow-stress" (:title %))
                   (:created intake-result)))
-        (is (some #(= "devflow" (get-in % [:attributes "skills"]))
+        (is (some #(= "proposal" (get-in % [:attributes "devflow/guide"]))
                   (:strands proposal-payload)))
         (is (some #(= {"workflow/hitl" "true"
                        "workflow/decision-point" "proposal-signed-off"}
@@ -331,6 +333,46 @@
         ;; the run's molecules are burned, so history now fails loudly
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown workflow run"
                               (devflow/history "af-run")))))))
+
+(deftest devflow-guidance-serves-the-authoring-knowledge-base
+  ;; the overview orients without picking a guide
+  (let [overview (devflow/guidance)]
+    (is (= (set (keys guidance/guides)) (set (keys (:guides overview)))))
+    (is (contains? (get-in overview [:workspace :paths]) :proposal))
+    (is (seq (get-in overview [:workspace :invariants]))))
+  ;; every guide shares the documented shape (procedures as named step vectors)
+  (doseq [[key guide] guidance/guides]
+    (is (string? (:purpose guide)) (str key " has a purpose"))
+    (is (map? (:artifacts guide)) (str key " has artifact paths"))
+    (is (and (map? (:procedures guide))
+             (every? vector? (vals (:procedures guide))))
+        (str key " has named procedure vectors"))
+    (is (vector? (:constraints guide)) (str key " has constraints"))
+    (is (vector? (:validation guide)) (str key " has a validation checklist")))
+  ;; keyword and string keys resolve alike; unknown keys fail loudly
+  (is (= (devflow/guidance :proposal) (devflow/guidance "proposal")))
+  (is (str/includes? (get-in (devflow/guidance :tasks) [:templates :task-index]) "blocked_by"))
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown devflow guide"
+                        (devflow/guidance :nope))))
+
+(deftest devflow-artifact-steps-advertise-a-resolvable-guide
+  ;; every artifact->guide mapping resolves, so no step can point at a missing guide
+  (doseq [[artifact guide-key] devflow/artifact-guides]
+    (is (map? (devflow/guidance guide-key)) (str artifact " -> " guide-key)))
+  ;; ready step views carry the guide key alongside the artifact
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "guide-views"
+                       (devflow/proposal-workflow {:feature "widgets"})
+                       {:feature "widgets"}
+                       {:family "devflow"
+                        :definition 'skein.spools.devflow/proposal-workflow
+                        :context {:feature "widgets"}})
+      (workflow/complete! "guide-views")
+      (let [step (devflow/next-step "guide-views")]
+        (is (= "proposal.md" (:artifact step)))
+        (is (= :proposal (:guide step)))
+        (is (str/includes? (:instruction step) "guidance :proposal"))))))
 
 (defn -main
   "Run the standalone devflow.spool test suite."
