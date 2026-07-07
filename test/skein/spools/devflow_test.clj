@@ -2,8 +2,10 @@
   "Tests for the skein.spools.devflow lifecycle spool: stage workflows,
   decision-point checkpoints, revision loops, and the small operational
   loop layered over skein.spools.workflow runs."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
             [skein.spools.devflow :as devflow]
+            [skein.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]
             [skein.test.alpha :as t]
             [skein.core.weaver.runtime :as runtime]))
@@ -21,7 +23,11 @@
 
 (deftest devflow-maven-dependency-is-observable
   (is (= "devflow-spool" (devflow/dependency-sentinel)))
-  (is (= "devflow-spool" (:dependency-sentinel (devflow/install!)))))
+  (with-runtime
+    (fn [_ _]
+      (let [installed (devflow/install!)]
+        (is (= "devflow-spool" (:dependency-sentinel installed)))
+        (is (= :devflow/proposal (get-in installed [:guides :devflow/proposal])))))))
 
 (deftest devflow-proposal-revise-loops-back-through-the-proposal-stage
   (with-runtime
@@ -101,7 +107,9 @@
                (get-in intake-root [:attributes :devflow/worktree-check])))
         (is (some #(= "Create or confirm feature worktree for workflow-stress" (:title %))
                   (:created intake-result)))
-        (is (some #(= "devflow" (get-in % [:attributes "skills"]))
+        (is (some #(= {"devflow/guide" "proposal"
+                       "guide/key" ":devflow/proposal"}
+                      (select-keys (:attributes %) ["devflow/guide" "guide/key"]))
                   (:strands proposal-payload)))
         (is (some #(= {"workflow/hitl" "true"
                        "workflow/decision-point" "proposal-signed-off"}
@@ -331,6 +339,86 @@
         ;; the run's molecules are burned, so history now fails loudly
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown workflow run"
                               (devflow/history "af-run")))))))
+
+(deftest devflow-guidance-serves-the-authoring-knowledge-base
+  ;; the overview orients without picking a guide and remains devflow-owned.
+  (let [overview (devflow/guidance)]
+    (is (= (set (keys guidance/guides)) (set (keys (:guides overview)))))
+    (is (contains? (get-in overview [:workspace :paths]) :proposal))
+    (is (seq (get-in overview [:workspace :invariants]))))
+  ;; every guide shares the documented shape (procedures as named step vectors)
+  (doseq [[key guide] guidance/guides]
+    (is (string? (:purpose guide)) (str key " has a purpose"))
+    (is (map? (:artifacts guide)) (str key " has artifact paths"))
+    (is (and (map? (:procedures guide))
+             (every? vector? (vals (:procedures guide))))
+        (str key " has named procedure vectors"))
+    (is (vector? (:constraints guide)) (str key " has constraints"))
+    (is (vector? (:validation guide)) (str key " has a validation checklist")))
+  (with-runtime
+    (fn [_ _]
+      (devflow/install!)
+      ;; legacy, string, and qualified keys resolve alike through the shared registry; unknown keys fail loudly
+      (is (= (devflow/guidance :proposal) (devflow/guidance "proposal") (devflow/guidance :devflow/proposal)))
+      (is (str/includes? (get-in (devflow/guidance :tasks) [:templates :task-index]) "blocked_by"))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown guide"
+                            (devflow/guidance :nope))))))
+
+(deftest devflow-artifact-steps-advertise-a-resolvable-guide
+  (with-runtime
+    (fn [_ _]
+      (devflow/install!)
+      ;; every artifact->guide mapping resolves through the shared registry, so no step can point at a missing guide
+      (doseq [[artifact guide-key] devflow/artifact-guides]
+        (is (map? (devflow/guidance guide-key)) (str artifact " -> " guide-key)))))
+  ;; ready step views carry the shared guide key alongside the artifact
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "guide-views"
+                       (devflow/proposal-workflow {:feature "widgets"})
+                       {:feature "widgets"}
+                       {:family "devflow"
+                        :definition 'skein.spools.devflow/proposal-workflow
+                        :context {:feature "widgets"}})
+      (workflow/complete! "guide-views")
+      (let [step (devflow/next-step "guide-views")]
+        (is (= "proposal.md" (:artifact step)))
+        (is (= :devflow/proposal (:guide step)))
+        (is (str/includes? (:instruction step) "guidance :proposal")))))
+  ;; non-artifact steps can still advertise a guide through their strand attrs.
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "afk-guide"
+                       (devflow/run-afk-loop-workflow {:feature "widgets"})
+                       {:feature "widgets"}
+                       {:family "devflow"
+                        :definition 'skein.spools.devflow/run-afk-loop-workflow
+                        :context {:feature "widgets"}})
+      (let [step (devflow/next-step "afk-guide")]
+        (is (= "Run or hand off AFK task loop for widgets" (:title step)))
+        (is (= "devflow.tasks.run-afk-loop" (:action-ref step)))
+        (is (not (contains? step :artifact)))
+        (is (= :devflow/afk (:guide step))))))
+  ;; guide/key is authoritative when it disagrees with the legacy artifact map.
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "guide-precedence"
+                       (workflow/workflow
+                         (constantly "Guide precedence")
+                         {:params {:feature (workflow/param :required true)}
+                          :attributes {"devflow/stage" "proposal"}}
+                         (workflow/step :write-proposal
+                                        (constantly "Write proposal")
+                                        :self
+                                        :attributes {"devflow/artifact" "proposal.md"
+                                                     "guide/key" ":devflow/tasks"}))
+                       {:feature "widgets"}
+                       {:family "devflow"
+                        :definition 'skein.spools.devflow-test/guide-precedence
+                        :context {:feature "widgets"}})
+      (let [step (devflow/next-step "guide-precedence")]
+        (is (= "proposal.md" (:artifact step)))
+        (is (= :devflow/tasks (:guide step)))))))
 
 (defn -main
   "Run the standalone devflow.spool test suite."

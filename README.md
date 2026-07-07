@@ -8,11 +8,14 @@ It is trusted Clojure code for a live Skein weaver. The spool has no
 in `spools.edn` or `spools.local.edn`, run `sync!`, then activate explicitly
 with `use!`.
 
-Full workflow documentation lives in [devflow.md](./devflow.md).
+Full workflow documentation lives in [devflow.md](./devflow.md). The spool is
+self-contained: artifact authoring knowledge (proposal/RFC/spec/plan/task
+rules and templates) ships as data in `skein.spools.devflow.guidance`, served
+by the `guidance` command — no external devflow skill is required.
 
 ## Prerequisites
 
-- A Skein checkout/runtime that ships `skein.spools.workflow`.
+- A Skein checkout/runtime that ships `skein.spools.workflow` and `skein.spools.brief`.
 - A live weaver configured from a workspace you control.
 - A 40-hex git SHA pin for this repository, or a local checkout approved through
   `spools.local.edn` for development.
@@ -23,8 +26,10 @@ Full workflow documentation lives in [devflow.md](./devflow.md).
 ## Dependency information
 
 Approve every source spool explicitly. `devflow.spool` depends on the
-`skein.spools.workflow` namespace shipped by Skein, so there is no additional
-third-party source spool to approve for that prerequisite.
+`skein.spools.workflow` and `skein.spools.brief` namespaces shipped by Skein, so
+there is no additional third-party source spool to approve for those
+prerequisites. Select a Skein checkout new enough to include the brief guide
+registry (`skein.spools.brief`).
 
 Shared workspace example:
 
@@ -55,9 +60,15 @@ then sync and activate this spool from trusted `init.clj` or REPL code.
 
 (def runtime (current/runtime))
 
-;; Activate the shipped workflow prerequisite first. Adjust this stanza to match
-;; your Skein checkout's shipped-spool convention if it already installs
-;; `skein.spools.workflow` elsewhere in startup.
+;; Activate the shipped prerequisites first. Adjust these stanzas to match your
+;; Skein checkout's shipped-spool convention if it already installs them
+;; elsewhere in startup.
+(runtime-alpha/use! runtime
+  :skein/spools-brief
+  {:ns 'skein.spools.brief
+   :call 'skein.spools.brief/install!
+   :required? true})
+
 (runtime-alpha/use! runtime
   :workflow
   {:ns 'skein.spools.workflow
@@ -70,9 +81,11 @@ then sync and activate this spool from trusted `init.clj` or REPL code.
   {:spools [codethread/devflow]
    :ns 'skein.spools.devflow
    :call 'skein.spools.devflow/install!
-   :after [:workflow]
+   :after [:skein/spools-brief :workflow]
    :required? true})
 ```
 
-Keep the `:workflow` activation before `:devflow` and keep `:after [:workflow]`
-so missing or failed prerequisites are explicit.
+Keep the brief and workflow activations before `:devflow` and keep `:after` so
+missing or failed prerequisites are explicit. During `install!`, devflow
+registers its guides into the shared brief guide registry under qualified keys
+such as `:devflow/proposal`.
