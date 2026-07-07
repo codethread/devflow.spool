@@ -13,6 +13,7 @@
   (:require [camel-snake-kebab.core :as csk]
             [clojure.string :as str]
             [skein.api.current.alpha :as current]
+            [skein.api.graph.alpha :as graph]
             [skein.spools.brief :as brief]
             [skein.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]))
@@ -30,6 +31,14 @@
   "Return the shared registry key for devflow guide `k`."
   [k]
   (keyword "devflow" (name k)))
+
+(defn- guide-key-attr
+  "Return a keyword guide key from the persisted `guide/key` attr value."
+  [k]
+  (cond
+    (keyword? k) k
+    (and (string? k) (str/starts-with? k ":")) (keyword (subs k 1))
+    (string? k) (keyword k)))
 
 (def guide-keys
   "Every devflow guide registered in the shared brief guide registry, keyed by
@@ -510,8 +519,10 @@
   "Return the shared guide key advertised by a ready step, preferring `guide/key`
   and falling back to the legacy artifact mapping."
   [step]
-  (or (some-> (or (:guide/key step) (get step "guide/key")) keyword)
-      (some-> (:artifact step) artifact-guides guide-key)))
+  (let [attrs (:attributes (first (graph/strands-by-ids (current/runtime) [(:id step)])))]
+    (or (guide-key-attr (or (get attrs :guide/key)
+                            (get attrs "guide/key")))
+        (some-> (:artifact step) artifact-guides guide-key))))
 
 (defn- add-stage
   "Add the devflow stage and shared guide key to a ready step view."

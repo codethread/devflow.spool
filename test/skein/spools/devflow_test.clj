@@ -384,7 +384,41 @@
       (let [step (devflow/next-step "guide-views")]
         (is (= "proposal.md" (:artifact step)))
         (is (= :devflow/proposal (:guide step)))
-        (is (str/includes? (:instruction step) "guidance :proposal"))))))
+        (is (str/includes? (:instruction step) "guidance :proposal")))))
+  ;; non-artifact steps can still advertise a guide through their strand attrs.
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "afk-guide"
+                       (devflow/run-afk-loop-workflow {:feature "widgets"})
+                       {:feature "widgets"}
+                       {:family "devflow"
+                        :definition 'skein.spools.devflow/run-afk-loop-workflow
+                        :context {:feature "widgets"}})
+      (let [step (devflow/next-step "afk-guide")]
+        (is (= "Run or hand off AFK task loop for widgets" (:title step)))
+        (is (= "devflow.tasks.run-afk-loop" (:action-ref step)))
+        (is (not (contains? step :artifact)))
+        (is (= :devflow/afk (:guide step))))))
+  ;; guide/key is authoritative when it disagrees with the legacy artifact map.
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "guide-precedence"
+                       (workflow/workflow
+                         (constantly "Guide precedence")
+                         {:params {:feature (workflow/param :required true)}
+                          :attributes {"devflow/stage" "proposal"}}
+                         (workflow/step :write-proposal
+                                        (constantly "Write proposal")
+                                        :self
+                                        :attributes {"devflow/artifact" "proposal.md"
+                                                     "guide/key" ":devflow/tasks"}))
+                       {:feature "widgets"}
+                       {:family "devflow"
+                        :definition 'skein.spools.devflow-test/guide-precedence
+                        :context {:feature "widgets"}})
+      (let [step (devflow/next-step "guide-precedence")]
+        (is (= "proposal.md" (:artifact step)))
+        (is (= :devflow/tasks (:guide step)))))))
 
 (defn -main
   "Run the standalone devflow.spool test suite."
