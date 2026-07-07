@@ -6,23 +6,35 @@
   can inspect, compose, pour as molecules, or materialize as wisps.
 
   Authoring knowledge for the artifacts each stage produces (proposal, specs,
-  plan, task queue, ...) lives in `skein.spools.devflow.guidance` and is served
-  by `guidance`; steps advertise their guide key via the `devflow/guide`
-  attribute and ready step views surface it as `:guide`."
+  plan, task queue, ...) lives in `skein.spools.devflow.guidance`, is registered
+  in `skein.spools.brief`'s shared guide registry, and is served by `guidance`;
+  steps advertise both the legacy `devflow/guide` key and the general `guide/key`
+  attribute, and ready step views surface the shared key as `:guide`."
   (:require [camel-snake-kebab.core :as csk]
             [clojure.string :as str]
+            [skein.api.current.alpha :as current]
+            [skein.spools.brief :as brief]
             [skein.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]))
 
 (def artifact-guides
   "Maps each `devflow/artifact` value an authoring step advertises to the
-  guidance key holding its authoring rules (see `guidance` and
-  `skein.spools.devflow.guidance/guides`). The brief has no guide; it is
-  captured conversationally during intake."
+  unqualified devflow guidance key holding its authoring rules. The brief has no
+  guide; it is captured conversationally during intake."
   {"proposal.md" :proposal
    "specs/*.delta.md" :spec
    "<feature>.plan.md" :plan
    "tasks/index.yml" :tasks})
+
+(defn guide-key
+  "Return the shared registry key for devflow guide `k`."
+  [k]
+  (keyword "devflow" (name k)))
+
+(def guide-keys
+  "Every devflow guide registered in the shared brief guide registry, keyed by
+  the legacy unqualified key accepted by `guidance`."
+  (into {} (map (fn [k] [k (guide-key k)])) (keys guidance/guides)))
 
 (defn- guided-artifact
   "Attributes for a step that authors a guided artifact: the artifact path, its
@@ -33,7 +45,9 @@
                                   {:artifact artifact :artifacts (vec (keys artifact-guides))})))]
     {"devflow/artifact" artifact
      "devflow/guide" (name guide)
-     "workflow/instruction" (str "Call (skein.spools.devflow/guidance " guide ") for the "
+     "guide/key" (str (guide-key guide))
+     "workflow/instruction" (str "Call (skein.spools.devflow/guidance " guide ") or fetch "
+                                 (guide-key guide) " from the shared brief guide registry for the "
                                  "authoring procedure, constraints, template, and validation "
                                  "checklist before writing " artifact ".")}))
 
@@ -365,7 +379,8 @@
                              :self
                              :attributes {"workflow/action-ref" "devflow.tasks.run-afk-loop"
                                           "devflow/guide" "afk"
-                                          "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (skein.spools.devflow/guidance :afk) for the loop contract and queue checks."})]))))
+                                          "guide/key" (str (guide-key :afk))
+                                          "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (skein.spools.devflow/guidance :afk) or fetch :devflow/afk from the shared brief guide registry for the loop contract and queue checks."})]))))
 
 (defn task-breakdown-workflow
   "Return the reviewed task queue workflow.
@@ -491,11 +506,18 @@
     (or (get-in root [:attributes :devflow/stage])
         (get-in root [:attributes "devflow/stage"]))))
 
+(defn- step-guide-key
+  "Return the shared guide key advertised by a ready step, preferring `guide/key`
+  and falling back to the legacy artifact mapping."
+  [step]
+  (or (some-> (or (:guide/key step) (get step "guide/key")) keyword)
+      (some-> (:artifact step) artifact-guides guide-key)))
+
 (defn- add-stage
-  "Add the devflow stage and artifact guide key to a ready step view."
+  "Add the devflow stage and shared guide key to a ready step view."
   [stage step]
   (when step
-    (let [guide (artifact-guides (:artifact step))]
+    (let [guide (step-guide-key step)]
       (cond-> step
         stage (assoc :stage stage)
         guide (assoc :guide guide)))))
@@ -658,19 +680,31 @@
      (workflow/describe ((requiring-resolve sym) describe-placeholder-params)
                         describe-placeholder-params))))
 
+(defn register-guides!
+  "Register every devflow guide into `runtime`'s shared brief guide registry
+  under qualified `:devflow/*` keys. Idempotent: reloads overwrite entries."
+  [runtime]
+  (into {}
+        (map (fn [[k g]] [(guide-key k) (brief/defguide! runtime (guide-key k) g)]))
+        guidance/guides))
+
+(defn- guidance-key [guide]
+  (let [k (if (string? guide) (keyword guide) guide)]
+    (if (namespace k) k (guide-key k))))
+
 (defn guidance
   "Return devflow authoring guidance as inspectable data.
 
-  With no argument, returns the workspace overview: layout, paths, invariants,
-  the document-ID convention, document ownership, and an index of guide keys.
-  With a guide key (keyword or string, e.g. `:proposal`), returns that
-  artifact's guide: purpose, prerequisites, knowledge, procedures, constraints,
-  validation checklist, and templates. Ready step views advertise their guide
-  key as `:guide`; unknown keys fail loudly."
+  With no argument, returns the devflow-owned workspace overview: layout, paths,
+  invariants, the document-ID convention, document ownership, and an index of
+  guide keys. With a guide key (legacy `:proposal`/`\"proposal\"` or shared
+  `:devflow/proposal`), fetches the artifact guide through `skein.spools.brief`'s
+  shared guide registry. Ready step views advertise the shared key as `:guide`;
+  unknown keys fail loudly."
   ([]
    (guidance/overview))
   ([guide]
-   (guidance/guide (if (string? guide) (keyword guide) guide))))
+   (brief/guide (current/runtime) (guidance-key guide))))
 
 (defn history
   "Return the ordered run history for devflow `feature` (see
@@ -738,9 +772,11 @@
   `register-workflows!`) so named `:next` routes resolve after a startup or
   reload."
   []
-  {:installed true
-   :namespace 'skein.spools.devflow
-   :dependency-sentinel (dependency-sentinel)
-   :commands command-registry
-   :workflows workflow-registry
-   :registered (register-workflows!)})
+  (let [runtime (current/runtime)]
+    {:installed true
+     :namespace 'skein.spools.devflow
+     :dependency-sentinel (dependency-sentinel)
+     :commands command-registry
+     :workflows workflow-registry
+     :registered (register-workflows!)
+     :guides (register-guides! runtime)}))

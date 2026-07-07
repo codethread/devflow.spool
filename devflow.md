@@ -260,11 +260,15 @@ must not absorb), `invariants`, and markdown templates composed from a shared
 `config-identification` renderer so the ID rules never drift between document
 kinds.
 
-`(guidance)` returns the workspace overview (layout, paths, invariants, ID
-convention, ownership, and a key → purpose index of the guides).
-`(guidance :proposal)` returns one guide; keys are `:proposal`, `:rfc`,
-`:spec`, `:plan`, `:tasks`, `:afk`, and `:finish-archive`, accepted as
-keywords or strings, failing loudly otherwise. Every guide shares one shape:
+`(guidance)` returns the devflow-owned workspace overview (layout, paths,
+invariants, ID convention, ownership, and a key → purpose index of the guides).
+At activation, `install!` registers each guide into `skein.spools.brief`'s
+shared guide registry under qualified keys (`:devflow/proposal`,
+`:devflow/rfc`, `:devflow/spec`, `:devflow/plan`, `:devflow/tasks`,
+`:devflow/afk`, and `:devflow/finish-archive`). `(guidance :proposal)` (or
+`(guidance :devflow/proposal)`) fetches one guide by delegating to the shared
+registry; legacy unqualified keywords and strings remain accepted, failing
+loudly otherwise. Every guide shares the brief guide shape:
 
 | Key | Contents |
 |---|---|
@@ -278,13 +282,15 @@ keywords or strings, failing loudly otherwise. Every guide shares one shape:
 | `:templates` | Markdown skeleton(s) to instantiate. |
 | `:see-also` | Related guide keys. |
 
-Artifact-authoring steps advertise their guide through the `devflow/guide`
-strand attribute and a `workflow/instruction` telling the driving agent to
-call `guidance` before writing; ready step views surface the key as `:guide`
-(derived from `artifact-guides`, the `devflow/artifact` → guide-key map).
-The `:rfc` and `:finish-archive` guides have no dedicated stage step: RFCs
-are written on demand when intake/proposal work exposes meaningful
-uncertainty, and finish/archive work follows `archive!`.
+Artifact-authoring steps advertise their guide through the general `guide/key`
+strand attribute (`":devflow/proposal"`, etc.) alongside the legacy
+`devflow/guide` attribute for compatibility, plus a `workflow/instruction`
+telling the driving agent to call `guidance` or fetch the shared guide before
+writing. Ready step views prefer `guide/key` when surfacing `:guide`, falling
+back to the old artifact map only when needed. The `:rfc` and
+`:finish-archive` guides have no dedicated stage step: RFCs are written on
+demand when intake/proposal work exposes meaningful uncertainty, and
+finish/archive work follows `archive!`.
 
 ## 6. Attribute conventions
 
@@ -306,7 +312,8 @@ molecule; the rest sit on individual step/checkpoint strands.
 | `shuttle/prompt` | Prompt sent to the delegated shuttle run, prefixed with feature/task context and then the task body or title. | `:task-<id>` gates in delegated AFK mode. |
 | `shuttle/cwd` | Optional working directory for delegated AFK task runs, from `:delegate-cwd`. | `:task-<id>` gates in delegated AFK mode. |
 | `workflow/instruction` | Freeform instruction text surfaced in `step-view`. | Steps/checkpoints needing explicit guidance, including every guided artifact step's pointer to `guidance`. |
-| `devflow/guide` | Guidance key (`"proposal"`, `"spec"`, `"plan"`, `"tasks"`, `"afk"`) naming the authoring guide for the step (§5a). | The four `write-*` artifact steps and the legacy `:run-afk-loop` step (`:capture-brief` produces `"brief"` without one). |
+| `guide/key` | Shared brief guide registry key (`":devflow/proposal"`, `":devflow/spec"`, `":devflow/plan"`, `":devflow/tasks"`, `":devflow/afk"`) naming the authoring guide for the step (§5a). Ready step views prefer this when deriving `:guide`. | The four `write-*` artifact steps and the legacy `:run-afk-loop` step (`:capture-brief` produces `"brief"` without one). |
+| `devflow/guide` | Legacy compatibility guidance key (`"proposal"`, `"spec"`, `"plan"`, `"tasks"`, `"afk"`) naming the devflow authoring guide for the step (§5a). | Same steps as `guide/key`; retained for existing consumers. |
 
 The intake root additionally carries `devflow/worktree-check`
 (`"required"` or `"already-in-worktree-ok"`), seeded from the `start!`

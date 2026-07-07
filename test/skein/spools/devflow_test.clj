@@ -23,7 +23,11 @@
 
 (deftest devflow-maven-dependency-is-observable
   (is (= "devflow-spool" (devflow/dependency-sentinel)))
-  (is (= "devflow-spool" (:dependency-sentinel (devflow/install!)))))
+  (with-runtime
+    (fn [_ _]
+      (let [installed (devflow/install!)]
+        (is (= "devflow-spool" (:dependency-sentinel installed)))
+        (is (= :devflow/proposal (get-in installed [:guides :devflow/proposal])))))))
 
 (deftest devflow-proposal-revise-loops-back-through-the-proposal-stage
   (with-runtime
@@ -103,7 +107,9 @@
                (get-in intake-root [:attributes :devflow/worktree-check])))
         (is (some #(= "Create or confirm feature worktree for workflow-stress" (:title %))
                   (:created intake-result)))
-        (is (some #(= "proposal" (get-in % [:attributes "devflow/guide"]))
+        (is (some #(= {"devflow/guide" "proposal"
+                       "guide/key" ":devflow/proposal"}
+                      (select-keys (:attributes %) ["devflow/guide" "guide/key"]))
                   (:strands proposal-payload)))
         (is (some #(= {"workflow/hitl" "true"
                        "workflow/decision-point" "proposal-signed-off"}
@@ -335,7 +341,7 @@
                               (devflow/history "af-run")))))))
 
 (deftest devflow-guidance-serves-the-authoring-knowledge-base
-  ;; the overview orients without picking a guide
+  ;; the overview orients without picking a guide and remains devflow-owned.
   (let [overview (devflow/guidance)]
     (is (= (set (keys guidance/guides)) (set (keys (:guides overview)))))
     (is (contains? (get-in overview [:workspace :paths]) :proposal))
@@ -349,17 +355,23 @@
         (str key " has named procedure vectors"))
     (is (vector? (:constraints guide)) (str key " has constraints"))
     (is (vector? (:validation guide)) (str key " has a validation checklist")))
-  ;; keyword and string keys resolve alike; unknown keys fail loudly
-  (is (= (devflow/guidance :proposal) (devflow/guidance "proposal")))
-  (is (str/includes? (get-in (devflow/guidance :tasks) [:templates :task-index]) "blocked_by"))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown devflow guide"
-                        (devflow/guidance :nope))))
+  (with-runtime
+    (fn [_ _]
+      (devflow/install!)
+      ;; legacy, string, and qualified keys resolve alike through the shared registry; unknown keys fail loudly
+      (is (= (devflow/guidance :proposal) (devflow/guidance "proposal") (devflow/guidance :devflow/proposal)))
+      (is (str/includes? (get-in (devflow/guidance :tasks) [:templates :task-index]) "blocked_by"))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown guide"
+                            (devflow/guidance :nope))))))
 
 (deftest devflow-artifact-steps-advertise-a-resolvable-guide
-  ;; every artifact->guide mapping resolves, so no step can point at a missing guide
-  (doseq [[artifact guide-key] devflow/artifact-guides]
-    (is (map? (devflow/guidance guide-key)) (str artifact " -> " guide-key)))
-  ;; ready step views carry the guide key alongside the artifact
+  (with-runtime
+    (fn [_ _]
+      (devflow/install!)
+      ;; every artifact->guide mapping resolves through the shared registry, so no step can point at a missing guide
+      (doseq [[artifact guide-key] devflow/artifact-guides]
+        (is (map? (devflow/guidance guide-key)) (str artifact " -> " guide-key)))))
+  ;; ready step views carry the shared guide key alongside the artifact
   (with-runtime
     (fn [rt _]
       (workflow/start! "guide-views"
@@ -371,7 +383,7 @@
       (workflow/complete! "guide-views")
       (let [step (devflow/next-step "guide-views")]
         (is (= "proposal.md" (:artifact step)))
-        (is (= :proposal (:guide step)))
+        (is (= :devflow/proposal (:guide step)))
         (is (str/includes? (:instruction step) "guidance :proposal"))))))
 
 (defn -main
