@@ -21,6 +21,11 @@ under the same feature/run-id. The spool owns no engine semantics of its own —
 lifecycle, routing, revision loops, and `done?` all come from
 `skein.spools.workflow`.
 
+The spool also ships its own authoring knowledge base:
+`skein.spools.devflow.guidance` encodes what each artifact (proposal, specs,
+plan, task queue, ...) must contain as plain Clojure data — no external skill
+or markdown reference files are needed. See §5a.
+
 This document covers the stage graph and the devflow attribute conventions.
 For the engine (`start!`/`complete!`/`choose!` mechanics, checkpoints, routing
 transactions, gates, molecule ops, the `workflow/*` vocabulary), see
@@ -134,8 +139,9 @@ through untouched.
 The wrappers key everything by feature name and pass opts straight through to
 the engine. `next-steps`/`next-step` (and `choice-details`/`choice-detail`)
 return the same shapes as their `skein.spools.workflow` counterparts, with the
-current devflow `:stage` added to each ready step view while the run has an
-active stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
+current devflow `:stage` (and, on artifact-authoring steps, the `:guide` key
+for `guidance`) added to each ready step view while the run has an active
+stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
 `advance!`) return the engine's `{:ready [step-view ...] :done boolean}` result.
 
 | Wrapper | Signature | Notes |
@@ -149,6 +155,7 @@ active stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
 | `choice-details` | `(feature)` / `(feature opts)` | Choice explanations for the current checkpoint. |
 | `choice-detail` | `(feature choice)` / `(feature choice opts)` | One choice's explanation. |
 | `describe` | `()` / `(stage)` | Compile-time shape of the full devflow cycle, or one registered stage key such as `:proposal`; writes nothing. |
+| `guidance` | `()` / `(guide)` | Authoring knowledge base (§5a): the workspace overview, or one artifact guide by key (keyword or string); writes nothing. |
 | `history` | `(feature)` | Ordered run history for the feature (delegates to `workflow/run-history`). |
 | `archive!` | `(feature)` / `(feature opts)` | Archive a finished feature run into one closed digest strand; fails loudly while any stage root is active. |
 | `feature-roots` | `(feature)` | The active root molecule for the feature as a vector (empty if none). |
@@ -188,13 +195,13 @@ Driving example with one revise round:
 ;; revise: closes this proposal round and pours a fresh one; :inspect-context
 ;; is condition-skipped, so the round is ready at :write-proposal
 (devflow/choose! "search-filters" :revise {})
-;; => {:ready [{:artifact "proposal.md" :skills "devflow" ...}] :done false}
+;; => {:ready [{:artifact "proposal.md" :guide :proposal ...}] :done false}
 
 ;; ... re-run write-proposal + review, reach human-signoff-proposal again ...
 
 ;; approve: route to the spec/plan stage
 (devflow/choose! "search-filters" :approved {})
-;; => {:ready [{:artifact "specs/*.delta.md" :skills "devflow" ...}] :done false}
+;; => {:ready [{:artifact "specs/*.delta.md" :guide :spec ...}] :done false}
 ```
 
 Delegating approved AFK tasks through treadle is opt-in at task sign-off. Pass
@@ -233,13 +240,51 @@ trusted resolution:
   (`devflow-cycle`, the ordered composable stage list).
 - `(commands)` returns `command-registry` — agent-facing commands by key:
   `:start`, `:next-step`, `:next-steps`, `:choice-details`, `:choice-detail`,
-  `:choose`, `:complete`, `:advance`, `:describe`, `:history`, and `:archive`.
+  `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:history`, and
+  `:archive`.
 - `(install!)` returns `{:installed true :namespace 'skein.spools.devflow
   :dependency-sentinel "devflow-spool" :commands command-registry
   :workflows workflow-registry :registered <map>}`, where `:registered` is the
   engine registration result. `:dependency-sentinel` is produced through this
   spool's declared `camel-snake-kebab` Maven dependency so runtime validation can
   observe that approved spool dependencies were resolved.
+
+## 5a. Authoring guidance
+
+`skein.spools.devflow.guidance` is the authoring knowledge base for the
+artifacts the lifecycle produces. It replaces the markdown devflow skill: the
+guide content lives in ordinary Clojure defs built from shared blocks —
+`paths` (every workspace location by role), `id-convention` (the stable
+document-ID scheme), `document-ownership` (what each document kind owns and
+must not absorb), `invariants`, and markdown templates composed from a shared
+`config-identification` renderer so the ID rules never drift between document
+kinds.
+
+`(guidance)` returns the workspace overview (layout, paths, invariants, ID
+convention, ownership, and a key → purpose index of the guides).
+`(guidance :proposal)` returns one guide; keys are `:proposal`, `:rfc`,
+`:spec`, `:plan`, `:tasks`, `:afk`, and `:finish-archive`, accepted as
+keywords or strings, failing loudly otherwise. Every guide shares one shape:
+
+| Key | Contents |
+|---|---|
+| `:purpose` | One sentence: what the artifact is for. |
+| `:artifacts` | Where the files live, from `guidance/paths`. |
+| `:prerequisites` | What must be true or read before writing. |
+| `:knowledge` | Guide-specific reference maps: statuses, schemas, naming and slicing rules. |
+| `:procedures` | Named step vectors, e.g. `{:write [...] :review-or-update [...]}`. |
+| `:constraints` | Hard rules that apply while writing. |
+| `:validation` | Acceptance checklist for the finished artifact. |
+| `:templates` | Markdown skeleton(s) to instantiate. |
+| `:see-also` | Related guide keys. |
+
+Artifact-authoring steps advertise their guide through the `devflow/guide`
+strand attribute and a `workflow/instruction` telling the driving agent to
+call `guidance` before writing; ready step views surface the key as `:guide`
+(derived from `artifact-guides`, the `devflow/artifact` → guide-key map).
+The `:rfc` and `:finish-archive` guides have no dedicated stage step: RFCs
+are written on demand when intake/proposal work exposes meaningful
+uncertainty, and finish/archive work follows `archive!`.
 
 ## 6. Attribute conventions
 

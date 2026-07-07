@@ -8,7 +8,10 @@ It is trusted Clojure code for a live Skein weaver. The spool has no
 in `spools.edn` or `spools.local.edn`, run `sync!`, then activate explicitly
 with `use!`.
 
-Full workflow documentation lives in [devflow.md](./devflow.md).
+Full workflow documentation lives in [devflow.md](./devflow.md). The spool is
+self-contained: artifact authoring knowledge (proposal/RFC/spec/plan/task
+rules and templates) ships as data in `skein.spools.devflow.guidance`, served
+by the `guidance` command — no external devflow skill is required.
 
 ## Prerequisites
 
