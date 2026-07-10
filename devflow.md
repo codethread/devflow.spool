@@ -256,12 +256,12 @@ molecule; the rest sit on individual step/checkpoint strands.
 | `workflow/hitl` | `"true"` marking a human-in-the-loop checkpoint. | Auto-stamped by the engine `checkpoint` builder for every `:kind :human` checkpoint (workflow.md §7); devflow no longer sets it by hand. |
 | `workflow/decision-point` | Freeform label for what the checkpoint decides (`"worktree-ready"`, `"scope-ready"`, `"proposal-signed-off"`, `"choose-tasks-or-implementation"`, `"plan-signed-off"`, `"tasks-signed-off"`, `"afk-accepted"`, `"implementation-accepted"`). | Each checkpoint. |
 | `workflow/action-ref` | Pointer to the action/skill an agent should invoke (`"devflow.worktree.ensure"`, `"devflow.proposal.orient"`, `"devflow.tasks.run-afk-loop"`, `"devflow.implementation.direct"`, `"devflow.implementation.validate"`, `"devflow.abort.record"`). Surfaced by `step-view`. | Steps/checkpoints that hand off to a named action. |
-| `workflow/gate` | `"subagent"` on delegated AFK task gates; the treadle consumes these gates when installed, otherwise they remain ordinary external wait-points. | `:task-<id>` gates in delegated AFK mode. |
-| `shuttle/harness` | Harness or alias requested for the delegated task run. Required for each delegated AFK gate, via task `:harness` or `:delegate-harness`. | `:task-<id>` gates in delegated AFK mode. |
-| `shuttle/prompt` | Prompt sent to the delegated shuttle run, prefixed with feature/task context and then the task body or title. | `:task-<id>` gates in delegated AFK mode. |
-| `shuttle/cwd` | Optional working directory for delegated AFK task runs, from `:delegate-cwd`. | `:task-<id>` gates in delegated AFK mode. |
-| `workflow/instruction` | Freeform instruction text surfaced in `step-view`. | Steps/checkpoints needing explicit guidance. |
-| `skills` | Skill/tool hint (`"devflow"`), surfaced in `step-view`. | The four `write-*` artifact steps (`:capture-brief` produces `"brief"` without it). |
+| `workflow/gate` | `"subagent"` on delegated AFK task gates; agent-run consumes these gates when installed, otherwise they remain ordinary external wait-points. | `:task-<id>` gates in delegated AFK mode. |
+| `agent-run/harness` | Harness or alias requested for the delegated task run. Required for each delegated AFK gate, via task `:harness` or `:delegate-harness`. | `:task-<id>` gates in delegated AFK mode. |
+| `agent-run/prompt` | Prompt sent to the delegated shuttle run, prefixed with feature/task context and then the task body or title. | `:task-<id>` gates in delegated AFK mode. |
+| `agent-run/cwd` | Optional working directory for delegated AFK task runs, from `:delegate-cwd`. | `:task-<id>` gates in delegated AFK mode. |
+| `workflow/instruction` | Freeform instruction text surfaced in `step-view`. | Steps/checkpoints needing explicit guidance, including every guided artifact step's pointer to `guidance`. |
+| `devflow/guide` | Guidance key (`"proposal"`, `"spec"`, `"plan"`, `"tasks"`, `"afk"`) naming the authoring guide for the step (§5a). | The four `write-*` artifact steps and the legacy `:run-afk-loop` step (`:capture-brief` produces `"brief"` without one). |
 
 The intake root additionally carries `devflow/worktree-check`
 (`"required"` or `"already-in-worktree-ok"`), seeded from the `start!`

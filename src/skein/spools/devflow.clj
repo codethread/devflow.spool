@@ -89,13 +89,13 @@
                  :loop {:each :tasks :chain true}
                  ;; the prompt renders from resolved params like the title, so
                  ;; direct compile/pour! usage with :feature supplied only as a
-                 ;; workflow param cannot bake "nil" into shuttle/prompt
+                 ;; workflow param cannot bake "nil" into agent-run/prompt
                  :attributes (cond-> {"devflow/task" (fn [{:keys [item]}] (task-value item :id))
-                                      "shuttle/harness" (fn [{:keys [item delegate-harness]}]
+                                      "agent-run/harness" (fn [{:keys [item delegate-harness]}]
                                                           (or (task-value item :harness) delegate-harness))
-                                      "shuttle/prompt" (fn [{:keys [feature item delegate-preamble]}]
+                                      "agent-run/prompt" (fn [{:keys [feature item delegate-preamble]}]
                                                          (afk-task-prompt feature item delegate-preamble))}
-                               delegate-cwd (assoc "shuttle/cwd" delegate-cwd))))
+                               delegate-cwd (assoc "agent-run/cwd" delegate-cwd))))
 
 (def ^:private abort-reason-input
   "Declared choice input for every abort choice: a required `:reason` recorded on

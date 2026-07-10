@@ -168,14 +168,14 @@
         by-local-id (into {} (map (juxt :ref identity)) (:strands payload))]
     (is (= {"workflow/gate" "subagent"
             "devflow/task" "a"
-            "shuttle/harness" "pi-main"
-            "shuttle/cwd" "/tmp/widgets"}
+            "agent-run/harness" "pi-main"
+            "agent-run/cwd" "/tmp/widgets"}
            (select-keys (get-in by-local-id [:task-a :attributes])
-                        ["workflow/gate" "devflow/task" "shuttle/harness" "shuttle/cwd"])))
+                        ["workflow/gate" "devflow/task" "agent-run/harness" "agent-run/cwd"])))
     (is (= "Policy text\n\nDevflow AFK task for widgets: Do A\n\nBody A"
-           (get-in by-local-id [:task-a :attributes "shuttle/prompt"])))
+           (get-in by-local-id [:task-a :attributes "agent-run/prompt"])))
     (is (= "pi-alt"
-           (get-in by-local-id [:task-b :attributes "shuttle/harness"])))))
+           (get-in by-local-id [:task-b :attributes "agent-run/harness"])))))
 
 (deftest devflow-afk-loop-prompt-renders-from-params
   ;; feature supplied only as a workflow param, not a constructor opt: the
@@ -187,7 +187,7 @@
                  {:feature "widgets"})
         task-a (first (filter #(= :task-a (:ref %)) (:strands payload)))]
     (is (= "Devflow AFK task for widgets: Do A\n\nBody A"
-           (get-in task-a [:attributes "shuttle/prompt"])))))
+           (get-in task-a [:attributes "agent-run/prompt"])))))
 
 (deftest devflow-afk-loop-delegation-fails-loudly
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"must not be empty"
