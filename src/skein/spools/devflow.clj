@@ -323,7 +323,7 @@
   "Return the post-task-signoff AFK loop workflow.
 
   With no `:tasks` opt, returns the legacy single manual AFK step. With `:tasks`,
-  returns a sequential chain of `:subagent` gates for treadle fulfillment, then a
+  returns a sequential chain of `:subagent` gates for subagent-executor fulfillment, then a
   HITL acceptance checkpoint. Task maps may be keyword- or string-keyed."
   [{:keys [tasks delegate-harness delegate-cwd delegate-preamble] :as opts}]
   (let [tasks (validate-afk-tasks (or tasks (get opts "tasks")))
