@@ -15,7 +15,9 @@ by the `guidance` command — no external devflow skill is required.
 
 ## Prerequisites
 
-- A Skein checkout/runtime that ships `skein.spools.workflow`.
+- A Skein checkout. `skein.spools.workflow` is one of Skein's in-repo reference
+  spools, living in a spool root (`<skein>/spools/workflow`) **off** the base
+  classpath — you approve that root in `spools.edn` like any other spool.
 - A live weaver configured from a workspace you control.
 - A 40-hex git SHA pin for this repository, or a local checkout approved through
   `spools.local.edn` for development.
@@ -25,14 +27,18 @@ by the `guidance` command — no external devflow skill is required.
 
 ## Dependency information
 
-Approve every source spool explicitly. `devflow.spool` depends on the
-`skein.spools.workflow` namespace shipped by Skein, so there is no additional
-third-party source spool to approve for that prerequisite.
+Approve every source spool explicitly; no prerequisite is fetched
+transitively. `devflow.spool` requires `skein.spools.workflow`, which you
+approve as a root inside your Skein checkout (or as a sha-pinned nested-root
+git coordinate on the Skein repo — `:git/url` + `:git/sha` +
+`:deps/root "spools/workflow"` — if you want the engine pinned independently
+of your checkout).
 
 Shared workspace example:
 
 ```clojure
-{:spools {codethread/devflow {:git/url "git@github.com:codethread/devflow.spool.git"
+{:spools {skein.spools/workflow {:local/root "/path/to/your/skein/spools/workflow"}
+          codethread/devflow {:git/url "git@github.com:codethread/devflow.spool.git"
                               :git/sha "<40-hex-sha-for-the-approved-commit>"}}}
 ```
 
@@ -48,9 +54,9 @@ encoded in a manifest.
 
 ## Activation
 
-Activate prerequisites before dependents. Since `skein.spools.workflow` ships
-with Skein, activate or require it first according to your workspace convention,
-then sync and activate this spool from trusted `init.clj` or REPL code.
+Activate prerequisites before dependents, and always `sync!` before any
+`:spools`-guarded `use!` — synced approved roots are what activation loads
+from. From trusted `init.clj` or REPL code:
 
 ```clojure
 (require '[skein.api.current.alpha :as current]
@@ -58,15 +64,15 @@ then sync and activate this spool from trusted `init.clj` or REPL code.
 
 (def runtime (current/runtime))
 
-;; Activate the shipped workflow prerequisite first. Adjust this stanza to match
-;; your Skein checkout's shipped-spool convention if it already installs
-;; `skein.spools.workflow` elsewhere in startup.
+(runtime/sync! runtime)
+
+;; workflow is an approved spool root, not base-classpath code: guard the
+;; activation on its coordinate so a missing/unsynced approval fails loudly.
 (runtime/use! runtime
   :workflow
   {:ns 'skein.spools.workflow
+   :spools [skein.spools/workflow]
    :required? true})
-
-(runtime/sync! runtime)
 
 (runtime/use! runtime
   :devflow
