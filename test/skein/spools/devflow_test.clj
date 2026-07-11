@@ -8,7 +8,7 @@
             [skein.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]
             [skein.test.alpha :as t]
-            [skein.core.weaver.runtime :as runtime]))
+            [skein.core.weaver.runtime :as weaver-runtime]))
 
 (defn with-runtime
   "Run f in a disposable skein.test.alpha weaver world.
@@ -18,7 +18,7 @@
   helper rather than repo-local fixtures."
   [f]
   (t/with-weaver-world [ctx {:storage :sqlite-memory}]
-    (runtime/with-runtime-binding (:runtime ctx)
+    (weaver-runtime/with-runtime-binding (:runtime ctx)
       #(f (:runtime ctx) (:config-dir ctx)))))
 
 (deftest devflow-maven-dependency-is-observable

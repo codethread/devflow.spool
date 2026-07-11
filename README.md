@@ -54,21 +54,21 @@ then sync and activate this spool from trusted `init.clj` or REPL code.
 
 ```clojure
 (require '[skein.api.current.alpha :as current]
-         '[skein.api.runtime.alpha :as runtime-alpha])
+         '[skein.api.runtime.alpha :as runtime])
 
 (def runtime (current/runtime))
 
 ;; Activate the shipped workflow prerequisite first. Adjust this stanza to match
 ;; your Skein checkout's shipped-spool convention if it already installs
 ;; `skein.spools.workflow` elsewhere in startup.
-(runtime-alpha/use! runtime
+(runtime/use! runtime
   :workflow
   {:ns 'skein.spools.workflow
    :required? true})
 
-(runtime-alpha/sync! runtime)
+(runtime/sync! runtime)
 
-(runtime-alpha/use! runtime
+(runtime/use! runtime
   :devflow
   {:spools [codethread/devflow]
    :ns 'skein.spools.devflow
