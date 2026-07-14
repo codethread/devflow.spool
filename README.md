@@ -71,12 +71,12 @@ from. From trusted `init.clj` or REPL code:
 (runtime/use! runtime
   :workflow
   {:ns 'skein.spools.workflow
-   :spools [skein.spools/workflow]
+   :spools ['skein.spools/workflow]
    :required? true})
 
 (runtime/use! runtime
   :devflow
-  {:spools [codethread/devflow]
+  {:spools ['codethread/devflow]
    :ns 'skein.spools.devflow
    :call 'skein.spools.devflow/install!
    :after [:workflow]
