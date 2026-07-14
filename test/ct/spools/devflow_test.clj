@@ -1,11 +1,11 @@
-(ns skein.spools.devflow-test
-  "Tests for the skein.spools.devflow lifecycle spool: stage workflows,
+(ns ct.spools.devflow-test
+  "Tests for the ct.spools.devflow lifecycle spool: stage workflows,
   decision-point checkpoints, revision loops, and the small operational
   loop layered over skein.spools.workflow runs."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is]]
-            [skein.spools.devflow :as devflow]
-            [skein.spools.devflow.guidance :as guidance]
+            [ct.spools.devflow :as devflow]
+            [ct.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]
             [skein.test.alpha :as t]
             [skein.core.weaver.runtime :as weaver-runtime]))
@@ -32,7 +32,7 @@
                        (devflow/proposal-workflow {:feature "widgets"})
                        {:feature "widgets"}
                        {:family "devflow"
-                        :definition 'skein.spools.devflow/proposal-workflow
+                        :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       (is (= "Inspect relevant RFCs, spikes, root specs, and active feature context for widgets"
              (:title (workflow/next-step "prop-run"))))
@@ -64,7 +64,7 @@
                        (devflow/proposal-workflow {:feature "widgets"})
                        {:feature "widgets"}
                        {:family "devflow"
-                        :definition 'skein.spools.devflow/proposal-workflow
+                        :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       ;; inspect-context, write-proposal, then the inner agent-review step (whose
       ;; completion auto-closes the join) reach the sign-off checkpoint
@@ -220,7 +220,7 @@
                        (devflow/task-breakdown-workflow {:feature "afk-route"})
                        {:feature "afk-route"}
                        {:family "devflow"
-                        :definition 'skein.spools.devflow/task-breakdown-workflow
+                        :definition 'ct.spools.devflow/task-breakdown-workflow
                         :context {:feature "afk-route"}})
       (dotimes [_ 2] (workflow/complete! "afk-route"))
       (let [ready (:ready (devflow/choose! "afk-route" :approved
@@ -366,7 +366,7 @@
                        (devflow/proposal-workflow {:feature "widgets"})
                        {:feature "widgets"}
                        {:family "devflow"
-                        :definition 'skein.spools.devflow/proposal-workflow
+                        :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       (workflow/complete! "guide-views")
       (let [step (devflow/next-step "guide-views")]
@@ -377,5 +377,5 @@
 (defn -main
   "Run the standalone devflow.spool test suite."
   [& _args]
-  (let [summary (clojure.test/run-tests 'skein.spools.devflow-test)]
+  (let [summary (clojure.test/run-tests 'ct.spools.devflow-test)]
     (System/exit (if (pos? (+ (:fail summary) (:error summary))) 1 0))))

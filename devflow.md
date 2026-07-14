@@ -1,13 +1,13 @@
 # Skein Devflow Spool
 
-`skein.spools.devflow` is an external git-distributed spool consumed by
+`ct.spools.devflow` is an external git-distributed spool consumed by
 Skein workspaces with a sha-pinned `:git/url`+`:git/sha` coordinate. See
 [Skein's writing-shared-spools guide](https://github.com/codethread/skein/blob/main/docs/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
 for the distribution mechanism.
 
 ## 1. Overview
 
-`skein.spools.devflow` is the reference higher-level spool built on
+`ct.spools.devflow` is the reference higher-level spool built on
 `skein.spools.workflow`. It encodes an opinionated feature-delivery lifecycle as
 ordinary workflow definitions plus thin convenience wrappers keyed by **feature
 name** — the feature name *is* the `workflow/run-id`, so there is no separate
@@ -22,7 +22,7 @@ lifecycle, routing, revision loops, and `done?` all come from
 `skein.spools.workflow`.
 
 The spool also ships its own authoring knowledge base:
-`skein.spools.devflow.guidance` encodes what each artifact (proposal, specs,
+`ct.spools.devflow.guidance` encodes what each artifact (proposal, specs,
 plan, task queue, ...) must contain as plain Clojure data — no external skill
 or markdown reference files are needed. See §5a.
 
@@ -166,7 +166,7 @@ feature name.
 Driving example with one revise round:
 
 ```clojure
-(require '[skein.spools.devflow :as devflow])
+(require '[ct.spools.devflow :as devflow])
 
 ;; feature name is the run-id; step-view's :id is the generated strand id,
 ;; a checkpoint's stable definition name arrives as the :checkpoint string
@@ -242,7 +242,7 @@ trusted resolution:
   `:start`, `:next-step`, `:next-steps`, `:choice-details`, `:choice-detail`,
   `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:history`, and
   `:archive`.
-- `(install!)` returns `{:installed true :namespace 'skein.spools.devflow
+- `(install!)` returns `{:installed true :namespace 'ct.spools.devflow
   :dependency-sentinel "devflow-spool" :commands command-registry
   :workflows workflow-registry :registered <map>}`, where `:registered` is the
   engine registration result. `:dependency-sentinel` is produced through this
@@ -251,7 +251,7 @@ trusted resolution:
 
 ## 5a. Authoring guidance
 
-`skein.spools.devflow.guidance` is the authoring knowledge base for the
+`ct.spools.devflow.guidance` is the authoring knowledge base for the
 artifacts the lifecycle produces. It replaces the markdown devflow skill: the
 guide content lives in ordinary Clojure defs built from shared blocks —
 `paths` (every workspace location by role), `id-convention` (the stable

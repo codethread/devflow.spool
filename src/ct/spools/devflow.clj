@@ -1,4 +1,4 @@
-(ns skein.spools.devflow
+(ns ct.spools.devflow
   "Clojure-native workflow definitions for the devflow lifecycle.
 
   These helpers encode the agent-facing devflow checkpoints as Skein workflow
@@ -6,18 +6,18 @@
   can inspect, compose, pour as molecules, or materialize as wisps.
 
   Authoring knowledge for the artifacts each stage produces (proposal, specs,
-  plan, task queue, ...) lives in `skein.spools.devflow.guidance` and is served
+  plan, task queue, ...) lives in `ct.spools.devflow.guidance` and is served
   by `guidance`; steps advertise their guide key via the `devflow/guide`
   attribute and ready step views surface it as `:guide`."
   (:require [camel-snake-kebab.core :as csk]
             [clojure.string :as str]
-            [skein.spools.devflow.guidance :as guidance]
+            [ct.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]))
 
 (def artifact-guides
   "Maps each `devflow/artifact` value an authoring step advertises to the
   guidance key holding its authoring rules (see `guidance` and
-  `skein.spools.devflow.guidance/guides`). The brief has no guide; it is
+  `ct.spools.devflow.guidance/guides`). The brief has no guide; it is
   captured conversationally during intake."
   {"proposal.md" :proposal
    "specs/*.delta.md" :spec
@@ -33,7 +33,7 @@
                                   {:artifact artifact :artifacts (vec (keys artifact-guides))})))]
     {"devflow/artifact" artifact
      "devflow/guide" (name guide)
-     "workflow/instruction" (str "Call (skein.spools.devflow/guidance " guide ") for the "
+     "workflow/instruction" (str "Call (ct.spools.devflow/guidance " guide ") for the "
                                  "authoring procedure, constraints, template, and validation "
                                  "checklist before writing " artifact ".")}))
 
@@ -365,7 +365,7 @@
                              :self
                              :attributes {"workflow/action-ref" "devflow.tasks.run-afk-loop"
                                           "devflow/guide" "afk"
-                                          "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (skein.spools.devflow/guidance :afk) for the loop contract and queue checks."})]))))
+                                          "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (ct.spools.devflow/guidance :afk) for the loop contract and queue checks."})]))))
 
 (defn task-breakdown-workflow
   "Return the reviewed task queue workflow.
@@ -529,7 +529,7 @@
        (intake-workflow context)
        {:feature feature}
        {:family "devflow"
-        :definition 'skein.spools.devflow/intake-workflow
+        :definition 'ct.spools.devflow/intake-workflow
         ;; seed start opts into context so they survive intake revision loops
         ;; rather than resetting to their defaults
         :context context})))))
@@ -618,21 +618,21 @@
   "Devflow stage constructors registered with the engine under stable routing
   names. Forward `:next` choices reference these keyword names; `register-workflows!`
   registers each with `skein.spools.workflow/register-workflow!`."
-  {:intake 'skein.spools.devflow/intake-workflow
-   :proposal 'skein.spools.devflow/proposal-workflow
-   :spec-plan 'skein.spools.devflow/spec-plan-workflow
-   :route-after-plan 'skein.spools.devflow/route-after-plan-workflow
-   :tasks 'skein.spools.devflow/task-breakdown-workflow
-   :run-afk-loop 'skein.spools.devflow/run-afk-loop-workflow
-   :direct-implementation 'skein.spools.devflow/direct-implementation-workflow
-   :agent-review 'skein.spools.devflow/agent-review-workflow
-   :abort 'skein.spools.devflow/abort-workflow})
+  {:intake 'ct.spools.devflow/intake-workflow
+   :proposal 'ct.spools.devflow/proposal-workflow
+   :spec-plan 'ct.spools.devflow/spec-plan-workflow
+   :route-after-plan 'ct.spools.devflow/route-after-plan-workflow
+   :tasks 'ct.spools.devflow/task-breakdown-workflow
+   :run-afk-loop 'ct.spools.devflow/run-afk-loop-workflow
+   :direct-implementation 'ct.spools.devflow/direct-implementation-workflow
+   :agent-review 'ct.spools.devflow/agent-review-workflow
+   :abort 'ct.spools.devflow/abort-workflow})
 
 (def workflow-registry
   "Workflow constructors exposed by the devflow spool: the engine-registered
   stage constructors (see `stage-workflows`) plus `:cycle`, the ordered
   composable stage list."
-  (assoc stage-workflows :cycle 'skein.spools.devflow/devflow-cycle))
+  (assoc stage-workflows :cycle 'ct.spools.devflow/devflow-cycle))
 
 (def ^:private describe-placeholder-params
   "Placeholder params used to render stage titles when describing devflow workflow
@@ -708,18 +708,18 @@
 
 (def command-registry
   "Agent-facing commands exposed by the devflow spool."
-  {:start 'skein.spools.devflow/start!
-   :next-step 'skein.spools.devflow/next-step
-   :next-steps 'skein.spools.devflow/next-steps
-   :choice-details 'skein.spools.devflow/choice-details
-   :choice-detail 'skein.spools.devflow/choice-detail
-   :choose 'skein.spools.devflow/choose!
-   :complete 'skein.spools.devflow/complete!
-   :advance 'skein.spools.devflow/advance!
-   :describe 'skein.spools.devflow/describe
-   :guidance 'skein.spools.devflow/guidance
-   :history 'skein.spools.devflow/history
-   :archive 'skein.spools.devflow/archive!})
+  {:start 'ct.spools.devflow/start!
+   :next-step 'ct.spools.devflow/next-step
+   :next-steps 'ct.spools.devflow/next-steps
+   :choice-details 'ct.spools.devflow/choice-details
+   :choice-detail 'ct.spools.devflow/choice-detail
+   :choose 'ct.spools.devflow/choose!
+   :complete 'ct.spools.devflow/complete!
+   :advance 'ct.spools.devflow/advance!
+   :describe 'ct.spools.devflow/describe
+   :guidance 'ct.spools.devflow/guidance
+   :history 'ct.spools.devflow/history
+   :archive 'ct.spools.devflow/archive!})
 
 (defn workflows
   "Return devflow workflow constructors by stable key."
@@ -739,7 +739,7 @@
   reload."
   []
   {:installed true
-   :namespace 'skein.spools.devflow
+   :namespace 'ct.spools.devflow
    :dependency-sentinel (dependency-sentinel)
    :commands command-registry
    :workflows workflow-registry

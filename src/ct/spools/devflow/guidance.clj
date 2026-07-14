@@ -1,4 +1,4 @@
-(ns skein.spools.devflow.guidance
+(ns ct.spools.devflow.guidance
   "The devflow authoring knowledge base as plain Clojure data.
 
   This namespace absorbs the old markdown devflow skill: everything an agent
@@ -8,7 +8,7 @@
 
   Workflow steps advertise the guide for their artifact through the
   `devflow/guide` strand attribute; agents fetch a guide with
-  `skein.spools.devflow/guidance`. Every guide shares one shape:
+  `ct.spools.devflow/guidance`. Every guide shares one shape:
 
   - `:purpose`       — one sentence: what the artifact is for
   - `:artifacts`     — where the files live (paths from `paths`)

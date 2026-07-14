@@ -1,6 +1,6 @@
 # devflow.spool
 
-`skein.spools.devflow` provides the devflow feature-delivery lifecycle for
+`ct.spools.devflow` provides the devflow feature-delivery lifecycle for
 [Skein](https://github.com/codethread/skein) as a git-distributed spool.
 
 It is trusted Clojure code for a live Skein weaver. The spool has no
@@ -10,7 +10,7 @@ with `use!`.
 
 Full workflow documentation lives in [devflow.md](./devflow.md). The spool is
 self-contained: artifact authoring knowledge (proposal/RFC/spec/plan/task
-rules and templates) ships as data in `skein.spools.devflow.guidance`, served
+rules and templates) ships as data in `ct.spools.devflow.guidance`, served
 by the `guidance` command — no external devflow skill is required.
 
 ## Prerequisites
@@ -77,8 +77,8 @@ from. From trusted `init.clj` or REPL code:
 (runtime/use! runtime
   :devflow
   {:spools ['codethread/devflow]
-   :ns 'skein.spools.devflow
-   :call 'skein.spools.devflow/install!
+   :ns 'ct.spools.devflow
+   :call 'ct.spools.devflow/install!
    :after [:workflow]
    :required? true})
 ```
