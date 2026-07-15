@@ -32,7 +32,9 @@ transitively. `devflow.spool` requires `skein.spools.workflow`, which you
 approve as a root inside your Skein checkout (or as a sha-pinned nested-root
 git coordinate on the Skein repo — `:git/url` + `:git/sha` +
 `:deps/root "spools/workflow"` — if you want the engine pinned independently
-of your checkout).
+of your checkout). Both coordinate forms and the version-skew convention are
+covered in [Skein's nested-spool prerequisites
+guidance](https://github.com/codethread/skein/blob/main/docs/spools/writing-shared-spools.md#nested-spool-prerequisites).
 
 Shared workspace example:
 

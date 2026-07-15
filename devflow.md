@@ -2,7 +2,7 @@
 
 `ct.spools.devflow` is an external git-distributed spool consumed by
 Skein workspaces with a sha-pinned `:git/url`+`:git/sha` coordinate. See
-[Skein's writing-shared-spools guide](https://github.com/codethread/skein/blob/main/docs/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
+[Skein's writing-shared-spools guide](https://github.com/codethread/skein/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
 for the distribution mechanism.
 
 ## 1. Overview
