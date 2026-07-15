@@ -2,13 +2,27 @@
   "Tests for the ct.spools.devflow lifecycle spool: stage workflows,
   decision-point checkpoints, revision loops, and the small operational
   loop layered over skein.spools.workflow runs."
-  (:require [clojure.string :as str]
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow.guidance :as guidance]
             [skein.spools.workflow :as workflow]
+            [skein.api.weaver.alpha :as weaver]
             [skein.test.alpha :as t]
             [skein.core.weaver.runtime :as weaver-runtime]))
+
+(defn- return-case-leaves [operation context return-case]
+  (if (and (map? return-case) (contains? return-case :stream))
+    (set (map (fn [channel] [operation (assoc context :channel channel)]) [:emits :result]))
+    #{[operation context]}))
+
+(defn- op-return-leaves [{:keys [name returns]}]
+  (if (and (map? returns) (contains? returns :subcommands))
+    (into #{} (mapcat (fn [[subcommand return-case]]
+                        (return-case-leaves name {:subcommand subcommand} return-case)))
+          (:subcommands returns))
+    (return-case-leaves name {} returns)))
 
 (defn with-runtime
   "Run f in a disposable skein.test.alpha weaver world.
@@ -20,6 +34,17 @@
   (t/with-weaver-world [ctx {:storage :sqlite-memory}]
     (weaver-runtime/with-runtime-binding (:runtime ctx)
       #(f (:runtime ctx) (:config-dir ctx)))))
+
+(deftest production-return-coverage-is-derived-from-devflow-provenance
+  (with-runtime
+    (fn [rt _]
+      (devflow/install!)
+      (let [entries (filterv #(= 'ct.spools.devflow (:provenance %)) (weaver/ops rt))
+            missing (filterv #(not (contains? % :returns)) entries)
+            required (into #{} (mapcat op-return-leaves) (remove #(not (contains? % :returns)) entries))
+            checked #{}]
+        (is (empty? missing) (str "production ops missing :returns: " (mapv :name missing)))
+        (is (empty? (set/difference required checked)))))))
 
 (deftest devflow-maven-dependency-is-observable
   (is (= "devflow-spool" (devflow/dependency-sentinel)))
