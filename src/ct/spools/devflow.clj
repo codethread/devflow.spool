@@ -12,6 +12,8 @@
   (:require [camel-snake-kebab.core :as csk]
             [clojure.string :as str]
             [ct.spools.devflow.guidance :as guidance]
+            [skein.api.current.alpha :as current]
+            [skein.api.weaver.alpha :as weaver]
             [skein.spools.workflow :as workflow]))
 
 (def artifact-guides
@@ -674,9 +676,19 @@
 
 (defn history
   "Return the ordered run history for devflow `feature` (see
-  `skein.spools.workflow/run-history`)."
+  `skein.spools.workflow/run-history`), each molecule's `:root` carrying the
+  devflow `:stage` it was poured for.
+
+  Stage is devflow's own vocabulary, so this projection owns it: the engine's
+  history reports only engine-owned root fields."
   [feature]
-  (workflow/run-history feature))
+  (let [rt (current/runtime)]
+    (mapv (fn [{:keys [root] :as molecule}]
+            (let [attrs (:attributes (weaver/show rt (:id root)))
+                  stage (or (get attrs :devflow/stage) (get attrs "devflow/stage"))]
+              (cond-> molecule
+                stage (assoc-in [:root :stage] stage))))
+          (workflow/run-history feature))))
 
 (defn archive!
   "Archive a finished devflow `feature` into one closed digest strand (see

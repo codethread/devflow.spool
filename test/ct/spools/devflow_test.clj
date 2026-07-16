@@ -60,7 +60,7 @@
                         :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       (is (= "Inspect relevant RFCs, spikes, root specs, and active feature context for widgets"
-             (:title (workflow/next-step "prop-run"))))
+             (:title (workflow/ready-step "prop-run"))))
       (is (= "Write devflow proposal for widgets" (:title (first (:ready (workflow/complete! "prop-run"))))))
       (is (= "Run agent review for widgets proposal" (:title (first (:ready (workflow/complete! "prop-run"))))))
       ;; completing the inner review step auto-closes the agent-review join, so
@@ -68,14 +68,14 @@
       (is (= "Human sign-off for widgets proposal" (:title (first (:ready (workflow/complete! "prop-run"))))))
       ;; revise routes back into a fresh proposal round that skips :inspect-context
       (let [remaining (:ready (workflow/choose! "prop-run" :revise))]
-        (is (= [{:title "Write devflow proposal for widgets" :kind "step"}]
-               (mapv #(select-keys % [:title :kind]) remaining))))
+        (is (= [{:title "Write devflow proposal for widgets" :role "step"}]
+               (mapv #(select-keys % [:title :role]) remaining))))
       (is (= "Run agent review for widgets proposal" (:title (first (:ready (workflow/complete! "prop-run"))))))
       (is (= "Human sign-off for widgets proposal" (:title (first (:ready (workflow/complete! "prop-run"))))))
       ;; :approved routes on to the spec/plan stage; the poured spec-plan root
       ;; presenting its entry step is enough to confirm the loop closed
-      (is (= [{:title "Write needed spec deltas for widgets" :kind "step"}]
-             (mapv #(select-keys % [:title :kind]) (:ready (workflow/choose! "prop-run" :approved)))))
+      (is (= [{:title "Write needed spec deltas for widgets" :role "step"}]
+             (mapv #(select-keys % [:title :role]) (:ready (workflow/choose! "prop-run" :approved)))))
       (let [root (workflow/current-root "prop-run")]
         (is (= "Devflow spec and plan: widgets" (:title root)))
         ;; entering a fresh stage resets stage-local loop state: the revised
@@ -97,8 +97,8 @@
       ;; a caller passing {:revision false} must not un-skip :inspect-context:
       ;; the revision wrapper's :params are authoritative over the choice input
       (let [remaining (:ready (workflow/choose! "prop-input" :revise {:revision false}))]
-        (is (= [{:title "Write devflow proposal for widgets" :kind "step"}]
-               (mapv #(select-keys % [:title :kind]) remaining)))))))
+        (is (= [{:title "Write devflow proposal for widgets" :role "step"}]
+               (mapv #(select-keys % [:title :role]) remaining)))))))
 
 (deftest devflow-intake-revision-preserves-start-opts
   (with-runtime
@@ -130,9 +130,9 @@
                   (:created intake-result)))
         (is (some #(= "proposal" (get-in % [:attributes "devflow/guide"]))
                   (:strands proposal-payload)))
-        (is (some #(= {"workflow/hitl" "true"
+        (is (some #(= {"workflow/checkpoint-kind" "human"
                        "workflow/decision-point" "proposal-signed-off"}
-                      (select-keys (:attributes %) ["workflow/hitl" "workflow/decision-point"]))
+                      (select-keys (:attributes %) ["workflow/checkpoint-kind" "workflow/decision-point"]))
                   (:strands proposal-payload)))
         (is (some #(= ["task-breakdown" "direct-implementation"]
                       (get-in % [:attributes "workflow/choices"]))
@@ -143,7 +143,7 @@
     (fn [rt _]
       (devflow/start! "workflow-loop" {:worktree-check :already-in-worktree-ok})
       (let [first-step (devflow/next-step "workflow-loop")]
-        (is (= "checkpoint" (:kind first-step)))
+        (is (= "checkpoint" (:role first-step)))
         (is (= "intake" (:stage first-step)))
         (is (= "create-or-confirm-worktree" (:checkpoint first-step)))
         (is (= "already-in-worktree-ok"
@@ -314,10 +314,10 @@
   ;; agent-review call expands into a :procedure step.
   (let [proposal (devflow/describe :proposal)
         ids (set (map :id (:steps proposal)))
-        signoff (first (filter #(= "checkpoint" (:kind %)) (:steps proposal)))
+        signoff (first (filter #(= "checkpoint" (:role %)) (:steps proposal)))
         choices (into {} (map (juxt :key identity)) (:choices signoff))]
     (is (contains? ids :inspect-context))
-    (is (some #(= "procedure" (:kind %)) (:steps proposal)))
+    (is (some #(= "procedure" (:role %)) (:steps proposal)))
     (is (= ":spec-plan" (:next (get choices "approved"))))
     (is (= [{"key" "reason" "required" true
              "description" "Why the feature is being aborted; recorded on the abort step."}]
@@ -353,8 +353,8 @@
       (let [digest (devflow/archive! "af-run")]
         (is (= "digest" (get-in digest [:attributes :workflow/role])))
         (is (= "af-run" (get-in digest [:attributes :workflow/run-id])))
-        (is (contains? (set (keep :stage (get-in digest [:attributes :workflow/summary])))
-                       "intake"))
+        (is (some #(str/includes? (:title % "") "intake")
+                  (get-in digest [:attributes :workflow/summary])))
         ;; the run's molecules are burned, so history now fails loudly
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown workflow run"
                               (devflow/history "af-run")))))))
