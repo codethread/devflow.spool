@@ -544,12 +544,12 @@
   "Return agent-facing ready devflow steps for `feature`, each carrying `:stage`."
   [feature]
   (let [stage (root-stage feature)]
-    (mapv (partial add-stage stage) (workflow/next-steps feature))))
+    (mapv (partial add-stage stage) (workflow/ready feature))))
 
 (defn next-step
   "Return the single agent-facing ready devflow step for `feature`, or fail if ambiguous."
   [feature]
-  (add-stage (root-stage feature) (workflow/next-step feature)))
+  (add-stage (root-stage feature) (workflow/ready-step feature)))
 
 (defn choice-details
   "Return choice explanations for the current devflow checkpoint.
@@ -680,14 +680,14 @@
 
 (defn archive!
   "Archive a finished devflow `feature` into one closed digest strand (see
-  `skein.spools.workflow/archive-run!`). Fails loudly if the feature still has an
+  `skein.spools.workflow/squash-run!`). Fails loudly if the feature still has an
   active root. opts may include `:title` and `:attributes`. For the workspace
   side — spec promotion, plan status, and moving the feature folder into
   `devflow/archive/` — follow `(guidance :finish-archive)`."
   ([feature]
-   (workflow/archive-run! feature))
+   (workflow/squash-run! feature))
   ([feature opts]
-   (workflow/archive-run! feature opts)))
+   (workflow/squash-run! feature opts)))
 
 (defn register-workflows!
   "Register every devflow stage constructor with the engine's weaver-lifetime
