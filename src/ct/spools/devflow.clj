@@ -15,7 +15,7 @@
             [skein.spools.workflow :as workflow]))
 
 (def artifact-guides
-  "Maps each `devflow/artifact` value an authoring step advertises to the
+  "Maps each `workflow/artifact` value an authoring step advertises to the
   guidance key holding its authoring rules (see `guidance` and
   `ct.spools.devflow.guidance/guides`). The brief has no guide; it is
   captured conversationally during intake."
@@ -31,7 +31,7 @@
   (let [guide (or (artifact-guides artifact)
                   (throw (ex-info "No guide registered for artifact"
                                   {:artifact artifact :artifacts (vec (keys artifact-guides))})))]
-    {"devflow/artifact" artifact
+    {"workflow/artifact" artifact
      "devflow/guide" (name guide)
      "workflow/instruction" (str "Call (ct.spools.devflow/guidance " guide ") for the "
                                  "authoring procedure, constraints, template, and validation "
@@ -174,7 +174,7 @@
                    (titled "Capture user brief for ")
                    :self
                    :depends-on [:create-or-confirm-worktree]
-                   :attributes {"devflow/artifact" "brief"})
+                   :attributes {"workflow/artifact" "brief"})
     (workflow/checkpoint :discuss-scope
                          (titled "Discuss scope and open questions for ")
                          :depends-on [:capture-brief]
