@@ -536,11 +536,11 @@
         ;; rather than resetting to their defaults
         :context context})))))
 
-(defn feature-roots
-  "Return active devflow workflow roots for `feature`."
+(defn current-root
+  "Return the feature's single active devflow stage root, or nil when the run has
+  none (see `skein.spools.workflow/current-root`). Throws when ambiguous."
   [feature]
-  (let [root (workflow/current-root feature)]
-    (if root [root] [])))
+  (workflow/current-root feature))
 
 (defn ready
   "Return agent-facing ready devflow steps for `feature`, each carrying `:stage`."

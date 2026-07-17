@@ -158,7 +158,7 @@ stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
 | `guidance` | `()` / `(guide)` | Authoring knowledge base (§5a): the workspace overview, or one artifact guide by key (keyword or string); writes nothing. |
 | `run-history` | `(feature)` | Ordered run history for the feature (delegates to `workflow/run-history`), each molecule's `:root` carrying the `:stage` it was poured for. |
 | `squash-run!` | `(feature)` / `(feature opts)` | Squash a finished feature run into one closed digest strand; fails loudly while any stage root is active. Closes out the graph only — the workspace side of finishing follows `(guidance :finish-archive)`. |
-| `feature-roots` | `(feature)` | The active root molecule for the feature as a vector (empty if none). |
+| `current-root` | `(feature)` | The feature's single active stage root molecule, or nil when it has none; throws if ambiguous. |
 
 There is no devflow `done?` wrapper — use `skein.spools.workflow/done?` with the
 feature name.

@@ -147,7 +147,7 @@
         (is (= "intake" (:stage first-step)))
         (is (= "create-or-confirm-worktree" (:checkpoint first-step)))
         (is (= "already-in-worktree-ok"
-               (get-in (first (devflow/feature-roots "workflow-loop"))
+               (get-in (devflow/current-root "workflow-loop")
                        [:attributes :devflow/worktree-check])))
         (is (= ["created-worktree" "already-in-worktree" "abort"]
                (:choices first-step)))
