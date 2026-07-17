@@ -542,13 +542,13 @@
   (let [root (workflow/current-root feature)]
     (if root [root] [])))
 
-(defn next-steps
+(defn ready
   "Return agent-facing ready devflow steps for `feature`, each carrying `:stage`."
   [feature]
   (let [stage (root-stage feature)]
     (mapv (partial add-stage stage) (workflow/ready feature))))
 
-(defn next-step
+(defn ready-step
   "Return the single agent-facing ready devflow step for `feature`, or fail if ambiguous."
   [feature]
   (add-stage (root-stage feature) (workflow/ready-step feature)))
@@ -721,8 +721,8 @@
 (def command-registry
   "Agent-facing commands exposed by the devflow spool."
   {:start 'ct.spools.devflow/start!
-   :next-step 'ct.spools.devflow/next-step
-   :next-steps 'ct.spools.devflow/next-steps
+   :ready-step 'ct.spools.devflow/ready-step
+   :ready 'ct.spools.devflow/ready
    :choice-details 'ct.spools.devflow/choice-details
    :choice-detail 'ct.spools.devflow/choice-detail
    :choose 'ct.spools.devflow/choose!

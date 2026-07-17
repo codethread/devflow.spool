@@ -142,7 +142,7 @@
   (with-runtime
     (fn [rt _]
       (devflow/start! "workflow-loop" {:worktree-check :already-in-worktree-ok})
-      (let [first-step (devflow/next-step "workflow-loop")]
+      (let [first-step (devflow/ready-step "workflow-loop")]
         (is (= "checkpoint" (:role first-step)))
         (is (= "intake" (:stage first-step)))
         (is (= "create-or-confirm-worktree" (:checkpoint first-step)))
@@ -259,7 +259,7 @@
         (is (= [{:title "Delegate AFK task two for afk-route" :gate "subagent"}]
                (mapv #(select-keys % [:title :gate]) after-first))))
       (devflow/complete! "afk-route" {:by "run-two"})
-      (is (= "human-acceptance-afk" (:checkpoint (devflow/next-step "afk-route"))))
+      (is (= "human-acceptance-afk" (:checkpoint (devflow/ready-step "afk-route"))))
       (let [revised (:ready (devflow/choose! "afk-route" :revise))]
         (is (= [{:title "Delegate AFK task one for afk-route" :gate "subagent"}]
                (mapv #(select-keys % [:title :gate]) revised)))
@@ -294,14 +294,14 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"missing required keys"
                             (devflow/choose! "workflow-abort" :abort)))
       (is (= "create-or-confirm-worktree"
-             (:checkpoint (devflow/next-step "workflow-abort"))))
+             (:checkpoint (devflow/ready-step "workflow-abort"))))
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Choice input must be a map"
                             (devflow/choose! "workflow-abort" :abort [:bad])))
       (let [ready (first (:ready (devflow/choose! "workflow-abort" :abort {:reason "cancelled"})))]
         (is (= "Record abort for workflow-abort: cancelled" (:title ready)))
         (is (= "abort" (:stage ready)))))))
 
-(deftest devflow-next-step-fails-on-multiple-active-roots
+(deftest devflow-start-fails-on-multiple-active-roots
   (with-runtime
     (fn [rt _]
       (devflow/start! "workflow-duplicate-root" {:worktree-check :required})
@@ -394,7 +394,7 @@
                         :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       (workflow/complete! "guide-views")
-      (let [step (devflow/next-step "guide-views")]
+      (let [step (devflow/ready-step "guide-views")]
         (is (= "proposal.md" (:artifact step)))
         (is (= :proposal (:guide step)))
         (is (str/includes? (:instruction step) "guidance :proposal"))))))

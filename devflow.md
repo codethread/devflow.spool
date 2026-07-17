@@ -137,7 +137,7 @@ through untouched.
 ## 4. Agent usage
 
 The wrappers key everything by feature name and pass opts straight through to
-the engine. `next-steps`/`next-step` (and `choice-details`/`choice-detail`)
+the engine. `ready`/`ready-step` (and `choice-details`/`choice-detail`)
 return the same shapes as their `skein.spools.workflow` counterparts, with the
 current devflow `:stage` (and, on artifact-authoring steps, the `:guide` key
 for `guidance`) added to each ready step view while the run has an active
@@ -147,8 +147,8 @@ stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
 | Wrapper | Signature | Notes |
 |---|---|---|
 | `start!` | `(feature)` / `(feature opts)` | Pours `intake-workflow` under `family "devflow"`. Coerces keyword `opts` values to strings and seeds them (plus `:feature`) into `workflow/context` so they survive revision loops. Returns `{:ready [...] :done boolean}`. |
-| `next-steps` | `(feature)` | All ready step views for the feature (each carrying `:run-id`). |
-| `next-step` | `(feature)` | The single ready step view; throws if ambiguous. |
+| `ready` | `(feature)` | All ready step views for the feature (each carrying `:run-id`). |
+| `ready-step` | `(feature)` | The single ready step view; throws if ambiguous. |
 | `complete!` | `(feature)` / `(feature opts)` | Closes the current non-checkpoint step. `opts` (`:step`, `:notes`, `:attributes`, `:by`) pass through. Returns `{:ready [...] :done boolean}`. |
 | `choose!` | `(feature choice)` / `(feature choice input)` / `(feature choice input opts)` | Records the checkpoint choice and routes if the choice has a `:next`. Returns `{:ready [...] :done boolean}`. |
 | `advance!` | `(feature)` / `(feature opts)` | Unified step/checkpoint driver. `opts` may include `:choice`, `:input`, `:notes`, `:step`, `:by`, and `:attributes`. Returns `{:ready [...] :done boolean}`. |
@@ -239,7 +239,7 @@ trusted resolution:
 - `(workflows)` returns `workflow-registry` — `stage-workflows` plus `:cycle`
   (`devflow-cycle`, the ordered composable stage list).
 - `(commands)` returns `command-registry` — agent-facing commands by key:
-  `:start`, `:next-step`, `:next-steps`, `:choice-details`, `:choice-detail`,
+  `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`,
   `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:history`, and
   `:archive`.
 - `(install!)` returns `{:installed true :namespace 'ct.spools.devflow
