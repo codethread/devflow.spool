@@ -3,6 +3,7 @@
   decision-point checkpoints, revision loops, and the small operational
   loop layered over skein.spools.workflow runs."
   (:require [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow :as devflow]
@@ -358,6 +359,94 @@
         ;; the run's molecules are burned, so history now fails loudly
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown workflow run"
                               (devflow/run-history "af-run")))))))
+
+(defn unstaged-workflow
+  "Return a one-step workflow whose root carries `stage` verbatim (nil for a root
+  with no `devflow/stage` at all), standing in for a root that reached a devflow
+  run without devflow's own vocabulary on it."
+  [{:keys [feature stage]}]
+  (workflow/workflow
+    (str "Unstaged run: " feature)
+    {:params {:feature (workflow/param :required true)}
+     :attributes (cond-> {"devflow/feature" feature}
+                   stage (assoc "devflow/stage" stage))}
+    (workflow/step :do-the-work (str "Do the work for " feature) :self)
+    ;; a second step keeps work ready after a complete!, so the mutation seams
+    ;; still have a view to project
+    (workflow/step :do-more-work (str "Do more work for " feature) :self
+                   :depends-on [:do-the-work])))
+
+(defn- start-unstaged! [feature stage]
+  (workflow/start! feature
+                   (unstaged-workflow {:feature feature :stage stage})
+                   {:feature feature}
+                   {:family "devflow"
+                    :definition 'ct.spools.devflow-test/unstaged-workflow
+                    :context {:feature feature}}))
+
+(deftest devflow-ready-projections-fail-loudly-on-an-unstaged-root
+  (with-runtime
+    (fn [rt _]
+      ;; every seam that projects :stage refuses the root, so no caller sees a
+      ;; ready view that silently dropped the stage it advertises; each seam gets
+      ;; its own run because the mutating ones consume a step to reach a view
+      (doseq [[feature project] [["no-stage-ready" devflow/ready]
+                                 ["no-stage-ready-step" devflow/ready-step]
+                                 ["no-stage-complete" #(devflow/complete! %)]
+                                 ["no-stage-advance" #(devflow/advance! %)]]]
+        (start-unstaged! feature nil)
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"no active root carrying a known devflow/stage"
+                              (project feature))
+            feature))
+      ;; the failure names the run, the offending strand, what it carried, and
+      ;; what it was allowed to carry
+      (start-unstaged! "no-stage" nil)
+      (let [root (workflow/current-root "no-stage")
+            data (try (devflow/ready "no-stage")
+                      (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+        (is (= "no-stage" (:feature data)))
+        (is (= (:id root) (:strand data)))
+        (is (nil? (:stage data)))
+        (is (= "no-stage" (get-in data [:attributes :devflow/feature])))
+        (is (= (vec (sort devflow/stages)) (:stages data))))
+      ;; an out-of-enum stage is no more acceptable than a missing one
+      (start-unstaged! "bad-stage" "wandering")
+      (let [data (try (devflow/ready-step "bad-stage")
+                      (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+        (is (= "wandering" (:stage data)))
+        (is (= (vec (sort devflow/stages)) (:stages data)))))))
+
+(deftest devflow-run-history-fails-loudly-on-an-unstaged-molecule-root
+  (with-runtime
+    (fn [rt _]
+      (start-unstaged! "history-no-stage" nil)
+      (let [data (try (devflow/run-history "history-no-stage")
+                      (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+        (is (= "history-no-stage" (:feature data)))
+        (is (= (:id (workflow/current-root "history-no-stage")) (:strand data)))
+        (is (= (vec (sort devflow/stages)) (:stages data))))
+      (start-unstaged! "history-bad-stage" "wandering")
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"carries no known devflow/stage"
+                            (devflow/run-history "history-bad-stage"))))))
+
+(deftest devflow-projections-conform-to-their-public-specs
+  (with-runtime
+    (fn [rt _]
+      (devflow/start! "spec-shapes" {:worktree-check :already-in-worktree-ok})
+      (let [ready (devflow/ready "spec-shapes")]
+        (is (s/valid? ::devflow/ready ready) (s/explain-str ::devflow/ready ready))
+        (is (= "intake" (:stage (first ready))))
+        (is (s/valid? ::devflow/step-view (devflow/ready-step "spec-shapes"))))
+      (let [ready (:ready (devflow/choose! "spec-shapes" :abort {:reason "shape check"}))]
+        (is (s/valid? ::devflow/ready ready) (s/explain-str ::devflow/ready ready))
+        (is (= "abort" (:stage (first ready)))))
+      (devflow/complete! "spec-shapes")
+      (let [history (devflow/run-history "spec-shapes")]
+        (is (s/valid? ::devflow/run-history history)
+            (s/explain-str ::devflow/run-history history))
+        (is (= #{"intake" "abort"} (set (map #(get-in % [:root :stage]) history))))))))
 
 (deftest devflow-guidance-serves-the-authoring-knowledge-base
   ;; the overview orients without picking a guide

@@ -10,6 +10,7 @@
   by `guidance`; steps advertise their guide key via the `devflow/guide`
   attribute and ready step views surface it as `:guide`."
   (:require [camel-snake-kebab.core :as csk]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow.guidance :as guidance]
             [skein.api.current.alpha :as current]
@@ -26,6 +27,16 @@
    "specs/*.delta.md" :spec
    "<feature>.plan.md" :plan
    "tasks/index.yml" :tasks})
+
+(def stages
+  "Every stage name a devflow root may carry in its `devflow/stage` attribute.
+
+  Stage is devflow's own vocabulary rather than an engine field, so this set is
+  the enum the projections check a root against: `stage-attributes` is the only
+  writer and `active-stage`/`run-history` are the readers. Names are routing-
+  independent, so they need not match the `stage-workflows` keys."
+  #{"intake" "proposal" "spec-plan" "route-after-plan" "tasks" "afk"
+    "implementation" "abort"})
 
 (defn- guided-artifact
   "Attributes for a step that authors a guided artifact: the artifact path, its
@@ -50,6 +61,17 @@
 (defn- param-value [k]
   (fn [params]
     (get params k)))
+
+(defn- stage-attributes
+  "Root attributes every devflow stage workflow carries: the stage it was poured
+  for and the feature it runs against. Fails loudly on an unregistered stage name
+  so a constructor cannot mint a value the projections will later reject."
+  [stage]
+  (when-not (stages stage)
+    (throw (ex-info "Unknown devflow stage name"
+                    {:stage stage :stages (vec (sort stages))})))
+  {"devflow/stage" stage
+   "devflow/feature" (param-value :feature)})
 
 (defn- task-value
   "Return task field `k`, accepting keyword or string keyed task maps."
@@ -152,9 +174,8 @@
     {:params {:feature (workflow/param :required true)
               :worktree-check (workflow/param :default (name worktree-check))
               :revision (workflow/param :default (boolean revision))}
-     :attributes {"devflow/stage" "intake"
-                  "devflow/feature" (param-value :feature)
-                  "devflow/worktree-check" (param-value :worktree-check)}}
+     :attributes (assoc (stage-attributes "intake")
+                        "devflow/worktree-check" (param-value :worktree-check))}
     (workflow/checkpoint :create-or-confirm-worktree
                          (titled "Create or confirm feature worktree for ")
                          :kind :human
@@ -218,8 +239,7 @@
     (titled "Devflow proposal: ")
     {:params {:feature (workflow/param :required true)
               :revision (workflow/param :default (boolean revision))}
-     :attributes {"devflow/stage" "proposal"
-                  "devflow/feature" (param-value :feature)}}
+     :attributes (stage-attributes "proposal")}
     (workflow/step :inspect-context
                    (titled "Inspect relevant RFCs, spikes, root specs, and active feature context for ")
                    :self
@@ -261,8 +281,7 @@
   (workflow/workflow
     (titled "Devflow route after plan: ")
     {:params {:feature (workflow/param :required true)}
-     :attributes {"devflow/stage" "route-after-plan"
-                  "devflow/feature" (param-value :feature)}}
+     :attributes (stage-attributes "route-after-plan")}
     (workflow/checkpoint :route-after-plan
                          (titled "Recommend next workflow: tasks or direct implementation for ")
                          :kind :agent
@@ -287,8 +306,7 @@
     (titled "Devflow spec and plan: ")
     {:params {:feature (workflow/param :required true)
               :revision (workflow/param :default (boolean revision))}
-     :attributes {"devflow/stage" "spec-plan"
-                  "devflow/feature" (param-value :feature)}}
+     :attributes (stage-attributes "spec-plan")}
     (workflow/step :write-spec-deltas
                    (titled "Write needed spec deltas for ")
                    :self
@@ -342,8 +360,7 @@
                      :delegate-harness (workflow/param :default delegate-harness)
                      :delegate-cwd (workflow/param :default delegate-cwd)
                      :delegate-preamble (workflow/param :default delegate-preamble)}
-            :attributes {"devflow/stage" "afk"
-                         "devflow/feature" (param-value :feature)}}
+            :attributes (stage-attributes "afk")}
            (if tasks
              [(afk-task-gate delegate-harness delegate-cwd)
               (workflow/checkpoint :human-acceptance-afk
@@ -379,8 +396,7 @@
     (titled "Devflow task breakdown: ")
     {:params {:feature (workflow/param :required true)
               :revision (workflow/param :default (boolean revision))}
-     :attributes {"devflow/stage" "tasks"
-                  "devflow/feature" (param-value :feature)}}
+     :attributes (stage-attributes "tasks")}
     (workflow/step :write-tasks
                    (titled "Write AFK/HITL task queue for ")
                    :self
@@ -421,8 +437,7 @@
     (titled "Devflow direct implementation: ")
     {:params {:feature (workflow/param :required true)
               :revision (workflow/param :default (boolean revision))}
-     :attributes {"devflow/stage" "implementation"
-                  "devflow/feature" (param-value :feature)}}
+     :attributes (stage-attributes "implementation")}
     (workflow/step :implement
                    (titled "Implement reviewed plan for ")
                    :self
@@ -464,8 +479,7 @@
     (titled "Abort devflow feature: ")
     {:params {:feature (workflow/param :required true)
               :reason (workflow/param :required true)}
-     :attributes {"devflow/stage" "abort"
-                  "devflow/feature" (param-value :feature)}}
+     :attributes (stage-attributes "abort")}
     (workflow/step :record-abort
                    (fn [{:keys [feature reason]}]
                      (str "Record abort for " feature ": " reason))
@@ -487,32 +501,66 @@
    (run-afk-loop-workflow opts)
    (direct-implementation-workflow opts)])
 
-(defn- root-stage
-  "Return the active devflow stage string for feature, or nil when the run is done."
+;; The projection specs below own only the fields devflow adds to the engine's
+;; views. Everything else — a step view's `:id`/`:title`/`:role`/`:choices`, a
+;; history molecule's `:events` — is engine-owned passthrough from
+;; `skein.spools.workflow`, specced there or not at all; devflow neither
+;; restates nor re-checks it.
+(s/def ::stage stages)
+(s/def ::guide (set (keys guidance/guides)))
+(s/def ::step-view (s/keys :req-un [::stage] :opt-un [::guide]))
+(s/def ::ready (s/coll-of ::step-view :kind vector?))
+(s/def ::root (s/keys :req-un [::stage]))
+(s/def ::molecule (s/keys :req-un [::root]))
+(s/def ::run-history (s/coll-of ::molecule :kind vector?))
+
+(defn- active-stage
+  "Return the stage devflow poured `feature`'s active root for.
+
+  Fails loudly (TEN-003) when the run has no active root or that root carries no
+  known `stages` member: stage is devflow's own vocabulary and every devflow root
+  records it, so a run with ready work but no stage is unexpected state, not a
+  view that may quietly ship without one. Ask only while work is ready."
   [feature]
-  (spool/attr-get (workflow/current-root feature) :devflow/stage))
+  (let [root (workflow/current-root feature)
+        stage (spool/attr-get root :devflow/stage)]
+    (or (stages stage)
+        (throw (ex-info "Devflow run has no active root carrying a known devflow/stage"
+                        {:feature feature
+                         :strand (:id root)
+                         :stage stage
+                         :attributes (:attributes root)
+                         :stages (vec (sort stages))})))))
 
-(defn- add-stage
-  "Add the devflow stage and artifact guide key to a ready step view."
+(defn- stage-view
+  "Add the devflow stage and artifact guide key to one engine ready step view."
   [stage step]
-  (when step
-    (let [guide (artifact-guides (:artifact step))]
-      (cond-> step
-        stage (assoc :stage stage)
-        guide (assoc :guide guide)))))
+  (let [guide (artifact-guides (:artifact step))]
+    (cond-> (assoc step :stage stage)
+      guide (assoc :guide guide))))
 
-(defn- add-current-stage
+(defn- stage-views
+  "Return engine ready step views as devflow views carrying `feature`'s active
+  stage (shape: `:ct.spools.devflow/ready`)."
+  [feature steps]
+  (if (seq steps)
+    (let [stage (active-stage feature)]
+      (spool/require-valid! ::ready
+                            (mapv (partial stage-view stage) steps)
+                            "Devflow ready step views are invalid"))
+    []))
+
+(defn- stage-result
   "Add the feature's current stage to every ready step in a mutation result."
   [feature result]
-  (let [stage (root-stage feature)]
-    (update result :ready #(mapv (partial add-stage stage) %))))
+  (update result :ready #(stage-views feature %)))
 
 (defn start!
   "Start the devflow intake workflow for `feature` and return the engine
   `{:ready [step-view ...] :done boolean}` result shape.
 
-  Each ready step view carries the current devflow `:stage` while the run has an
-  active stage root."
+  Each ready step view carries the current devflow `:stage` (shape:
+  `:ct.spools.devflow/ready`)."
   ([feature]
    (start! feature {}))
   ([feature opts]
@@ -523,7 +571,7 @@
    (let [context (reduce-kv (fn [m k v] (assoc m k (if (keyword? v) (name v) v)))
                             {:feature feature}
                             opts)]
-     (add-current-stage
+     (stage-result
       feature
       (workflow/start!
        feature
@@ -542,15 +590,16 @@
   (workflow/current-root feature))
 
 (defn ready
-  "Return agent-facing ready devflow steps for `feature`, each carrying `:stage`."
+  "Return agent-facing ready devflow steps for `feature`, each carrying `:stage`
+  (shape: `:ct.spools.devflow/ready`)."
   [feature]
-  (let [stage (root-stage feature)]
-    (mapv (partial add-stage stage) (workflow/ready feature))))
+  (stage-views feature (workflow/ready feature)))
 
 (defn ready-step
-  "Return the single agent-facing ready devflow step for `feature`, or fail if ambiguous."
+  "Return the single agent-facing ready devflow step for `feature` (shape:
+  `:ct.spools.devflow/step-view`), nil when none is ready, or fail if ambiguous."
   [feature]
-  (add-stage (root-stage feature) (workflow/ready-step feature)))
+  (first (stage-views feature (some-> (workflow/ready-step feature) vector))))
 
 (defn choice-details
   "Return choice explanations for the current devflow checkpoint.
@@ -574,14 +623,15 @@
 
 (defn complete!
   "Close the current devflow step for `feature` and return the engine
-  `{:ready [step-view ...] :done boolean}` result shape.
+  `{:ready [step-view ...] :done boolean}` result shape, its ready views carrying
+  the devflow `:stage` (shape: `:ct.spools.devflow/ready`).
 
   opts may include `:step`, `:notes`, and `:attributes`; see
   `skein.spools.workflow/complete!`."
   ([feature]
    (complete! feature {}))
   ([feature opts]
-   (add-current-stage feature (workflow/complete! feature opts))))
+   (stage-result feature (workflow/complete! feature opts))))
 
 (defn- keywordize-choice-input
   "Return choice input with top-level string keys converted to keywords."
@@ -594,26 +644,28 @@
 
 (defn choose!
   "Record a devflow checkpoint choice and return the engine
-  `{:ready [step-view ...] :done boolean}` result shape.
+  `{:ready [step-view ...] :done boolean}` result shape, its ready views carrying
+  the devflow `:stage` (shape: `:ct.spools.devflow/ready`).
 
   opts may include `:step`; see `skein.spools.workflow/choose!`."
   ([feature choice]
-   (add-current-stage feature (workflow/choose! feature choice)))
+   (stage-result feature (workflow/choose! feature choice)))
   ([feature choice input]
-   (add-current-stage feature (workflow/choose! feature choice (keywordize-choice-input input))))
+   (stage-result feature (workflow/choose! feature choice (keywordize-choice-input input))))
   ([feature choice input opts]
-   (add-current-stage feature (workflow/choose! feature choice (keywordize-choice-input input) opts))))
+   (stage-result feature (workflow/choose! feature choice (keywordize-choice-input input) opts))))
 
 (defn advance!
   "Advance the current devflow step or checkpoint for `feature`.
 
   Delegates to `skein.spools.workflow/advance!` and adds the active devflow
-  `:stage` to returned ready step views. opts may include `:choice`, `:input`,
-  `:notes`, `:step`, `:by`, and `:attributes`."
+  `:stage` to returned ready step views (shape: `:ct.spools.devflow/ready`).
+  opts may include `:choice`, `:input`, `:notes`, `:step`, `:by`, and
+  `:attributes`."
   ([feature]
    (advance! feature {}))
   ([feature opts]
-   (add-current-stage feature (workflow/advance! feature opts))))
+   (stage-result feature (workflow/advance! feature opts))))
 
 (def stage-workflows
   "Devflow stage constructors registered with the engine under stable routing
@@ -676,17 +728,29 @@
 (defn run-history
   "Return the ordered run history for devflow `feature` (see
   `skein.spools.workflow/run-history`), each molecule's `:root` carrying the
-  devflow `:stage` it was poured for.
+  devflow `:stage` it was poured for (shape: `:ct.spools.devflow/run-history`).
 
   Stage is devflow's own vocabulary, so this projection owns it: the engine's
-  history reports only engine-owned root fields."
+  history reports only engine-owned root fields. Every root devflow poured for a
+  run records its stage, so a molecule whose root carries no known `stages`
+  member fails loudly (TEN-003) rather than projecting a stageless root."
   [feature]
   (let [rt (current/runtime)]
-    (mapv (fn [{:keys [root] :as molecule}]
-            (let [stage (spool/attr-get (weaver/show rt (:id root)) :devflow/stage)]
-              (cond-> molecule
-                stage (assoc-in [:root :stage] stage))))
-          (workflow/run-history feature))))
+    (spool/require-valid!
+     ::run-history
+     (mapv (fn [{:keys [root] :as molecule}]
+             (let [strand (weaver/show rt (:id root))
+                   stage (spool/attr-get strand :devflow/stage)]
+               (when-not (stages stage)
+                 (throw (ex-info "Devflow run molecule root carries no known devflow/stage"
+                                 {:feature feature
+                                  :strand (:id root)
+                                  :stage stage
+                                  :attributes (:attributes strand)
+                                  :stages (vec (sort stages))})))
+               (assoc-in molecule [:root :stage] stage)))
+           (workflow/run-history feature))
+     "Devflow run history molecules are invalid")))
 
 (defn squash-run!
   "Squash a finished devflow `feature`'s run into one closed digest strand (see

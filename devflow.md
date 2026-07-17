@@ -140,9 +140,21 @@ The wrappers key everything by feature name and pass opts straight through to
 the engine. `ready`/`ready-step` (and `choice-details`/`choice-detail`)
 return the same shapes as their `skein.spools.workflow` counterparts, with the
 current devflow `:stage` (and, on artifact-authoring steps, the `:guide` key
-for `guidance`) added to each ready step view while the run has an active
-stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
-`advance!`) return the engine's `{:ready [step-view ...] :done boolean}` result.
+for `guidance`) added to each ready step view; the run-mutating wrappers
+(`start!`, `complete!`, `choose!`, `advance!`) return the engine's
+`{:ready [step-view ...] :done boolean}` result.
+
+Stage is devflow's own vocabulary, so the projections that emit it own the
+invariant: a view is never projected without one. Whenever a feature has ready
+work, its active root must carry a `devflow/stage` from the enum in §7 — a
+missing or unknown value fails loudly (TEN-003) naming the feature, the
+offending strand, the attributes it carried, and the allowed stages, rather than
+returning a view with the stage quietly dropped. `run-history` holds every
+molecule root to the same rule. The projected shapes are specced as
+`:ct.spools.devflow/ready`, `:ct.spools.devflow/step-view`, and
+`:ct.spools.devflow/run-history`, consulted at the seams that build them; the
+specs own devflow's added fields and leave the engine-inherited keys to
+`skein.spools.workflow`.
 
 | Wrapper | Signature | Notes |
 |---|---|---|
@@ -295,7 +307,7 @@ molecule; the rest sit on individual step/checkpoint strands.
 
 | Attribute | Meaning | Set on / by |
 |---|---|---|
-| `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. | Root molecule, by each stage constructor. |
+| `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. The `stages` set is the enum of record — the constructors write it through one helper and the projections (§4) reject a root that carries anything else. | Root molecule, by each stage constructor. |
 | `devflow/feature` | The feature name. Carries the same value as `workflow/run-id`, but is not redundant with it: the roster spool reads this key's *presence* to derive `roster/engine "devflow"` rather than `"workflow"` (roster.md, SPEC-RosterSpool-001.C13), so a devflow root that stopped stamping it would silently register as a plain workflow run. | Root molecule, by each stage constructor. |
 | `workflow/artifact` | Artifact a step produces (`"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"`). The engine's own key, caller-supplied; `step-view` surfaces it as `:artifact`. | Artifact-writing steps. |
 | `devflow/task` | Stable approved AFK task id attached to delegated `run-afk-loop` task gates. | `:task-<id>` subagent gates in delegated AFK mode. |
