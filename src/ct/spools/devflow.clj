@@ -138,7 +138,7 @@
 (defn intake-workflow
   "Return the mandatory brief intake workflow.
 
-  The first strand is a HITL decision/checkpoint that requires worktree creation
+  The first strand is a `:human` checkpoint that requires worktree creation
   before substantive discovery. `:worktree-check` may be `:required` for a fresh
   brief or `:already-in-worktree-ok` for agents launched directly inside the
   feature worktree. On a revision round (`:revision true`), the worktree
@@ -326,7 +326,7 @@
 
   With no `:tasks` opt, returns the legacy single manual AFK step. With `:tasks`,
   returns a sequential chain of `:subagent` gates for subagent-executor fulfillment, then a
-  HITL acceptance checkpoint. Task maps may be keyword- or string-keyed."
+  `:human` acceptance checkpoint. Task maps may be keyword- or string-keyed."
   [{:keys [tasks delegate-harness delegate-cwd delegate-preamble] :as opts}]
   (let [tasks (validate-afk-tasks (or tasks (get opts "tasks")))
         delegate-harness (or delegate-harness (get opts "delegate-harness"))

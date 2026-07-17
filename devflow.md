@@ -40,19 +40,19 @@ target stage under the same feature.
 
 ```
 start! ─▶ intake
-             :create-or-confirm-worktree  (HITL)
+             :create-or-confirm-worktree  (human)
                  created-worktree / already-in-worktree ─▶ (continue intake)
                  abort ─▶ abort
              :discuss-scope  (agent)
                  proposal-ready     ─▶ proposal
                  needs-more-brief   ─▶ intake (revision)
           proposal
-             :human-signoff-proposal  (HITL)
+             :human-signoff-proposal  (human)
                  approved ─▶ spec-plan
                  revise   ─▶ proposal (revision)
                  abort    ─▶ abort
           spec-plan
-             :human-signoff-spec-plan  (HITL)
+             :human-signoff-spec-plan  (human)
                  approved ─▶ route-after-plan
                  revise   ─▶ spec-plan (revision)
                  abort    ─▶ abort
@@ -61,7 +61,7 @@ start! ─▶ intake
                  task-breakdown         ─▶ task-breakdown
                  direct-implementation  ─▶ direct-implementation
           task-breakdown
-             :human-signoff-tasks  (HITL)
+             :human-signoff-tasks  (human)
                  approved ─▶ run-afk-loop
                  revise   ─▶ task-breakdown (revision)
                  abort    ─▶ abort
@@ -70,12 +70,12 @@ start! ─▶ intake
                :run-afk-loop step ─▶ (run auto-closes: done)
              delegated task data:
                :task-<id> subagent gates (sequential, one per task)
-                  ─▶ :human-acceptance-afk  (HITL)
+                  ─▶ :human-acceptance-afk  (human)
                         accepted ─▶ (run auto-closes: done)
                         revise   ─▶ run-afk-loop (revision)
                         abort    ─▶ abort
           direct-implementation
-             :human-acceptance  (HITL)
+             :human-acceptance  (human)
                  accepted ─▶ (run auto-closes: done)
                  revise   ─▶ direct-implementation (revision)
                  abort    ─▶ abort
@@ -89,10 +89,10 @@ Notes:
   (after the task queue is approved) and `direct-implementation` on `:accepted`.
   The route-after-plan checkpoint chooses between them. In delegated AFK mode,
   `run-afk-loop` first pours one sequential `workflow/gate "subagent"` per
-  approved task, then requires the `:human-acceptance-afk` HITL checkpoint. A
+  approved task, then requires the `:human-acceptance-afk` human checkpoint. A
   caller may pass optional `:delegate-preamble` text; devflow prepends it to each
   delegated AFK prompt as data and remains policy-free.
-- **`:abort` is reachable from every HITL (`:human`) checkpoint** — the intake
+- **`:abort` is reachable from every `:human` checkpoint** — the intake
   worktree checkpoint and the four sign-off checkpoints. The two `:agent`
   checkpoints (`:discuss-scope`, `:route-after-plan`) offer no abort. Aborting
   routes to `abort-workflow`, whose `:record-abort` step then closes the run.
@@ -171,7 +171,7 @@ Driving example with one revise round:
 ;; feature name is the run-id; step-view's :id is the generated strand id,
 ;; a checkpoint's stable definition name arrives as the :checkpoint string
 (devflow/start! "search-filters")
-;; => {:ready [{:kind "checkpoint" :checkpoint "create-or-confirm-worktree"
+;; => {:ready [{:role "checkpoint" :checkpoint "create-or-confirm-worktree"
 ;;              :choices ["created-worktree" "already-in-worktree" "abort"] ...}]
 ;;     :done false}
 
@@ -180,7 +180,7 @@ Driving example with one revise round:
 ;; => {:ready [{:title "Capture user brief for search-filters" :artifact "brief" ...}] :done false}
 
 (devflow/complete! "search-filters")
-;; => {:ready [{:kind "checkpoint" :checkpoint "discuss-scope"
+;; => {:ready [{:role "checkpoint" :checkpoint "discuss-scope"
 ;;              :choices ["proposal-ready" "needs-more-brief"] ...}] :done false}
 
 ;; scope is clear — route to the proposal stage (fresh molecule, same feature)
@@ -189,7 +189,7 @@ Driving example with one revise round:
 
 ;; complete inspect-context, write-proposal, and the inner agent-review step
 ;; (its join auto-closes) until the sign-off checkpoint is ready
-;; ... => {:ready [{:kind "checkpoint" :checkpoint "human-signoff-proposal"
+;; ... => {:ready [{:role "checkpoint" :checkpoint "human-signoff-proposal"
 ;;                  :choices ["approved" "revise" "abort"] ...}] :done false}
 
 ;; revise: closes this proposal round and pours a fresh one; :inspect-context
@@ -281,7 +281,7 @@ keywords or strings, failing loudly otherwise. Every guide shares one shape:
 Artifact-authoring steps advertise their guide through the `devflow/guide`
 strand attribute and a `workflow/instruction` telling the driving agent to
 call `guidance` before writing; ready step views surface the key as `:guide`
-(derived from `artifact-guides`, the `devflow/artifact` → guide-key map).
+(derived from `artifact-guides`, the `workflow/artifact` → guide-key map).
 The `:rfc` and `:finish-archive` guides have no dedicated stage step: RFCs
 are written on demand when intake/proposal work exposes meaningful
 uncertainty, and finish/archive work is the workspace-side procedure a
@@ -297,10 +297,10 @@ molecule; the rest sit on individual step/checkpoint strands.
 |---|---|---|
 | `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. | Root molecule, by each stage constructor. |
 | `devflow/feature` | The feature name (same value as the run-id). | Root molecule, by each stage constructor. |
-| `devflow/artifact` | Artifact a step produces (`"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"`). `step-view` surfaces it as `:artifact` (via the engine's `workflow/artifact` → `devflow/artifact` fallback). | Artifact-writing steps. |
+| `workflow/artifact` | Artifact a step produces (`"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"`). The engine's own key, caller-supplied; `step-view` surfaces it as `:artifact`. | Artifact-writing steps. |
 | `devflow/task` | Stable approved AFK task id attached to delegated `run-afk-loop` task gates. | `:task-<id>` subagent gates in delegated AFK mode. |
 | `devflow/review` | `"agent"` marking a step as an agent review round (the reusable `agent-review-workflow` procedure). Distinct from the engine's `workflow/checkpoint-kind`, which says who decides a *checkpoint*. | The `:review` step of `agent-review-workflow`. |
-| `workflow/hitl` | `"true"` marking a human-in-the-loop checkpoint. | Auto-stamped by the engine `checkpoint` builder for every `:kind :human` checkpoint (workflow.md §7); devflow no longer sets it by hand. |
+| `workflow/checkpoint-kind` | `"human"` or `"agent"` — who decides the checkpoint. | Auto-stamped by the engine `checkpoint` builder from its `:kind` opt (workflow.md §7); devflow never sets it by hand. |
 | `workflow/decision-point` | Freeform label for what the checkpoint decides (`"worktree-ready"`, `"scope-ready"`, `"proposal-signed-off"`, `"choose-tasks-or-implementation"`, `"plan-signed-off"`, `"tasks-signed-off"`, `"afk-accepted"`, `"implementation-accepted"`). | Each checkpoint. |
 | `workflow/action-ref` | Pointer to the action/skill an agent should invoke (`"devflow.worktree.ensure"`, `"devflow.proposal.orient"`, `"devflow.tasks.run-afk-loop"`, `"devflow.implementation.direct"`, `"devflow.implementation.validate"`, `"devflow.abort.record"`). Surfaced by `step-view`. | Steps/checkpoints that hand off to a named action. |
 | `workflow/gate` | `"subagent"` on delegated AFK task gates; agent-run consumes these gates when installed, otherwise they remain ordinary external wait-points. | `:task-<id>` gates in delegated AFK mode. |
