@@ -333,7 +333,7 @@
     (is (= "Devflow intake: <feature>" (:name (first cycle))))
     (is (every? #(seq (:steps %)) cycle))))
 
-(deftest devflow-history-and-archive-project-then-squash-a-run
+(deftest devflow-run-history-and-squash-run-project-then-squash-a-run
   (with-runtime
     (fn [rt _]
       (devflow/start! "af-run" {:worktree-check :already-in-worktree-ok})
@@ -350,7 +350,7 @@
         (is (= #{"intake" "abort"} (set (keep #(get-in % [:root :stage]) history))))
         (is (= :choice (:type abort-choice)))
         (is (= {:reason "not needed"} (:input abort-choice))))
-      (let [digest (devflow/archive! "af-run")]
+      (let [digest (devflow/squash-run! "af-run")]
         (is (= "digest" (get-in digest [:attributes :workflow/role])))
         (is (= "af-run" (get-in digest [:attributes :workflow/run-id])))
         (is (some #(str/includes? (:title % "") "intake")

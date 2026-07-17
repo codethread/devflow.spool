@@ -157,7 +157,7 @@ stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
 | `describe` | `()` / `(stage)` | Compile-time shape of the full devflow cycle, or one registered stage key such as `:proposal`; writes nothing. |
 | `guidance` | `()` / `(guide)` | Authoring knowledge base (§5a): the workspace overview, or one artifact guide by key (keyword or string); writes nothing. |
 | `run-history` | `(feature)` | Ordered run history for the feature (delegates to `workflow/run-history`), each molecule's `:root` carrying the `:stage` it was poured for. |
-| `archive!` | `(feature)` / `(feature opts)` | Archive a finished feature run into one closed digest strand; fails loudly while any stage root is active. |
+| `squash-run!` | `(feature)` / `(feature opts)` | Squash a finished feature run into one closed digest strand; fails loudly while any stage root is active. Closes out the graph only — the workspace side of finishing follows `(guidance :finish-archive)`. |
 | `feature-roots` | `(feature)` | The active root molecule for the feature as a vector (empty if none). |
 
 There is no devflow `done?` wrapper — use `skein.spools.workflow/done?` with the
@@ -241,7 +241,7 @@ trusted resolution:
 - `(commands)` returns `command-registry` — agent-facing commands by key:
   `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`,
   `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:run-history`,
-  and `:archive`.
+  and `:squash-run`.
 - `(install!)` returns `{:installed true :namespace 'ct.spools.devflow
   :dependency-sentinel "devflow-spool" :commands command-registry
   :workflows workflow-registry :registered <map>}`, where `:registered` is the
@@ -284,7 +284,8 @@ call `guidance` before writing; ready step views surface the key as `:guide`
 (derived from `artifact-guides`, the `devflow/artifact` → guide-key map).
 The `:rfc` and `:finish-archive` guides have no dedicated stage step: RFCs
 are written on demand when intake/proposal work exposes meaningful
-uncertainty, and finish/archive work follows `archive!`.
+uncertainty, and finish/archive work is the workspace-side procedure a
+caller follows after `squash-run!` closes out the graph.
 
 ## 6. Attribute conventions
 

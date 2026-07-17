@@ -690,12 +690,15 @@
                 stage (assoc-in [:root :stage] stage))))
           (workflow/run-history feature))))
 
-(defn archive!
-  "Archive a finished devflow `feature` into one closed digest strand (see
+(defn squash-run!
+  "Squash a finished devflow `feature`'s run into one closed digest strand (see
   `skein.spools.workflow/squash-run!`). Fails loudly if the feature still has an
-  active root. opts may include `:title` and `:attributes`. For the workspace
-  side — spec promotion, plan status, and moving the feature folder into
-  `devflow/archive/` — follow `(guidance :finish-archive)`."
+  active root. opts may include `:title` and `:attributes`.
+
+  This closes out the graph only. The workspace side of finishing a feature —
+  spec promotion, plan status, and moving the feature folder into
+  `devflow/archive/` — is a separate devflow procedure: follow
+  `(guidance :finish-archive)`."
   ([feature]
    (workflow/squash-run! feature))
   ([feature opts]
@@ -731,7 +734,7 @@
    :describe 'ct.spools.devflow/describe
    :guidance 'ct.spools.devflow/guidance
    :run-history 'ct.spools.devflow/run-history
-   :archive 'ct.spools.devflow/archive!})
+   :squash-run 'ct.spools.devflow/squash-run!})
 
 (defn workflows
   "Return devflow workflow constructors by stable key."
