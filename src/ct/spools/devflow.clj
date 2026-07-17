@@ -203,7 +203,7 @@
                    (fn [{:keys [feature artifact]}]
                      (str "Run agent review for " feature " " artifact))
                    :self
-                   :attributes {"review" "agent"})))
+                   :attributes {"devflow/review" "agent"})))
 
 (defn proposal-workflow
   "Return the proposal gate workflow.
