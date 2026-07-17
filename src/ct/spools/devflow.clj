@@ -13,6 +13,7 @@
             [clojure.string :as str]
             [ct.spools.devflow.guidance :as guidance]
             [skein.api.current.alpha :as current]
+            [skein.api.spool.alpha :as spool]
             [skein.api.weaver.alpha :as weaver]
             [skein.spools.workflow :as workflow]))
 
@@ -489,9 +490,7 @@
 (defn- root-stage
   "Return the active devflow stage string for feature, or nil when the run is done."
   [feature]
-  (let [root (workflow/current-root feature)]
-    (or (get-in root [:attributes :devflow/stage])
-        (get-in root [:attributes "devflow/stage"]))))
+  (spool/attr-get (workflow/current-root feature) :devflow/stage))
 
 (defn- add-stage
   "Add the devflow stage and artifact guide key to a ready step view."
@@ -684,8 +683,7 @@
   [feature]
   (let [rt (current/runtime)]
     (mapv (fn [{:keys [root] :as molecule}]
-            (let [attrs (:attributes (weaver/show rt (:id root)))
-                  stage (or (get attrs :devflow/stage) (get attrs "devflow/stage"))]
+            (let [stage (spool/attr-get (weaver/show rt (:id root)) :devflow/stage)]
               (cond-> molecule
                 stage (assoc-in [:root :stage] stage))))
           (workflow/run-history feature))))
