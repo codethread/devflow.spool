@@ -296,7 +296,7 @@ molecule; the rest sit on individual step/checkpoint strands.
 | Attribute | Meaning | Set on / by |
 |---|---|---|
 | `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. | Root molecule, by each stage constructor. |
-| `devflow/feature` | The feature name (same value as the run-id). | Root molecule, by each stage constructor. |
+| `devflow/feature` | The feature name. Carries the same value as `workflow/run-id`, but is not redundant with it: the roster spool reads this key's *presence* to derive `roster/engine "devflow"` rather than `"workflow"` (roster.md, SPEC-RosterSpool-001.C13), so a devflow root that stopped stamping it would silently register as a plain workflow run. | Root molecule, by each stage constructor. |
 | `workflow/artifact` | Artifact a step produces (`"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"`). The engine's own key, caller-supplied; `step-view` surfaces it as `:artifact`. | Artifact-writing steps. |
 | `devflow/task` | Stable approved AFK task id attached to delegated `run-afk-loop` task gates. | `:task-<id>` subagent gates in delegated AFK mode. |
 | `devflow/review` | `"agent"` marking a step as an agent review round (the reusable `agent-review-workflow` procedure). Distinct from the engine's `workflow/checkpoint-kind`, which says who decides a *checkpoint*. | The `:review` step of `agent-review-workflow`. |
