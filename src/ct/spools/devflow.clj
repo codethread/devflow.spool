@@ -674,7 +674,7 @@
   ([guide]
    (guidance/guide (if (string? guide) (keyword guide) guide))))
 
-(defn history
+(defn run-history
   "Return the ordered run history for devflow `feature` (see
   `skein.spools.workflow/run-history`), each molecule's `:root` carrying the
   devflow `:stage` it was poured for.
@@ -730,7 +730,7 @@
    :advance 'ct.spools.devflow/advance!
    :describe 'ct.spools.devflow/describe
    :guidance 'ct.spools.devflow/guidance
-   :history 'ct.spools.devflow/history
+   :run-history 'ct.spools.devflow/run-history
    :archive 'ct.spools.devflow/archive!})
 
 (defn workflows

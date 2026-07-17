@@ -156,7 +156,7 @@ stage root; the run-mutating wrappers (`start!`, `complete!`, `choose!`,
 | `choice-detail` | `(feature choice)` / `(feature choice opts)` | One choice's explanation. |
 | `describe` | `()` / `(stage)` | Compile-time shape of the full devflow cycle, or one registered stage key such as `:proposal`; writes nothing. |
 | `guidance` | `()` / `(guide)` | Authoring knowledge base (§5a): the workspace overview, or one artifact guide by key (keyword or string); writes nothing. |
-| `history` | `(feature)` | Ordered run history for the feature (delegates to `workflow/run-history`). |
+| `run-history` | `(feature)` | Ordered run history for the feature (delegates to `workflow/run-history`), each molecule's `:root` carrying the `:stage` it was poured for. |
 | `archive!` | `(feature)` / `(feature opts)` | Archive a finished feature run into one closed digest strand; fails loudly while any stage root is active. |
 | `feature-roots` | `(feature)` | The active root molecule for the feature as a vector (empty if none). |
 
@@ -240,8 +240,8 @@ trusted resolution:
   (`devflow-cycle`, the ordered composable stage list).
 - `(commands)` returns `command-registry` — agent-facing commands by key:
   `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`,
-  `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:history`, and
-  `:archive`.
+  `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:run-history`,
+  and `:archive`.
 - `(install!)` returns `{:installed true :namespace 'ct.spools.devflow
   :dependency-sentinel "devflow-spool" :commands command-registry
   :workflows workflow-registry :registered <map>}`, where `:registered` is the

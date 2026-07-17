@@ -341,7 +341,7 @@
       (devflow/choose! "af-run" :abort {:reason "not needed"})
       (devflow/complete! "af-run")
       (is (workflow/done? "af-run"))
-      (let [history (devflow/history "af-run")
+      (let [history (devflow/run-history "af-run")
             intake-mol (first (filter #(= "intake" (get-in % [:root :stage])) history))
             ;; the abort route also force-closes intake's later discuss-scope
             ;; checkpoint (a decision-less :choice event), so select by outcome
@@ -357,7 +357,7 @@
                   (get-in digest [:attributes :workflow/summary])))
         ;; the run's molecules are burned, so history now fails loudly
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown workflow run"
-                              (devflow/history "af-run")))))))
+                              (devflow/run-history "af-run")))))))
 
 (deftest devflow-guidance-serves-the-authoring-knowledge-base
   ;; the overview orients without picking a guide
