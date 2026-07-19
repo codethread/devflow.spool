@@ -771,17 +771,13 @@
   workflow registry under its stable name (see `stage-workflows`).
 
   Idempotent: duplicate names replace, so a reload re-points in-flight runs'
-  named `:next` routes at the reloaded constructors. Called on namespace load
-  (for REPL use) and from `install!` (startup config); returns the registered
-  name -> constructor map."
+  named `:next` routes at the reloaded constructors. The workflow registry is
+  runtime-owned spool-state, so this runs from `install!` under an active
+  runtime; returns the registered name -> constructor map."
   []
   (into {}
         (map (fn [[name sym]] [name (workflow/register-workflow! name sym)]))
         stage-workflows))
-
-;; Register on namespace load so a live `weaver repl` require resolves named
-;; routes before `install!` runs; startup config re-registers via `install!`.
-(register-workflows!)
 
 (def command-registry
   "Agent-facing commands exposed by the devflow spool."

@@ -30,11 +30,15 @@
 
   The devflow assertions call the same Clojure APIs a trusted REPL/config would
   call, but the runtime lifecycle and isolation come from the public author test
-  helper rather than repo-local fixtures."
+  helper rather than repo-local fixtures. Registers the devflow stage workflows
+  in the world's runtime first, as `install!` does at startup, so named `:next`
+  routes resolve against the runtime-owned workflow registry."
   [f]
   (t/with-weaver-world [ctx {:storage :sqlite-memory}]
     (weaver-runtime/with-runtime-binding (:runtime ctx)
-      #(f (:runtime ctx) (:config-dir ctx)))))
+      (fn []
+        (devflow/register-workflows!)
+        (f (:runtime ctx) (:config-dir ctx))))))
 
 (deftest production-return-coverage-is-derived-from-devflow-provenance
   (with-runtime
@@ -49,7 +53,9 @@
 
 (deftest devflow-maven-dependency-is-observable
   (is (= "devflow-spool" (devflow/dependency-sentinel)))
-  (is (= "devflow-spool" (:dependency-sentinel (devflow/install!)))))
+  (with-runtime
+    (fn [_ _]
+      (is (= "devflow-spool" (:dependency-sentinel (devflow/install!)))))))
 
 (deftest devflow-proposal-revise-loops-back-through-the-proposal-stage
   (with-runtime
