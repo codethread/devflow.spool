@@ -5,8 +5,8 @@
 
 It is trusted Clojure code for a live Skein weaver. The spool has no
 `spool.edn` manifest; consumption is the manifest-free contract: approve source
-in `spools.edn` or `spools.local.edn`, run `sync!`, then activate explicitly
-with `use!`.
+in `spools.edn` or `spools.local.edn`, then declare its module explicitly from
+trusted startup or REPL code.
 
 Full workflow documentation lives in [devflow.md](./devflow.md). The spool is
 self-contained: artifact authoring knowledge (proposal/RFC/spec/plan/task
@@ -23,7 +23,7 @@ by the `guidance` command — no external devflow skill is required.
   `spools.local.edn` for development.
 - Network or cache access for this spool's Maven dependencies. This spool
   declares `camel-snake-kebab/camel-snake-kebab` in its top-level `deps.edn
-  :deps`; `sync!` resolves it as an approved spool Maven dependency.
+  :deps`; module refresh resolves it as an approved spool Maven dependency.
 
 ## Dependency information
 
@@ -56,9 +56,8 @@ encoded in a manifest.
 
 ## Activation
 
-Activate prerequisites before dependents, and always `sync!` before any
-`:spools`-guarded `use!` — synced approved roots are what activation loads
-from. From trusted `init.clj` or REPL code:
+Declare prerequisite modules before dependents. From trusted `init.clj` or REPL
+code:
 
 ```clojure
 (require '[skein.api.current.alpha :as current]
@@ -66,10 +65,8 @@ from. From trusted `init.clj` or REPL code:
 
 (def runtime (current/runtime))
 
-(runtime/sync! runtime)
-
 ;; workflow is an approved spool root, not base-classpath code: guard the
-;; module on its coordinate so a missing/unsynced approval fails loudly.
+;; module on its coordinate so a missing approval fails loudly.
 (runtime/module! runtime
   :workflow
   {:ns 'skein.spools.workflow

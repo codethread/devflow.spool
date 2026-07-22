@@ -33,7 +33,15 @@ for ns in $nss; do
   syms+="'$ns "
 done
 
-exec clojure -Sdeps "{:paths [${src_paths}${test_paths}]}" -M -e "
+# Frozen tests run the working devflow source. Mirror the :test alias's two
+# approved Skein roots so this alarm proves the archived suite against the
+# candidate rather than failing before either namespace loads.
+skein_root="../skein-src"
+workflow_root="$skein_root/spools/workflow"
+
+exec clojure -Sdeps "{:paths [${src_paths}${test_paths}]
+                      :deps {io.skein/skein {:local/root \"$skein_root\"}
+                             io.skein/workflow-spool {:local/root \"$workflow_root\"}}}" -M -e "
 (require 'clojure.test ${requires})
 (let [result (apply clojure.test/run-tests [${syms}])]
   (System/exit (if (zero? (+ (:fail result) (:error result))) 0 1)))"
