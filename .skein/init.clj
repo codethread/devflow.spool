@@ -3,7 +3,6 @@
 
 (def runtime (current/runtime))
 
-(runtime/sync! runtime)
 
 ;; Devflow is a module so its named workflow routes are published as one
 ;; owner-complete contribution. Keep workflow first: it declares the route kind.
@@ -20,4 +19,12 @@
    :after [:workflow]
    :contribute 'ct.spools.devflow/contribute
    :reconcile 'ct.spools.devflow/reconcile
+   :required? true})
+
+;; kanban board for this repo's own coordination cards
+(runtime/module! runtime :skein/spools-kanban
+  {:ns 'ct.spools.kanban
+   :spools ['codethread/kanban]
+   :contribute 'ct.spools.kanban/contribute
+   :reconcile 'ct.spools.kanban/reconcile
    :required? true})

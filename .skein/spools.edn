@@ -1,3 +1,8 @@
 {:spools {skein.spools/guild {:local/root "../../skein-src/spools/guild"}
+          skein.spools/workflow {:local/root "../../skein-src/spools/workflow"}
+          ;; dev world for this repo: devflow loads from the enclosing checkout
+          codethread/devflow {:local/root ".."}
           codethread/kanban {:git/url "https://github.com/codethread/kanban.spool.git"
-                             :git/sha "69c4009ba4ca58475c46606def2c3321cc806b53"}}}
+                             :git/sha "aed7d441c1e5a236a6c29cea635bab66bac5a7d6"
+                             :git/tag "v7"
+                             :roots {codethread/kanban "."}}}}
