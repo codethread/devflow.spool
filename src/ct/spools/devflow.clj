@@ -669,8 +669,8 @@
 
 (def stage-workflows
   "Devflow stage constructors registered with the engine under stable routing
-  names. Forward `:next` choices reference these keyword names; `register-workflows!`
-  registers each with `skein.spools.workflow/register-workflow!`."
+  names. Forward `:next` choices reference these keyword names; `contribute`
+  publishes them as devflow's complete workflow-registry owner partition."
   {:intake 'ct.spools.devflow/intake-workflow
    :proposal 'ct.spools.devflow/proposal-workflow
    :spec-plan 'ct.spools.devflow/spec-plan-workflow
@@ -766,18 +766,26 @@
   ([feature opts]
    (workflow/squash-run! feature opts)))
 
-(defn register-workflows!
-  "Register every devflow stage constructor with the engine's weaver-lifetime
-  workflow registry under its stable name (see `stage-workflows`).
+(defn contribute
+  "Publish devflow's complete named-route contribution.
 
-  Idempotent: duplicate names replace, so a reload re-points in-flight runs'
-  named `:next` routes at the reloaded constructors. The workflow registry is
-  runtime-owned spool-state, so this runs from `install!` under an active
-  runtime; returns the registered name -> constructor map."
-  []
-  (into {}
-        (map (fn [[name sym]] [name (workflow/register-workflow! name sym)]))
-        stage-workflows))
+  The module refresh kernel owns replacement and deletion: a successful refresh
+  replaces this module's entire `workflow/constructor-kind` partition, so a
+  route omitted from `stage-workflows` disappears by omission. Constructors are
+  symbols, not resolved Vars, which deliberately preserves live route
+  re-pointing: an in-flight run resolves the current symbol at its next named
+  `:next` transition while poured stages retain their materialized history."
+  [_ctx]
+  {workflow/constructor-kind stage-workflows})
+
+(defn reconcile
+  "Reconcile devflow's non-declarative resources after a module refresh.
+
+  Route publication is complete before this runs; devflow currently owns no
+  runtime resource beyond its declarative constructors. Keeping this explicit
+  makes the supported module lifecycle stable if such resources are added."
+  [_ctx]
+  {:reconciled :devflow})
 
 (def command-registry
   "Agent-facing commands exposed by the devflow spool."
@@ -807,13 +815,12 @@
 (defn install!
   "Return installation metadata for the devflow workflow spool.
 
-  Re-registers the stage constructors with the engine registry (see
-  `register-workflows!`) so named `:next` routes resolve after a startup or
-  reload."
+  This eager compatibility entry point does not publish routes. Configure
+  devflow as a runtime module with `contribute` and `reconcile` so route
+  ownership is complete and refresh can remove omitted declarations."
   []
   {:installed true
    :namespace 'ct.spools.devflow
    :dependency-sentinel (dependency-sentinel)
    :commands command-registry
-   :workflows workflow-registry
-   :registered (register-workflows!)})
+   :workflows workflow-registry})

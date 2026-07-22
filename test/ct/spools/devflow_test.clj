@@ -8,7 +8,9 @@
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow.guidance :as guidance]
+            [skein.api.registry.alpha :as registry]
             [skein.spools.workflow :as workflow]
+            [skein.spools.workflow.internal.registry :as workflow-registry]
             [skein.api.weaver.alpha :as weaver]
             [skein.test.alpha :as t]
             [skein.core.weaver.runtime :as weaver-runtime]))
@@ -25,6 +27,21 @@
           (:subcommands returns))
     (return-case-leaves name {} returns)))
 
+(defn- publish-devflow-routes!
+  "Publish the same complete owner partition the module refresh kernel receives.
+
+  The test world exercises the declaration at the workflow kind boundary; the
+  production module lifecycle supplies owner identity and performs this replace
+  atomically across every contributed kind."
+  [rt]
+  (registry/replace-owner!
+   (workflow-registry/registry-handle rt)
+   workflow/constructor-kind
+   :ct.spools/devflow
+   {:layer :workspace
+    :entries (get (devflow/contribute {:runtime rt}) workflow/constructor-kind)
+    :overrides #{}}))
+
 (defn with-runtime
   "Run f in a disposable skein.test.alpha weaver world.
 
@@ -37,8 +54,57 @@
   (t/with-weaver-world [ctx {:storage :sqlite-memory}]
     (weaver-runtime/with-runtime-binding (:runtime ctx)
       (fn []
-        (devflow/register-workflows!)
+        (workflow/install!)
+        (publish-devflow-routes! (:runtime ctx))
         (f (:runtime ctx) (:config-dir ctx))))))
+
+(defn repointed-proposal-workflow
+  "A test-only replacement proving named routes bind at transition time."
+  [{:keys [feature]}]
+  (workflow/workflow
+   (str "Repointed proposal: " feature)
+   {:params {:feature (workflow/param :required true)}
+    :attributes {"devflow/stage" "proposal"
+                 "devflow/feature" feature}}
+   (workflow/step :replacement "Use replacement proposal route" :self)))
+
+(deftest devflow-module-routes-repoint-live-and-delete-by-omission
+  ;; Replacing a contribution changes only the next named transition; poured
+  ;; molecules stay as historical graph state.
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "route-repoint" (devflow/intake-workflow {:feature "route-repoint"})
+                       {:feature "route-repoint"})
+      (workflow/choose! "route-repoint" :already-in-worktree)
+      (workflow/complete! "route-repoint")
+      (let [intake-root (:id (workflow/current-root "route-repoint"))]
+        (with-redefs [devflow/stage-workflows
+                      (assoc devflow/stage-workflows :proposal
+                             'ct.spools.devflow-test/repointed-proposal-workflow)]
+          (publish-devflow-routes! rt))
+        (is (= ["Use replacement proposal route"]
+               (mapv :title (:ready (workflow/choose! "route-repoint" :proposal-ready))))
+            "the current constructor is resolved when the route is taken")
+        (is (= "closed" (:state (weaver/show rt intake-root)))
+            "the poured intake stage was not rewritten")
+        (is (= "Repointed proposal: route-repoint"
+               (:title (workflow/current-root "route-repoint")))))
+      ;; A complete replacement that omits :proposal removes it and leaves the
+      ;; failed transition resumable with the missing-name registry diagnostic.
+      (workflow/start! "route-deletion" (devflow/intake-workflow {:feature "route-deletion"})
+                       {:feature "route-deletion"})
+      (workflow/choose! "route-deletion" :already-in-worktree)
+      (workflow/complete! "route-deletion")
+      (with-redefs [devflow/stage-workflows (dissoc devflow/stage-workflows :proposal)]
+        (publish-devflow-routes! rt))
+      (let [checkpoint (:id (workflow/ready-step "route-deletion"))
+            data (try
+                   (workflow/choose! "route-deletion" :proposal-ready)
+                   (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+        (is (= :proposal (:name data)))
+        (is (not (contains? (set (:registered data)) :proposal)))
+        (is (= checkpoint (:id (workflow/ready-step "route-deletion")))
+            "omitted-route failure leaves the active checkpoint resumable")))))
 
 (deftest production-return-coverage-is-derived-from-devflow-provenance
   (with-runtime

@@ -4,27 +4,20 @@
 (def runtime (current/runtime))
 
 (runtime/sync! runtime)
-(runtime/use! runtime :skein/spools-batteries
-  {:ns 'skein.spools.batteries
-   :call 'skein.spools.batteries/activate!})
 
-;; Board peering (kanban.md "Peering"): guild first, kanban second, peering
-;; last — install-peering! fails loudly unless both predecessors registered.
-(runtime/use! runtime :guild
-  {:ns 'skein.spools.guild
-   :spools ['skein.spools/guild]
-   :call 'skein.spools.guild/install!
+;; Devflow is a module so its named workflow routes are published as one
+;; owner-complete contribution. Keep workflow first: it declares the route kind.
+(runtime/module! runtime :workflow
+  {:ns 'skein.spools.workflow
+   :spools ['skein.spools/workflow]
+   :contribute 'skein.spools.workflow/contribute
+   :reconcile 'skein.spools.workflow/reconcile
    :required? true})
 
-(runtime/use! runtime :kanban
-  {:ns 'ct.spools.kanban
-   :spools ['codethread/kanban]
-   :call 'ct.spools.kanban/install!
-   :required? true})
-
-(runtime/use! runtime :kanban/peering
-  {:ns 'ct.spools.kanban
-   :spools ['codethread/kanban 'skein.spools/guild]
-   :after [:guild :kanban]
-   :call 'ct.spools.kanban/install-peering!
+(runtime/module! runtime :devflow
+  {:ns 'ct.spools.devflow
+   :spools ['codethread/devflow]
+   :after [:workflow]
+   :contribute 'ct.spools.devflow/contribute
+   :reconcile 'ct.spools.devflow/reconcile
    :required? true})

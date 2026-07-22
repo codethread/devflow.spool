@@ -242,11 +242,12 @@ trusted resolution:
 - `stage-workflows` is the map of stable routing names to stage constructors:
   `:intake`, `:proposal`, `:spec-plan`, `:route-after-plan`, `:tasks`,
   `:run-afk-loop`, `:direct-implementation`, `:agent-review`, and `:abort`.
-  Forward `:next` choices reference these keyword names. `register-workflows!`
-  registers each with the engine's weaver-lifetime registry
-  (`skein.spools.workflow/register-workflow!`); it runs on namespace load and
-  from `install!`, so a startup or reload re-points every in-flight run's named
-  routes (workflow.md §5). Revision loops need no registry entry — they use
+  Forward `:next` choices reference these keyword names. `contribute` publishes
+  them as devflow's complete module-owner contribution to the engine's
+  weaver-lifetime registry. A module refresh re-points an in-flight run's next
+  named route at the current constructor; already poured stages remain history.
+  Omitted routes are removed by owner-complete replacement. Revision loops need
+  no registry entry — they use
   `:revise` (§3).
 - `(workflows)` returns `workflow-registry` — `stage-workflows` plus `:cycle`
   (`devflow-cycle`, the ordered composable stage list).
@@ -256,8 +257,9 @@ trusted resolution:
   and `:squash-run`.
 - `(install!)` returns `{:installed true :namespace 'ct.spools.devflow
   :dependency-sentinel "devflow-spool" :commands command-registry
-  :workflows workflow-registry :registered <map>}`, where `:registered` is the
-  engine registration result. `:dependency-sentinel` is produced through this
+  :workflows workflow-registry}` for eager compatibility. Supported workspace
+  configuration uses `contribute`/`reconcile` through `runtime/module!`; that
+  is the sole route-publication path. `:dependency-sentinel` is produced through this
   spool's declared `camel-snake-kebab` Maven dependency so runtime validation can
   observe that approved spool dependencies were resolved.
 

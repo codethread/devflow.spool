@@ -69,21 +69,26 @@ from. From trusted `init.clj` or REPL code:
 (runtime/sync! runtime)
 
 ;; workflow is an approved spool root, not base-classpath code: guard the
-;; activation on its coordinate so a missing/unsynced approval fails loudly.
-(runtime/use! runtime
+;; module on its coordinate so a missing/unsynced approval fails loudly.
+(runtime/module! runtime
   :workflow
   {:ns 'skein.spools.workflow
    :spools ['skein.spools/workflow]
+   :contribute 'skein.spools.workflow/contribute
+   :reconcile 'skein.spools.workflow/reconcile
    :required? true})
 
-(runtime/use! runtime
+(runtime/module! runtime
   :devflow
   {:spools ['codethread/devflow]
    :ns 'ct.spools.devflow
-   :call 'ct.spools.devflow/install!
+   :contribute 'ct.spools.devflow/contribute
+   :reconcile 'ct.spools.devflow/reconcile
    :after [:workflow]
    :required? true})
 ```
 
-Keep the `:workflow` activation before `:devflow` and keep `:after [:workflow]`
-so missing or failed prerequisites are explicit.
+Keep the `:workflow` module before `:devflow` and keep `:after [:workflow]`
+so missing or failed prerequisites are explicit. A module refresh publishes
+devflow's routes as a complete owner contribution: omissions remove routes,
+while an in-flight named transition resolves the current constructor when taken.
