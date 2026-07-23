@@ -1,5 +1,5 @@
-{:spools {skein.spools/guild {:local/root "../../skein-src/spools/guild"}
-          skein.spools/workflow {:local/root "../../skein-src/spools/workflow"}
+{:spools {skein.spools/guild {:skein/source-root "spools/guild"}
+          skein.spools/workflow {:skein/source-root "spools/workflow"}
           ;; dev world for this repo: devflow loads from the enclosing checkout
           codethread/devflow {:local/root ".."}
           codethread/kanban {:git/url "https://github.com/codethread/kanban.spool.git"
