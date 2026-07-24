@@ -2,46 +2,34 @@
   "Tests for the ct.spools.devflow lifecycle spool: stage workflows,
   decision-point checkpoints, revision loops, and the small operational
   loop layered over skein.spools.workflow runs."
-  (:require [clojure.set :as set]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow.guidance :as guidance]
-            [skein.api.registry.alpha :as registry]
             [skein.api.runtime.alpha :as runtime]
             [skein.spools.workflow :as workflow]
-            [skein.spools.workflow.internal.registry :as workflow-registry]
             [skein.api.weaver.alpha :as weaver]
             [skein.test.alpha :as t]
             [skein.core.weaver.runtime :as weaver-runtime]))
 
-(defn- return-case-leaves [operation context return-case]
-  (if (and (map? return-case) (contains? return-case :stream))
-    (set (map (fn [channel] [operation (assoc context :channel channel)]) [:emits :result]))
-    #{[operation context]}))
-
-(defn- op-return-leaves [{:keys [name returns]}]
-  (if (and (map? returns) (contains? returns :subcommands))
-    (into #{} (mapcat (fn [[subcommand return-case]]
-                        (return-case-leaves name {:subcommand subcommand} return-case)))
-          (:subcommands returns))
-    (return-case-leaves name {} returns)))
-
 (defn- publish-devflow-routes!
-  "Publish the same complete owner partition the module refresh kernel receives.
+  "Declare the devflow module and publish its current route contribution.
 
-  The test world exercises the declaration at the workflow kind boundary; the
-  production module lifecycle supplies owner identity and performs this replace
-  atomically across every contributed kind."
+  Repeated calls exercise the production replacement semantics: the refresh
+  kernel re-invokes `contribute`, replaces devflow's whole owner partition, and
+  removes any route omitted from `stage-workflows` by omission. Image mode is
+  honest here because this suite's own require of `ct.spools.devflow` loads the
+  namespace. Throws with the refresh result unless the module applied."
   [rt]
-  (registry/replace-owner!
-   (workflow-registry/registry-handle rt)
-   workflow/constructor-kind
-   :ct.spools/devflow
-   {:layer :workspace
-    :entries (get (devflow/contribute {:runtime rt}) workflow/constructor-kind)
-    :overrides #{}}))
+  (let [result (runtime/module! rt :devflow
+                                (assoc devflow/module
+                                       :load :image
+                                       :after [:workflow]))
+        status (get-in result [:modules :devflow :status])]
+    (when-not (contains? #{:applied :unchanged} status)
+      (throw (ex-info "devflow module activation failed"
+                      {:module/key :devflow :module/status status :result result})))))
 
 (defn- activate-workflow!
   "Activate the workflow spool module on `rt` from the loaded JVM image.
@@ -125,22 +113,8 @@
         (is (= checkpoint (:id (workflow/ready-step "route-deletion")))
             "omitted-route failure leaves the active checkpoint resumable")))))
 
-(deftest production-return-coverage-is-derived-from-devflow-provenance
-  (with-runtime
-    (fn [rt _]
-      (devflow/install!)
-      (let [entries (filterv #(= 'ct.spools.devflow (:provenance %)) (weaver/ops rt))
-            missing (filterv #(not (contains? % :returns)) entries)
-            required (into #{} (mapcat op-return-leaves) (remove #(not (contains? % :returns)) entries))
-            checked #{}]
-        (is (empty? missing) (str "production ops missing :returns: " (mapv :name missing)))
-        (is (empty? (set/difference required checked)))))))
-
 (deftest devflow-maven-dependency-is-observable
-  (is (= "devflow-spool" (devflow/dependency-sentinel)))
-  (with-runtime
-    (fn [_ _]
-      (is (= "devflow-spool" (:dependency-sentinel (devflow/install!)))))))
+  (is (= "devflow-spool" (devflow/dependency-sentinel))))
 
 (deftest devflow-proposal-revise-loops-back-through-the-proposal-stage
   (with-runtime

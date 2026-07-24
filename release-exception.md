@@ -1,13 +1,13 @@
-# Owner-scoped live refresh release exception
+# Spool installer retirement release exception
 
-This record prepares `v3`. It is not a tag or a publication instruction.
+This record prepares `v5`. It is not a tag or a publication instruction.
 
-- Previous marker: lightweight `v2`; immutable commit `1e65e1bc5ce43cbea462a33f51b24b669928ef4b` (the peeled value is the same).
-- Proposed marker: annotated `v3`.
-- Affected root and names: `codethread/devflow`; route publication uses `ct.spools.devflow/contribute` and `ct.spools.devflow/reconcile`. The removed legacy helper is `ct.spools.devflow/register-workflows!`.
-- Required Skein range: the owner-scoped live-refresh candidate from `b8be0c8` through `91bec8ac0caf1cb21bf1119d4b253d4601159ecb` (the latter is the release-preparation baseline).
-- Known consumer: this Skein repository only. Its current immutable old pin remains `v2` at the commit above until human approval changes it.
-- Compatibility alarm: `bin/compat-alarm v2` is expected to fail at archived `ct.spools.devflow-test` because it resolves the removed `devflow/register-workflows!`. This is the approved lifecycle break. The alarm now mirrors the owner suite's Skein and workflow local roots; no unrelated failure is accepted.
-- Decision: no compatibility shim. A shim would preserve the retired route-registration path rather than requiring explicit module publication.
+- Previous marker: annotated `v4`; immutable peeled commit `7135d8c296ec712ff48ec8cc48c5ff0e058e2088`.
+- Proposed marker: annotated `v5`.
+- Affected root and names: `codethread/devflow`; the removed name is `ct.spools.devflow/install!`, the no-op pre-module metadata shim. Activation is `contribute`/`reconcile` via the module lifecycle; the newly exported `ct.spools.devflow/module` datum is the authored declaration source (ADR-003.P7 in skein-src's devflow record).
+- Authorization: TEN-000@1 removal recorded by skein-src ADR-003.P5 (epic waq0l, feature 9snqu) — retiring `install!` everywhere so the module lifecycle is the one activation path.
+- Known consumer: the skein-src repository only. Its current immutable old pin remains `v4` at the peeled commit above until the epic's consumer-cutover feature bumps it.
+- Compatibility alarm: `bin/compat-alarm v4` is expected to fail compiling archived `ct.spools.devflow-test` (`No such var: devflow/install!` at its line 131) because the archived suite calls the removed shim. This is the approved lifecycle break; no unrelated failure is accepted.
+- Decision: no compatibility shim. The shim WAS the compatibility layer — its docstring already redirected to `contribute`/`reconcile`, and keeping it would preserve the retired activation path this release exists to delete.
 
-Rollback is a consumer action: retain or restore the old `v2` pin and commit. Do not create or move an old tag.
+Rollback is a consumer action: retain or restore the old `v4` pin and peeled SHA. Do not move or replace the old tag.

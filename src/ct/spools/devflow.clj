@@ -787,6 +787,16 @@
   [_ctx]
   {:reconciled :devflow})
 
+(def module
+  "Base module declaration datum for the devflow spool (ADR-003.P7).
+
+  The authored `:ns`/`:contribute`/`:reconcile` triple every consumer starts
+  from: a consuming world assocs its `:spools` guards onto it, and bare-test
+  fixtures assoc `:load :image`. Every variant is `runtime/module!` input."
+  {:ns 'ct.spools.devflow
+   :contribute 'ct.spools.devflow/contribute
+   :reconcile 'ct.spools.devflow/reconcile})
+
 (def command-registry
   "Agent-facing commands exposed by the devflow spool."
   {:start 'ct.spools.devflow/start!
@@ -811,16 +821,3 @@
   "Return agent-facing devflow commands by stable key."
   []
   command-registry)
-
-(defn install!
-  "Return installation metadata for the devflow workflow spool.
-
-  This eager compatibility entry point does not publish routes. Configure
-  devflow as a runtime module with `contribute` and `reconcile` so route
-  ownership is complete and refresh can remove omitted declarations."
-  []
-  {:installed true
-   :namespace 'ct.spools.devflow
-   :dependency-sentinel (dependency-sentinel)
-   :commands command-registry
-   :workflows workflow-registry})
