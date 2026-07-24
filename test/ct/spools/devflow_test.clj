@@ -2,16 +2,40 @@
   "Tests for the ct.spools.devflow lifecycle spool: stage workflows,
   decision-point checkpoints, revision loops, and the small operational
   loop layered over skein.spools.workflow runs."
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.java.shell :as shell]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow.guidance :as guidance]
             [skein.api.runtime.alpha :as runtime]
+            [skein.api.spool.alpha :as spool]
             [skein.spools.workflow :as workflow]
             [skein.api.weaver.alpha :as weaver]
             [skein.test.alpha :as t]
             [skein.core.weaver.runtime :as weaver-runtime]))
+
+(deftest tested-skein-checkout-contains-def-spool-phase-a
+  (let [root (str (t/spool-checkout-root "skein/api/spool/alpha.clj"))
+        floor "343f886880092bc38ed3e0522eca2d95a7cf04bc"
+        head-result (shell/sh "git" "-C" root "rev-parse" "HEAD")
+        head (str/trim (:out head-result))
+        ancestry-result (shell/sh "git" "-C" root "merge-base" "--is-ancestor"
+                                  floor head)]
+    (is (zero? (:exit head-result))
+        (str "cannot resolve tested Skein HEAD at " root ": "
+             (str/trim (:err head-result))))
+    (is (zero? (:exit ancestry-result))
+        (str "tested Skein HEAD " head " must contain floor " floor
+             "; git error: " (str/trim (:err ancestry-result))))))
+
+(deftest devflow-spool-declares-the-exact-public-entry-points
+  (is (= {:contribute 'contribute
+          :reconcile 'reconcile}
+         devflow/spool))
+  (is (not (contains? devflow/spool :ns)))
+  (is (s/valid? ::spool/spool devflow/spool)
+      (s/explain-str ::spool/spool devflow/spool)))
 
 (defn- publish-devflow-routes!
   "Declare the devflow module and publish its current route contribution.
@@ -20,12 +44,13 @@
   kernel re-invokes `contribute`, replaces devflow's whole owner partition, and
   removes any route omitted from `stage-workflows` by omission. Image mode is
   honest here because this suite's own require of `ct.spools.devflow` loads the
-  namespace. Throws with the refresh result unless the module applied."
+  namespace, and the coordinator resolves the entry points from that image's
+  `spool` var. Throws with the refresh result unless the module applied."
   [rt]
   (let [result (runtime/module! rt :devflow
-                                (assoc devflow/module
-                                       :load :image
-                                       :after [:workflow]))
+                                {:ns 'ct.spools.devflow
+                                 :load :image
+                                 :after [:workflow]})
         status (get-in result [:modules :devflow :status])]
     (when-not (contains? #{:applied :unchanged} status)
       (throw (ex-info "devflow module activation failed"
@@ -36,13 +61,12 @@
 
   The suite's own require of `skein.spools.workflow` guarantees the namespace
   is image-loaded, so `:load :image` skips the source sync a bare test world
-  cannot perform. Throws with the refresh result unless the module applied."
+  cannot perform and the coordinator resolves the entry points from that
+  image's `spool` var. Throws with the refresh result unless the module applied."
   [rt]
   (let [result (runtime/module! rt :workflow
                                 {:ns 'skein.spools.workflow
-                                 :load :image
-                                 :contribute 'skein.spools.workflow/contribute
-                                 :reconcile 'skein.spools.workflow/reconcile})
+                                 :load :image})
         status (get-in result [:modules :workflow :status])]
     (when-not (contains? #{:applied :unchanged} status)
       (throw (ex-info "workflow module activation failed"

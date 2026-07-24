@@ -9,22 +9,17 @@
 (runtime/module! runtime :workflow
   {:ns 'skein.spools.workflow
    :spools ['skein.spools/workflow]
-   :contribute 'skein.spools.workflow/contribute
-   :reconcile 'skein.spools.workflow/reconcile
    :required? true})
 
 (runtime/module! runtime :devflow
   {:ns 'ct.spools.devflow
    :spools ['codethread/devflow]
    :after [:workflow]
-   :contribute 'ct.spools.devflow/contribute
-   :reconcile 'ct.spools.devflow/reconcile
    :required? true})
 
-;; kanban board for this repo's own coordination cards
+;; kanban board for this repo's own coordination cards. The approved v10
+;; candidate exports `spool`; publish its v10 marker before using this config.
 (runtime/module! runtime :skein/spools-kanban
   {:ns 'ct.spools.kanban
    :spools ['codethread/kanban]
-   :contribute 'ct.spools.kanban/contribute
-   :reconcile 'ct.spools.kanban/reconcile
    :required? true})

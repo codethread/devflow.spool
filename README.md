@@ -4,9 +4,10 @@
 [Skein](https://github.com/codethread/skein) as a git-distributed spool.
 
 It is trusted Clojure code for a live Skein weaver. The spool has no
-`spool.edn` manifest; consumption is the manifest-free contract: approve source
-in `spools.edn` or `spools.local.edn`, then declare its module explicitly from
-trusted startup or REPL code.
+implicit installation contract: approve source in the consumer's `spools.edn`
+or `spools.local.edn`, then declare its module explicitly from trusted startup
+or REPL code. The tracked singular `spool.edn` is advisory producer metadata
+for authoring tools; the Skein core loader does not read it.
 
 Full workflow documentation lives in [devflow.md](./devflow.md). The spool is
 self-contained: artifact authoring knowledge (proposal/RFC/spec/plan/task
@@ -15,7 +16,20 @@ by the `guidance` command — no external devflow skill is required.
 
 ## Prerequisites
 
-- A Skein checkout. `skein.spools.workflow` is one of Skein's in-repo reference
+- A Skein checkout whose HEAD is
+  `343f886880092bc38ed3e0522eca2d95a7cf04bc` or a descendant of it. That commit
+  taught the refresh coordinator to resolve a spool's entry points from its
+  `spool` var. Verify a checkout with
+  `git -C /path/to/skein merge-base --is-ancestor 343f886880092bc38ed3e0522eca2d95a7cf04bc HEAD`.
+  No Skein release marker contains that commit yet, so the advisory `spool.edn`
+  declares no `:skein/min` floor. The requirement is carried by this line and
+  by `release-exception.md`.
+- Older Skein can accept the source-mode declaration below and report the
+  module applied while publishing an empty contribution. Devflow's routes are
+  then absent. After activation, inspect `(runtime/status runtime)` for
+  devflow's resolved entry points and contribution, and confirm the expected
+  route keys in `(skein.spools.workflow/workflows)`.
+- `skein.spools.workflow` is one of Skein's in-repo reference
   spools, living in a spool root (`<skein>/spools/workflow`) **off** the base
   classpath — you approve that root in `spools.edn` like any other spool.
 - A live weaver configured from a workspace you control.
@@ -50,9 +64,11 @@ Local development overlay example (`spools.local.edn`, usually gitignored):
 {:spools {codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
 ```
 
-Do not copy a `spool.edn`; this repository intentionally does not ship one.
-Metadata, prerequisites, and activation order are documented here rather than
-encoded in a manifest.
+Do not use the producer's singular `spool.edn` as consumer approval. Copy and
+review the full family entry above in the consumer's plural `spools.edn`.
+Prerequisites and activation order remain explicit here. Once a compatible
+Skein release marker exists, the producer floor belongs in `spool.edn` as
+`:skein/min`.
 
 ## Activation
 
@@ -71,19 +87,20 @@ code:
   :workflow
   {:ns 'skein.spools.workflow
    :spools ['skein.spools/workflow]
-   :contribute 'skein.spools.workflow/contribute
-   :reconcile 'skein.spools.workflow/reconcile
    :required? true})
 
 (runtime/module! runtime
   :devflow
   {:spools ['codethread/devflow]
    :ns 'ct.spools.devflow
-   :contribute 'ct.spools.devflow/contribute
-   :reconcile 'ct.spools.devflow/reconcile
    :after [:workflow]
    :required? true})
 ```
+
+A declaration names a source target and world policy only. Both spools export a
+public `spool` var holding their `:contribute`/`:reconcile` symbols, and the
+refresh coordinator resolves it at every module evaluation, so no consumer
+mirrors the pair. Devflow's is `ct.spools.devflow/spool`.
 
 Keep the `:workflow` module before `:devflow` and keep `:after [:workflow]`
 so missing or failed prerequisites are explicit. A module refresh publishes

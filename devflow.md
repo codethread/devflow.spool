@@ -255,10 +255,12 @@ trusted resolution:
   `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`,
   `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:run-history`,
   and `:squash-run`.
-- Workspace configuration activates the spool with `contribute`/`reconcile`
-  through `runtime/module!` — the sole route-publication path; the exported
-  `module` datum is the authored `:ns`/`:contribute`/`:reconcile` triple a
-  consumer starts from.
+- `spool` is the grep-friendly public entry-point declaration. Its exact value
+  is `{:contribute 'contribute :reconcile 'reconcile}`; it has no `:ns`.
+- Workspace configuration activates the spool through `runtime/module!`, the
+  sole route-publication path. The declaration names a source target and world
+  policy only. The refresh coordinator resolves the exported `spool` var at
+  every module evaluation that needs a convention field.
 - `(dependency-sentinel)` returns `"devflow-spool"`, produced through this
   spool's declared `camel-snake-kebab` Maven dependency so runtime validation can
   observe that approved spool dependencies were resolved.

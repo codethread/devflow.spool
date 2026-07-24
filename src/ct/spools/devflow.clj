@@ -787,15 +787,18 @@
   [_ctx]
   {:reconciled :devflow})
 
-(def module
-  "Base module declaration datum for the devflow spool (ADR-003.P7).
+(def spool
+  "Entry-point declaration for the devflow spool (ADR-004 `def spool`
+  convention).
 
-  The authored `:ns`/`:contribute`/`:reconcile` triple every consumer starts
-  from: a consuming world assocs its `:spools` guards onto it, and bare-test
-  fixtures assoc `:load :image`. Every variant is `runtime/module!` input."
-  {:ns 'ct.spools.devflow
-   :contribute 'ct.spools.devflow/contribute
-   :reconcile 'ct.spools.devflow/reconcile})
+  The refresh coordinator resolves `:contribute`/`:reconcile` from this public
+  var at every module evaluation that needs a convention field, so a consumer
+  declares only a source target and world policy
+  (`{:ns 'ct.spools.devflow :spools ['codethread/devflow]}`) and never mirrors
+  the pair. Unqualified symbols resolve against this namespace; fn values are
+  rejected (ADR-002.O1)."
+  {:contribute 'contribute
+   :reconcile 'reconcile})
 
 (def command-registry
   "Agent-facing commands exposed by the devflow spool."

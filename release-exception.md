@@ -1,13 +1,15 @@
-# Spool installer retirement release exception
+# Def-spool convention release exception
 
-This record prepares `v5`. It is not a tag or a publication instruction.
+This record prepares `v6`. It is not a tag or a publication instruction.
 
-- Previous marker: annotated `v4`; immutable peeled commit `7135d8c296ec712ff48ec8cc48c5ff0e058e2088`.
-- Proposed marker: annotated `v5`.
-- Affected root and names: `codethread/devflow`; the removed name is `ct.spools.devflow/install!`, the no-op pre-module metadata shim. Activation is `contribute`/`reconcile` via the module lifecycle; the newly exported `ct.spools.devflow/module` datum is the authored declaration source (ADR-003.P7 in skein-src's devflow record).
-- Authorization: TEN-000@1 removal recorded by skein-src ADR-003.P5 (epic waq0l, feature 9snqu) — retiring `install!` everywhere so the module lifecycle is the one activation path.
-- Known consumer: the skein-src repository only. Its current immutable old pin remains `v4` at the peeled commit above until the epic's consumer-cutover feature bumps it.
-- Compatibility alarm: `bin/compat-alarm v4` is expected to fail compiling archived `ct.spools.devflow-test` (`No such var: devflow/install!` at its line 131) because the archived suite calls the removed shim. This is the approved lifecycle break; no unrelated failure is accepted.
-- Decision: no compatibility shim. The shim WAS the compatibility layer — its docstring already redirected to `contribute`/`reconcile`, and keeping it would preserve the retired activation path this release exists to delete.
+- Previous marker: annotated `v5`; immutable peeled commit `98ecdd8a2fe15e4deebc83ec94596337162b46a1`.
+- Proposed marker: annotated `v6`.
+- Affected root and names: `codethread/devflow`. The removed name is the `ct.spools.devflow/module` declaration datum; its breaking successor is `ct.spools.devflow/spool`, which holds only the `:contribute`/`:reconcile` entry-point symbols. The `:ns` key is gone: the namespace is implicit in where the var lives, and the consumer's `runtime/module!` call still names the source target. A consumer that read `module` and assoc'd its own world policy onto it now writes that declaration itself.
+- Skein floor: the tested Skein checkout's HEAD must be `343f886880092bc38ed3e0522eca2d95a7cf04bc` or a descendant of it. That Phase A merge is where the refresh coordinator began resolving a module's entry points from the spool namespace's `spool` var. Check ancestry with `git -C /path/to/skein merge-base --is-ancestor 343f886880092bc38ed3e0522eca2d95a7cf04bc HEAD`. No Skein release marker contains that commit, so `:skein/min` cannot express the requirement and this release adds none. The requirement is carried by this record and by the README prerequisite until a Skein marker can state it. An older Skein can accept the source-mode declaration and report it applied while publishing an empty contribution, leaving devflow's routes absent. After activation, verify devflow's resolved entry points and contribution in `runtime/status` and the expected route keys in `skein.spools.workflow/workflows`.
+- Authorization: TEN-000@1 under skein-src ADR-004, which supersedes the ADR-003.P7 exported-datum pattern and schedules this sibling conversion as Phase B (epic `uwnzl`).
+- Known consumer: the skein-src repository only. Its current immutable old pin remains `v5` at the peeled commit above until the epic's consumer-cutover phase bumps it.
+- Compatibility alarm: `bin/compat-alarm v5` fails compiling the archived `ct.spools.devflow-test` (`No such var: devflow/module` at its line 26) because that suite builds its module fixture by assoc'ing onto the removed datum. This is the approved break; no unrelated failure is accepted.
+- Decision: no compatibility shim. Keeping `module` beside `spool` would leave two authored declarations for one module, which is the duplication ADR-004 exists to delete, and a consumer could not tell which one the coordinator honoured.
+- Cross-phase config: `.skein/spools.edn` records the reviewed kanban v10 candidate at peeled commit `14390f448cac93fb045d36bcecaf49f11f0a4de2`, and `.skein/init.clj` relies on its public `spool` var. Publish the annotated `v10` marker first, peeling to that exact commit. Until then, the consumer file's future ordered tag cannot pass normal tag/SHA resolution; do not start this repository's config from the candidate commit.
 
-Rollback is a consumer action: retain or restore the old `v4` pin and peeled SHA. Do not move or replace the old tag.
+Rollback is a consumer action: retain or restore the old `v5` pin and peeled SHA. Do not move or replace the old tag.

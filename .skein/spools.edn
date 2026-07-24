@@ -3,6 +3,6 @@
           ;; dev world for this repo: devflow loads from the enclosing checkout
           codethread/devflow {:local/root ".."}
           codethread/kanban {:git/url "https://github.com/codethread/kanban.spool.git"
-                             :git/sha "46c4101befafeb2f5b3958a83c0677abc2608eda"
-                             :git/tag "v9"
+                             :git/sha "14390f448cac93fb045d36bcecaf49f11f0a4de2"
+                             :git/tag "v10"
                              :roots {codethread/kanban "."}}}}
