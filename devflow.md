@@ -255,11 +255,11 @@ trusted resolution:
   `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`,
   `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:run-history`,
   and `:squash-run`.
-- `(install!)` returns `{:installed true :namespace 'ct.spools.devflow
-  :dependency-sentinel "devflow-spool" :commands command-registry
-  :workflows workflow-registry}` for eager compatibility. Supported workspace
-  configuration uses `contribute`/`reconcile` through `runtime/module!`; that
-  is the sole route-publication path. `:dependency-sentinel` is produced through this
+- Workspace configuration activates the spool with `contribute`/`reconcile`
+  through `runtime/module!` — the sole route-publication path; the exported
+  `module` datum is the authored `:ns`/`:contribute`/`:reconcile` triple a
+  consumer starts from.
+- `(dependency-sentinel)` returns `"devflow-spool"`, produced through this
   spool's declared `camel-snake-kebab` Maven dependency so runtime validation can
   observe that approved spool dependencies were resolved.
 
