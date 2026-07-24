@@ -9,6 +9,7 @@
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow.guidance :as guidance]
             [skein.api.registry.alpha :as registry]
+            [skein.api.runtime.alpha :as runtime]
             [skein.spools.workflow :as workflow]
             [skein.spools.workflow.internal.registry :as workflow-registry]
             [skein.api.weaver.alpha :as weaver]
@@ -42,19 +43,37 @@
     :entries (get (devflow/contribute {:runtime rt}) workflow/constructor-kind)
     :overrides #{}}))
 
+(defn- activate-workflow!
+  "Activate the workflow spool module on `rt` from the loaded JVM image.
+
+  The suite's own require of `skein.spools.workflow` guarantees the namespace
+  is image-loaded, so `:load :image` skips the source sync a bare test world
+  cannot perform. Throws with the refresh result unless the module applied."
+  [rt]
+  (let [result (runtime/module! rt :workflow
+                                {:ns 'skein.spools.workflow
+                                 :load :image
+                                 :contribute 'skein.spools.workflow/contribute
+                                 :reconcile 'skein.spools.workflow/reconcile})
+        status (get-in result [:modules :workflow :status])]
+    (when-not (contains? #{:applied :unchanged} status)
+      (throw (ex-info "workflow module activation failed"
+                      {:module/key :workflow :module/status status :result result})))))
+
 (defn with-runtime
   "Run f in a disposable skein.test.alpha weaver world.
 
   The devflow assertions call the same Clojure APIs a trusted REPL/config would
   call, but the runtime lifecycle and isolation come from the public author test
-  helper rather than repo-local fixtures. Registers the devflow stage workflows
-  in the world's runtime first, as `install!` does at startup, so named `:next`
-  routes resolve against the runtime-owned workflow registry."
+  helper rather than repo-local fixtures. Activates the workflow module in the
+  world's runtime first, as the consuming workspace's module declarations do at
+  startup, so named `:next` routes resolve against the runtime-owned workflow
+  registry."
   [f]
   (t/with-weaver-world [ctx {:storage :sqlite-memory}]
     (weaver-runtime/with-runtime-binding (:runtime ctx)
       (fn []
-        (workflow/install!)
+        (activate-workflow! (:runtime ctx))
         (publish-devflow-routes! (:runtime ctx))
         (f (:runtime ctx) (:config-dir ctx))))))
 
