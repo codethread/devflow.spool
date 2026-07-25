@@ -360,18 +360,18 @@
     (fn [rt _]
       (devflow/start! "route-happy" {:worktree-check :already-in-worktree-ok})
       (devflow/advance! "route-happy" {:choice :already-in-worktree})
-      (devflow/advance! "route-happy" {:notes "brief captured"})
+      (devflow/advance! "route-happy")
       (devflow/advance! "route-happy" {:choice :proposal-ready})
-      (dotimes [_ 3] (devflow/advance! "route-happy" {:notes "proposal work"}))
+      (dotimes [_ 3] (devflow/advance! "route-happy"))
       (devflow/advance! "route-happy" {:choice :approved})
-      (dotimes [_ 3] (devflow/advance! "route-happy" {:notes "spec-plan work"}))
+      (dotimes [_ 3] (devflow/advance! "route-happy"))
       (let [route (first (:ready (devflow/advance! "route-happy" {:choice :approved})))]
         (is (= "route-after-plan" (:stage route)))
         (is (= "route-after-plan" (:checkpoint route))))
       (let [implementation (first (:ready (devflow/advance! "route-happy" {:choice :direct-implementation})))]
         (is (= "implementation" (:stage implementation)))
         (is (= "devflow.implementation.direct" (:action-ref implementation))))
-      (dotimes [_ 3] (devflow/advance! "route-happy" {:notes "implementation work"}))
+      (dotimes [_ 3] (devflow/advance! "route-happy"))
       (is (= {:ready [] :done true}
              (devflow/advance! "route-happy" {:choice :accepted}))))))
 

@@ -626,8 +626,9 @@
   `{:ready [step-view ...] :done boolean}` result shape, its ready views carrying
   the devflow `:stage` (shape: `:ct.spools.devflow/ready`).
 
-  opts may include `:step`, `:notes`, and `:attributes`; see
-  `skein.spools.workflow/complete!`."
+  opts may include `:step` and `:attributes`; see
+  `skein.spools.workflow/complete!`. The engine records no outcome prose, so a
+  stage's own outcome vocabulary rides `:attributes`."
   ([feature]
    (complete! feature {}))
   ([feature opts]
@@ -660,8 +661,7 @@
 
   Delegates to `skein.spools.workflow/advance!` and adds the active devflow
   `:stage` to returned ready step views (shape: `:ct.spools.devflow/ready`).
-  opts may include `:choice`, `:input`, `:notes`, `:step`, `:by`, and
-  `:attributes`."
+  opts may include `:choice`, `:input`, `:step`, `:by`, and `:attributes`."
   ([feature]
    (advance! feature {}))
   ([feature opts]
