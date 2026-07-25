@@ -16,19 +16,8 @@ by the `guidance` command — no external devflow skill is required.
 
 ## Prerequisites
 
-- A Skein checkout whose HEAD is
-  `343f886880092bc38ed3e0522eca2d95a7cf04bc` or a descendant of it. That commit
-  taught the refresh coordinator to resolve a spool's entry points from its
-  `spool` var. Verify a checkout with
-  `git -C /path/to/skein merge-base --is-ancestor 343f886880092bc38ed3e0522eca2d95a7cf04bc HEAD`.
-  No Skein release marker contains that commit yet, so the advisory `spool.edn`
-  declares no `:skein/min` floor. The requirement is carried by this line and
-  by `release-exception.md`.
-- Older Skein can accept the source-mode declaration below and report the
-  module applied while publishing an empty contribution. Devflow's routes are
-  then absent. After activation, inspect `(runtime/status runtime)` for
-  devflow's resolved entry points and contribution, and confirm the expected
-  route keys in `(skein.spools.workflow/workflows)`.
+- A Skein checkout whose HEAD is `ae0888433f369dbd314ac7ab33d9d275748750f3` or a descendant. That commit includes static workflow definitions, whole-map `:param-spec` validation, and checkpoint `:input-spec` contracts. Verify a checkout with `git -C /path/to/skein merge-base --is-ancestor ae0888433f369dbd314ac7ab33d9d275748750f3 HEAD`.
+- No Skein release marker contains that commit yet, so the advisory `spool.edn` declares no `:skein/min` floor. The requirement is carried by this line and by `release-exception.md`.
 - `skein.spools.workflow` is one of Skein's in-repo reference
   spools, living in a spool root (`<skein>/spools/workflow`) **off** the base
   classpath — you approve that root in `spools.edn` like any other spool.
@@ -97,12 +86,6 @@ code:
    :required? true})
 ```
 
-A declaration names a source target and world policy only. Both spools export a
-public `spool` var holding their `:contribute`/`:reconcile` symbols, and the
-refresh coordinator resolves it at every module evaluation, so no consumer
-mirrors the pair. Devflow's is `ct.spools.devflow/spool`.
+A declaration names a source target and world policy only. Devflow contributes its `defworkflow` forms as it loads; it has no `spool`, `contribute`, or `reconcile` Var for a consumer to call or mirror.
 
-Keep the `:workflow` module before `:devflow` and keep `:after [:workflow]`
-so missing or failed prerequisites are explicit. A module refresh publishes
-devflow's routes as a complete owner contribution: omissions remove routes,
-while an in-flight named transition resolves the current constructor when taken.
+Keep the `:workflow` module before `:devflow` and keep `:after [:workflow]` so missing or failed prerequisites are explicit. Once active, devflow's eleven static definitions are discoverable data: run `strand workflow list` and `strand workflow show <name>` against the weaver to inspect their routes, defaults, parameter spec, and checkpoint contracts before starting a run.

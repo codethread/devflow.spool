@@ -1,25 +1,14 @@
 # Skein Devflow Spool
 
-`ct.spools.devflow` is an external git-distributed spool consumed by
-Skein workspaces with a sha-pinned `:git/url`+`:git/sha` coordinate. See
-[Skein's writing-shared-spools guide](https://github.com/codethread/skein/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
-for the distribution mechanism.
+`ct.spools.devflow` is an external git-distributed spool consumed by Skein workspaces with a sha-pinned `:git/url`+`:git/sha` coordinate. See [Skein's writing-shared-spools guide](https://github.com/codethread/skein/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution) for the distribution mechanism.
 
 ## 1. Overview
 
-`ct.spools.devflow` is the reference higher-level spool built on
-`skein.spools.workflow`. It encodes an opinionated feature-delivery lifecycle as
-ordinary workflow definitions plus thin convenience wrappers keyed by **feature
-name** — the feature name *is* the `workflow/run-id`, so there is no separate
-run handle to track.
+`ct.spools.devflow` is the reference higher-level spool built on `skein.spools.workflow`. It encodes an opinionated feature-delivery lifecycle as ordinary workflow definitions plus thin convenience wrappers keyed by **feature name** — the feature name *is* the `workflow/run-id`, so there is no separate run handle to track.
 
-Each lifecycle stage is a plain workflow definition (`intake-workflow`,
-`proposal-workflow`, …) that pours as its own molecule. Stages hand off to one
-another through checkpoint `:next` routing (see workflow.md §5): choosing a
-routed option closes the current stage's molecule and pours the next stage's
-under the same feature/run-id. The spool owns no engine semantics of its own —
-lifecycle, routing, revision loops, and `done?` all come from
-`skein.spools.workflow`.
+Each lifecycle stage is a named static `defworkflow` Var (`intake`, `proposal`, …) that pours as its own molecule. With devflow active, a caller can run `strand workflow list` and `strand workflow show <name>` against the weaver to inspect these definitions before use; the old opaque callable forms could not offer that surface. Stages hand off through checkpoint `:next` routing (see workflow.md §5): choosing a routed option closes the current stage's molecule and pours the next stage under the same feature/run-id. The spool owns no engine semantics of its own — lifecycle, routing, revision loops, and `done?` all come from `skein.spools.workflow`.
+
+A stage accepts one complete parameter map. The engine first merges the definition's defaults, then judges the resulting map against that stage's `:param-spec` before it pours anything. A checkpoint choice that needs input declares an `:input {:spec ... :doc ...}` contract, so `choose!` validates the whole choice-input map before it closes the checkpoint or routes onward.
 
 The spool also ships its own authoring knowledge base:
 `ct.spools.devflow.guidance` encodes what each artifact (proposal, specs,
@@ -58,21 +47,21 @@ start! ─▶ intake
                  abort    ─▶ abort
           route-after-plan
              :route-after-plan  (agent)
-                 task-breakdown         ─▶ task-breakdown
+                 task-breakdown         ─▶ tasks
                  direct-implementation  ─▶ direct-implementation
-          task-breakdown
+          tasks
              :human-signoff-tasks  (human)
                  approved ─▶ run-afk-loop
-                 revise   ─▶ task-breakdown (revision)
+                 revise   ─▶ tasks (revision)
                  abort    ─▶ abort
           run-afk-loop
-             no delegated task data:
-               :run-afk-loop step ─▶ (run auto-closes: done)
-             delegated task data:
+             :manual ─▶ run-afk-manual
+                 :run-afk-loop step ─▶ (run auto-closes: done)
+             :delegate ─▶ run-afk-delegated
                :task-<id> subagent gates (sequential, one per task)
                   ─▶ :human-acceptance-afk  (human)
                         accepted ─▶ (run auto-closes: done)
-                        revise   ─▶ run-afk-loop (revision)
+                        revise   ─▶ run-afk-delegated (revision)
                         abort    ─▶ abort
           direct-implementation
              :human-acceptance  (human)
@@ -85,22 +74,16 @@ start! ─▶ intake
 
 Notes:
 
-- **Two terminal paths** reach a done run without routing: `run-afk-loop`
-  (after the task queue is approved) and `direct-implementation` on `:accepted`.
-  The route-after-plan checkpoint chooses between them. In delegated AFK mode,
-  `run-afk-loop` first pours one sequential `workflow/gate "subagent"` per
-  approved task, then requires the `:human-acceptance-afk` human checkpoint. A
-  caller may pass optional `:delegate-preamble` text; devflow prepends it to each
-  delegated AFK prompt as data and remains policy-free.
+- **Two terminal paths** reach a done run without routing: `run-afk-manual` and `direct-implementation` on `:accepted`. The route-after-plan checkpoint chooses between AFK and direct implementation; the static `run-afk-loop` checkpoint then makes the AFK manual/delegated decision explicit. In delegated AFK mode, `run-afk-delegated` first pours one sequential `workflow/gate "subagent"` per approved task, then requires the `:human-acceptance-afk` human checkpoint. A caller may pass optional `:delegate-preamble` text; devflow prepends it to each delegated AFK prompt as data and remains policy-free.
 - **`:abort` is reachable from every `:human` checkpoint** — the intake
   worktree checkpoint and the four sign-off checkpoints. The two `:agent`
   checkpoints (`:discuss-scope`, `:route-after-plan`) offer no abort. Aborting
-  routes to `abort-workflow`, whose `:record-abort` step then closes the run.
+  routes to the static `abort` definition, whose `:record-abort` step then closes the run.
 - Every abort choice declares a **required `:reason` input** (workflow.md §5,
   D1.2), so `choose!` fails loudly before any mutation unless the aborting call
   passes it: `(choose! feature :abort {:reason "…"})`. The feature comes from
   context; the reason comes from the input and is recorded on the abort step.
-  Abort itself is routed by the registered name `:abort` (`abort-workflow`).
+  Abort itself is routed by the registered name `:abort` (`abort`).
 
 ## 3. Revision loops
 
@@ -119,30 +102,21 @@ merged authoritatively over context and choice input. There are no
 - **proposal** skips `:inspect-context` — orientation was done on the first
   pass, so the revision round is ready at `:write-proposal`.
 
-The `spec-plan`, `task-breakdown`, and `direct-implementation` stages carry a
+The `spec-plan`, `tasks`, and `direct-implementation` stages carry a
 `:revision` param too, but declare no condition on it, so their revision rounds
 re-run the whole stage.
 
-Start opts seeded into `workflow/context` by `start!` (see §4) survive every
-revision loop rather than resetting to defaults, because `:revise` merges its
-overrides over the carried-forward context.
+The caller's complete start parameter map is seeded into `workflow/context` by `start!` (see §4) and survives every revision loop rather than resetting to defaults, because `:revise` merges its overrides over the carried-forward context.
 
 `:revision` is stage-local: it is recorded as `workflow/stage-params` on the
 re-poured root, and a forward hand-off (`:proposal-ready`, `:approved`,
 route-after-plan's two choices) drops it from the continuation params in the
 engine (workflow.md §5), so a round approved after a revise never leaks
-`:revision true` into a downstream stage's context. Other start opts pass
-through untouched.
+`:revision true` into a downstream stage's context. Other start parameters pass through untouched.
 
 ## 4. Agent usage
 
-The wrappers key everything by feature name and pass opts straight through to
-the engine. `ready`/`ready-step` (and `choice-details`/`choice-detail`)
-return the same shapes as their `skein.spools.workflow` counterparts, with the
-current devflow `:stage` (and, on artifact-authoring steps, the `:guide` key
-for `guidance`) added to each ready step view; the run-mutating wrappers
-(`start!`, `complete!`, `choose!`, `advance!`) return the engine's
-`{:ready [step-view ...] :done boolean}` result.
+The wrappers key everything by feature name and pass their maps straight through to the engine. `ready`/`ready-step` (and `choice-details`/`choice-detail`) return the same shapes as their `skein.spools.workflow` counterparts, with the current devflow `:stage` (and, on artifact-authoring steps, the `:guide` key for `guidance`) added to each ready step view; the run-mutating wrappers (`start!`, `complete!`, `choose!`, `advance!`) return the engine's `{:ready [step-view ...] :done boolean}` result.
 
 Stage is devflow's own vocabulary, so the projections that emit it own the
 invariant: a view is never projected without one. Whenever a feature has ready
@@ -158,12 +132,12 @@ specs own devflow's added fields and leave the engine-inherited keys to
 
 | Wrapper | Signature | Notes |
 |---|---|---|
-| `start!` | `(feature)` / `(feature opts)` | Pours `intake-workflow` under `family "devflow"`. Coerces keyword `opts` values to strings and seeds them (plus `:feature`) into `workflow/context` so they survive revision loops. Returns `{:ready [...] :done boolean}`. |
+| `start!` | `(feature)` / `(feature params)` | Pours the registered `:intake` definition under `family "devflow"`. It merges intake defaults with the supplied complete param map, validates the result against `:ct.spools.devflow/intake-params`, and seeds it (plus `:feature`) into `workflow/context` for revision loops. Returns `{:ready [...] :done boolean}`. |
 | `ready` | `(feature)` | All ready step views for the feature (each carrying `:run-id`). |
 | `ready-step` | `(feature)` | The single ready step view; throws if ambiguous. |
-| `complete!` | `(feature)` / `(feature opts)` | Closes the current non-checkpoint step. `opts` (`:step`, `:notes`, `:attributes`, `:by`) pass through. Returns `{:ready [...] :done boolean}`. |
+| `complete!` | `(feature)` / `(feature opts)` | Closes the current non-checkpoint step. `opts` (`:step`, `:attributes`, `:by`) pass through. Returns `{:ready [...] :done boolean}`. |
 | `choose!` | `(feature choice)` / `(feature choice input)` / `(feature choice input opts)` | Records the checkpoint choice and routes if the choice has a `:next`. Returns `{:ready [...] :done boolean}`. |
-| `advance!` | `(feature)` / `(feature opts)` | Unified step/checkpoint driver. `opts` may include `:choice`, `:input`, `:notes`, `:step`, `:by`, and `:attributes`. Returns `{:ready [...] :done boolean}`. |
+| `advance!` | `(feature)` / `(feature opts)` | Unified step/checkpoint driver. `opts` may include `:choice`, `:input`, `:step`, `:by`, and `:attributes`. Returns `{:ready [...] :done boolean}`. |
 | `choice-details` | `(feature)` / `(feature opts)` | Choice explanations for the current checkpoint. |
 | `choice-detail` | `(feature choice)` / `(feature choice opts)` | One choice's explanation. |
 | `describe` | `()` / `(stage)` | Compile-time shape of the full devflow cycle, or one registered stage key such as `:proposal`; writes nothing. |
@@ -216,11 +190,7 @@ Driving example with one revise round:
 ;; => {:ready [{:artifact "specs/*.delta.md" :guide :spec ...}] :done false}
 ```
 
-Delegating approved AFK tasks through the subagent executor is opt-in at task sign-off. Pass
-`:tasks` and a harness when approving the task queue; task maps may be keyword-
-or string-keyed (choice input often round-trips through JSON). Task `:id`
-values must be token-safe strings (`[A-Za-z0-9][A-Za-z0-9._-]*`) because they
-become step ids (`:task-<id>`); anything else fails loudly before any pour:
+Delegating approved AFK tasks through the subagent executor is opt-in. Pass `:tasks` and a harness when approving the task queue, then choose `:delegate` at `:choose-afk-execution`; task maps may be keyword- or string-keyed (choice input often round-trips through JSON). Task `:id` values must be token-safe strings (`[A-Za-z0-9][A-Za-z0-9._-]*`) because they become step ids (`:task-<id>`); anything else fails loudly before any pour:
 
 ```clojure
 (devflow/choose! "search-filters" :approved
@@ -232,38 +202,17 @@ become step ids (`:task-<id>`); anything else fails loudly before any pour:
 ;;     :done false}
 ```
 
-Without `:tasks`, approval keeps the legacy single `:run-afk-loop` manual step.
+Choose `:manual` at `:choose-afk-execution` to use the single `:run-afk-loop` manual step; it needs no task data.
 
 ## 5. Registries
 
-Devflow exposes its constructors and commands as data (stringified symbols) for
-trusted resolution:
+Devflow exposes static definitions and commands as data for trusted resolution:
 
-- `stage-workflows` is the map of stable routing names to stage constructors:
-  `:intake`, `:proposal`, `:spec-plan`, `:route-after-plan`, `:tasks`,
-  `:run-afk-loop`, `:direct-implementation`, `:agent-review`, and `:abort`.
-  Forward `:next` choices reference these keyword names. `contribute` publishes
-  them as devflow's complete module-owner contribution to the engine's
-  weaver-lifetime registry. A module refresh re-points an in-flight run's next
-  named route at the current constructor; already poured stages remain history.
-  Omitted routes are removed by owner-complete replacement. Revision loops need
-  no registry entry — they use
-  `:revise` (§3).
-- `(workflows)` returns `workflow-registry` — `stage-workflows` plus `:cycle`
-  (`devflow-cycle`, the ordered composable stage list).
-- `(commands)` returns `command-registry` — agent-facing commands by key:
-  `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`,
-  `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:run-history`,
-  and `:squash-run`.
-- `spool` is the grep-friendly public entry-point declaration. Its exact value
-  is `{:contribute 'contribute :reconcile 'reconcile}`; it has no `:ns`.
-- Workspace configuration activates the spool through `runtime/module!`, the
-  sole route-publication path. The declaration names a source target and world
-  policy only. The refresh coordinator resolves the exported `spool` var at
-  every module evaluation that needs a convention field.
-- `(dependency-sentinel)` returns `"devflow-spool"`, produced through this
-  spool's declared `camel-snake-kebab` Maven dependency so runtime validation can
-  observe that approved spool dependencies were resolved.
+- `stage-workflows` is the local map of stable routing names to the eleven static definitions: `:intake`, `:proposal`, `:spec-plan`, `:route-after-plan`, `:tasks`, `:run-afk-loop`, `:run-afk-manual`, `:run-afk-delegated`, `:direct-implementation`, `:agent-review`, and `:abort`. Forward `:next` choices reference these names. The engine collects the Vars when the namespace loads, so a caller discovers the same definitions through `strand workflow list` and `strand workflow show <name>`; there is no separate registration or contribution call.
+- `(workflows)` returns `stage-workflows`, and `devflow-cycle` is the ordered composable main path.
+- `(commands)` returns `command-registry` — agent-facing commands by key: `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`, `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:run-history`, and `:squash-run`.
+- Workspace configuration activates the spool through `runtime/module!`, the sole route-publication path. The declaration names a source target and world policy only; static forms provide the workflow catalogue.
+- `(dependency-sentinel)` returns `"devflow-spool"`, produced through this spool's declared `camel-snake-kebab` Maven dependency so runtime validation can observe that approved spool dependencies were resolved.
 
 ## 5a. Authoring guidance
 
@@ -311,11 +260,11 @@ molecule; the rest sit on individual step/checkpoint strands.
 
 | Attribute | Meaning | Set on / by |
 |---|---|---|
-| `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. The `stages` set is the enum of record — the constructors write it through one helper and the projections (§4) reject a root that carries anything else. | Root molecule, by each stage constructor. |
-| `devflow/feature` | The feature name. Carries the same value as `workflow/run-id`, but is not redundant with it: the roster spool reads this key's *presence* to derive `roster/engine "devflow"` rather than `"workflow"` (roster.md, SPEC-RosterSpool-001.C13), so a devflow root that stopped stamping it would silently register as a plain workflow run. | Root molecule, by each stage constructor. |
+| `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. The `stages` set is the enum of record — the definitions write it through one helper and the projections (§4) reject a root that carries anything else. | Root molecule, by each stage definition. |
+| `devflow/feature` | The feature name. Carries the same value as `workflow/run-id`, but is not redundant with it: the roster spool reads this key's *presence* to derive `roster/engine "devflow"` rather than `"workflow"` (roster.md, SPEC-RosterSpool-001.C13), so a devflow root that stopped stamping it would silently register as a plain workflow run. | Root molecule, by each stage definition. |
 | `workflow/artifact` | Artifact a step produces (`"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"`). The engine's own key, caller-supplied; `step-view` surfaces it as `:artifact`. | Artifact-writing steps. |
-| `devflow/task` | Stable approved AFK task id attached to delegated `run-afk-loop` task gates. | `:task-<id>` subagent gates in delegated AFK mode. |
-| `devflow/review` | `"agent"` marking a step as an agent review round (the reusable `agent-review-workflow` procedure). Distinct from the engine's `workflow/checkpoint-kind`, which says who decides a *checkpoint*. | The `:review` step of `agent-review-workflow`. |
+| `devflow/task` | Stable approved AFK task id attached to delegated `run-afk-delegated` task gates. | `:task-<id>` subagent gates in delegated AFK mode. |
+| `devflow/review` | `"agent"` marking a step as an agent review round (the reusable `agent-review` definition). Distinct from the engine's `workflow/checkpoint-kind`, which says who decides a *checkpoint*. | The `:review` step of `agent-review`. |
 | `workflow/checkpoint-kind` | `"human"` or `"agent"` — who decides the checkpoint. | Auto-stamped by the engine `checkpoint` builder from its `:kind` opt (workflow.md §7); devflow never sets it by hand. |
 | `workflow/decision-point` | Freeform label for what the checkpoint decides (`"worktree-ready"`, `"scope-ready"`, `"proposal-signed-off"`, `"choose-tasks-or-implementation"`, `"plan-signed-off"`, `"tasks-signed-off"`, `"afk-accepted"`, `"implementation-accepted"`). | Each checkpoint. |
 | `workflow/action-ref` | Pointer to the action/skill an agent should invoke (`"devflow.worktree.ensure"`, `"devflow.proposal.orient"`, `"devflow.tasks.run-afk-loop"`, `"devflow.implementation.direct"`, `"devflow.implementation.validate"`, `"devflow.abort.record"`). Surfaced by `step-view`. | Steps/checkpoints that hand off to a named action. |
@@ -324,11 +273,9 @@ molecule; the rest sit on individual step/checkpoint strands.
 | `agent-run/prompt` | Prompt sent to the delegated agent run, prefixed with feature/task context and then the task body or title. | `:task-<id>` gates in delegated AFK mode. |
 | `agent-run/cwd` | Optional working directory for delegated AFK task runs, from `:delegate-cwd`. | `:task-<id>` gates in delegated AFK mode. |
 | `workflow/instruction` | Freeform instruction text surfaced in `step-view`. | Steps/checkpoints needing explicit guidance, including every guided artifact step's pointer to `guidance`. |
-| `devflow/guide` | Guidance key (`"proposal"`, `"spec"`, `"plan"`, `"tasks"`, `"afk"`) naming the authoring guide for the step (§5a). | The four `write-*` artifact steps and the legacy `:run-afk-loop` step (`:capture-brief` produces `"brief"` without one). |
+| `devflow/guide` | Guidance key (`"proposal"`, `"spec"`, `"plan"`, `"tasks"`, `"afk"`) naming the authoring guide for the step (§5a). | The four `write-*` artifact steps and the `run-afk-manual` step (`:capture-brief` produces `"brief"` without one). |
 
-The intake root additionally carries `devflow/worktree-check`
-(`"required"` or `"already-in-worktree-ok"`), seeded from the `start!`
-`:worktree-check` opt.
+The intake root additionally carries `devflow/worktree-check` (`"required"` or `"already-in-worktree-ok"`), seeded from the `:worktree-check` start parameter.
 
 ## 7. See also
 
