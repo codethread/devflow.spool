@@ -1,8 +1,10 @@
 (ns ct.spools.devflow
   "Clojure-native workflow definitions for the devflow lifecycle.
 
-  These helpers encode the agent-facing devflow checkpoints as Skein workflow
-  data. They intentionally produce ordinary workflow definitions that callers
+  Every stage is a static `defworkflow` Var: a definition a worker can read
+  through `strand workflow show <name>` before starting a run, with its param
+  contract owned by a spec rather than by a constructor's argument list
+  (PROP-Wcd-001.S12). The definitions are ordinary workflow data that callers
   can inspect, compose, pour as molecules, or materialize as wisps.
 
   Authoring knowledge for the artifacts each stage produces (proposal, specs,
@@ -65,7 +67,7 @@
 (defn- stage-attributes
   "Root attributes every devflow stage workflow carries: the stage it was poured
   for and the feature it runs against. Fails loudly on an unregistered stage name
-  so a constructor cannot mint a value the projections will later reject."
+  so a definition cannot mint a value the projections will later reject."
   [stage]
   (when-not (stages stage)
     (throw (ex-info "Unknown devflow stage name"
@@ -95,39 +97,69 @@
 (defn- non-blank-string? [v]
   (and (string? v) (not (str/blank? v))))
 
-(defn- validate-afk-tasks
-  "Return validated AFK delegation tasks or nil when delegation is not requested."
-  [tasks]
-  (when (some? tasks)
-    (when-not (vector? tasks)
-      (throw (ex-info "AFK tasks must be a vector" {:tasks tasks})))
-    (when (empty? tasks)
-      (throw (ex-info "AFK tasks must not be empty" {:tasks tasks})))
-    (doseq [task tasks]
-      (when-not (map? task)
-        (throw (ex-info "AFK task must be a map" {:task task})))
-      (let [id (task-value task :id)]
-        (when-not (and (non-blank-string? id) (re-matches afk-task-id-pattern id))
-          (throw (ex-info "AFK task id must be a token-safe string"
-                          {:task task :id id :pattern (str afk-task-id-pattern)}))))
-      (when-not (non-blank-string? (task-value task :title))
-        (throw (ex-info "AFK task title must be a non-blank string" {:task task})))
-      (let [harness (task-value task :harness)]
-        (when (and (some? harness) (not (non-blank-string? harness)))
-          (throw (ex-info "AFK task harness must be a non-blank string"
-                          {:task task :harness harness})))))
-    (let [ids (map #(task-value % :id) tasks)]
-      (when-not (= (count ids) (count (distinct ids)))
-        (throw (ex-info "AFK task ids must be unique" {:ids ids}))))
-    tasks))
+;; Param contracts. Each stage names one whole-map spec the engine validates
+;; before anything compiles or pours, so a bad param map fails at the
+;; boundary with the spec's own explanation rather than part-way through a
+;; stage. Task maps stay keyword- or string-keyed (`task-value`), which is why
+;; their shape is predicates over that reader rather than `s/keys`.
+(s/def ::feature non-blank-string?)
+(s/def ::revision boolean?)
+(s/def ::worktree-check #{"required" "already-in-worktree-ok"})
+(s/def ::artifact non-blank-string?)
+(s/def ::reason non-blank-string?)
+(s/def ::delegate-harness non-blank-string?)
+(s/def ::delegate-cwd non-blank-string?)
+(s/def ::delegate-preamble non-blank-string?)
 
-(defn- validate-afk-harnesses
-  "Fail loudly unless every delegated AFK task resolves a harness."
-  [tasks delegate-harness]
-  (doseq [task tasks]
-    (when-not (non-blank-string? (or (task-value task :harness) delegate-harness))
-      (throw (ex-info "AFK task missing harness resolution"
-                      {:task task :delegate-harness delegate-harness})))))
+(defn- afk-task-id? [v]
+  (and (non-blank-string? v) (some? (re-matches afk-task-id-pattern v))))
+
+(defn- optional-non-blank? [v]
+  (or (nil? v) (non-blank-string? v)))
+
+(s/def ::afk-task
+  (s/and map?
+         #(afk-task-id? (task-value % :id))
+         #(non-blank-string? (task-value % :title))
+         #(optional-non-blank? (task-value % :body))
+         #(optional-non-blank? (task-value % :harness))))
+
+(defn- distinct-task-ids?
+  "AFK task ids become workflow step ids, so a duplicate would collide."
+  [tasks]
+  (let [ids (map #(task-value % :id) tasks)]
+    (= (count ids) (count (distinct ids)))))
+
+(s/def ::tasks
+  (s/and (s/coll-of ::afk-task :kind vector? :min-count 1) distinct-task-ids?))
+
+(defn- harnesses-resolve?
+  "Every delegated task names a harness, or inherits the stage's default one."
+  [{:keys [tasks delegate-harness]}]
+  (every? #(non-blank-string? (or (task-value % :harness) delegate-harness)) tasks))
+
+(s/def ::intake-params
+  (s/keys :req-un [::feature] :opt-un [::worktree-check ::revision]))
+(s/def ::agent-review-params (s/keys :req-un [::feature ::artifact]))
+(s/def ::proposal-params (s/keys :req-un [::feature] :opt-un [::revision]))
+(s/def ::spec-plan-params (s/keys :req-un [::feature] :opt-un [::revision]))
+(s/def ::route-after-plan-params (s/keys :req-un [::feature]))
+(s/def ::tasks-params (s/keys :req-un [::feature] :opt-un [::revision]))
+(s/def ::run-afk-loop-params
+  (s/keys :req-un [::feature]
+          :opt-un [::tasks ::delegate-harness ::delegate-cwd ::delegate-preamble]))
+(s/def ::run-afk-manual-params (s/keys :req-un [::feature]))
+(s/def ::run-afk-delegated-params
+  (s/and (s/keys :req-un [::feature ::tasks]
+                 :opt-un [::delegate-harness ::delegate-cwd ::delegate-preamble ::revision])
+         harnesses-resolve?))
+(s/def ::direct-implementation-params (s/keys :req-un [::feature] :opt-un [::revision]))
+(s/def ::abort-params (s/keys :req-un [::feature ::reason]))
+
+;; Choice input contracts: the whole map `choose!` must accept, resolved live
+;; at the checkpoint rather than baked in when the stage poured.
+(s/def ::abort-reason-input (s/keys :req-un [::reason]))
+(s/def ::afk-queue-input (s/keys :opt-un [::tasks]))
 
 (defn- afk-task-prompt [feature task delegate-preamble]
   (str (when (non-blank-string? delegate-preamble)
@@ -135,46 +167,48 @@
        "Devflow AFK task for " feature ": " (task-value task :title) "\n\n"
        (or (task-value task :body) (task-value task :title))))
 
-(defn- afk-task-gate [delegate-harness delegate-cwd]
+(defn- afk-task-gate
+  "The per-task subagent gate the delegated AFK stage expands one of per task.
+
+  Every value renders from resolved params, which is what lets the stage be a
+  static definition: nothing here is decided when the definition is written.
+  `agent-run/cwd` is always declared and renders nil when no `:delegate-cwd`
+  was supplied, which the subagent executor reads exactly as an absent cwd."
+  []
   (workflow/gate :task
                  (fn [{:keys [feature item]}]
                    (str "Delegate AFK task " (task-value item :id) " for " feature))
                  :subagent
                  :loop {:each :tasks :chain true}
-                 ;; the prompt renders from resolved params like the title, so
-                 ;; direct compile/pour! usage with :feature supplied only as a
-                 ;; workflow param cannot bake "nil" into agent-run/prompt
-                 :attributes (cond-> {"devflow/task" (fn [{:keys [item]}] (task-value item :id))
-                                      "agent-run/harness" (fn [{:keys [item delegate-harness]}]
-                                                          (or (task-value item :harness) delegate-harness))
-                                      "agent-run/prompt" (fn [{:keys [feature item delegate-preamble]}]
-                                                         (afk-task-prompt feature item delegate-preamble))}
-                               delegate-cwd (assoc "agent-run/cwd" delegate-cwd))))
+                 :attributes {"devflow/task" (fn [{:keys [item]}] (task-value item :id))
+                              "agent-run/harness" (fn [{:keys [item delegate-harness]}]
+                                                    (or (task-value item :harness) delegate-harness))
+                              "agent-run/cwd" (param-value :delegate-cwd)
+                              "agent-run/prompt" (fn [{:keys [feature item delegate-preamble]}]
+                                                   (afk-task-prompt feature item delegate-preamble))}))
 
 (def ^:private abort-reason-input
   "Declared choice input for every abort choice: a required `:reason` recorded on
   the abort step and surfaced with the choice (workflow.md §5). `choose!` fails
   loudly before any mutation when it is omitted."
-  [{:key :reason :required true
-    :description "Why the feature is being aborted; recorded on the abort step."}])
+  {:spec ::abort-reason-input
+   :doc "Why the feature is being aborted; recorded on the abort step."})
 
-(defn intake-workflow
-  "Return the mandatory brief intake workflow.
+(workflow/defworkflow intake
+  "The mandatory brief intake stage.
 
   The first strand is a `:human` checkpoint that requires worktree creation
-  before substantive discovery. `:worktree-check` may be `:required` for a fresh
-  brief or `:already-in-worktree-ok` for agents launched directly inside the
-  feature worktree. On a revision round (`:revision true`), the worktree
+  before substantive discovery. `:worktree-check` may be `\"required\"` for a
+  fresh brief or `\"already-in-worktree-ok\"` for agents launched directly inside
+  the feature worktree. On a revision round (`:revision true`), the worktree
   checkpoint is skipped because it was already satisfied on the first pass;
   F4's splice reattaches `:capture-brief` as the entry step."
-  [{:keys [feature worktree-check revision]
-    :or {worktree-check :required}}]
+  {:entrypoints #{:start}
+   :param-spec ::intake-params
+   :defaults {:worktree-check "required" :revision false}}
   (workflow/workflow
     (titled "Devflow intake: ")
-    {:params {:feature (workflow/param :required true)
-              :worktree-check (workflow/param :default (name worktree-check))
-              :revision (workflow/param :default (boolean revision))}
-     :attributes (assoc (stage-attributes "intake")
+    {:attributes (assoc (stage-attributes "intake")
                         "devflow/worktree-check" (param-value :worktree-check))}
     (workflow/checkpoint :create-or-confirm-worktree
                          (titled "Create or confirm feature worktree for ")
@@ -213,33 +247,33 @@
                                     :revise {:params {:revision true}}}]
                          :attributes {"workflow/decision-point" "scope-ready"})))
 
-(defn agent-review-workflow
-  "Return a reusable one-step agent review procedure."
-  [_opts]
+(workflow/defworkflow agent-review
+  "A reusable one-step agent review procedure, spliced into a stage by `call`."
+  {:entrypoints #{:call}
+   :param-spec ::agent-review-params
+   :defaults {}}
   (workflow/workflow
     (fn [{:keys [feature artifact]}]
       (str "Agent review: " feature " " artifact))
-    {:params {:feature (workflow/param :required true)
-              :artifact (workflow/param :required true)}}
     (workflow/step :review
                    (fn [{:keys [feature artifact]}]
                      (str "Run agent review for " feature " " artifact))
                    :self
                    :attributes {"devflow/review" "agent"})))
 
-(defn proposal-workflow
-  "Return the proposal gate workflow.
+(workflow/defworkflow proposal
+  "The proposal gate stage.
 
   This encodes: inspect RFCs/spikes/specs first, write proposal, run agent
   review, then stop for human sign-off. On a revision round (`:revision true`),
   `:inspect-context` is skipped because orientation was done on the first pass;
   F4's splice reattaches `:write-proposal` as the entry step."
-  [{:keys [revision] :as _opts}]
+  {:entrypoints #{:continue}
+   :param-spec ::proposal-params
+   :defaults {:revision false}}
   (workflow/workflow
     (titled "Devflow proposal: ")
-    {:params {:feature (workflow/param :required true)
-              :revision (workflow/param :default (boolean revision))}
-     :attributes (stage-attributes "proposal")}
+    {:attributes (stage-attributes "proposal")}
     (workflow/step :inspect-context
                    (titled "Inspect relevant RFCs, spikes, root specs, and active feature context for ")
                    :self
@@ -252,7 +286,7 @@
                    :depends-on [:inspect-context]
                    :attributes (guided-artifact "proposal.md"))
     (workflow/call :agent-review-proposal
-                   agent-review-workflow
+                   :agent-review
                    {:artifact "proposal"}
                    :title (titled "Complete agent review for " " proposal")
                    :depends-on [:write-proposal])
@@ -275,13 +309,14 @@
                                     :input abort-reason-input}]
                          :attributes {"workflow/decision-point" "proposal-signed-off"})))
 
-(defn route-after-plan-workflow
-  "Return the post-plan route-choice workflow."
-  [_opts]
+(workflow/defworkflow route-after-plan
+  "The post-plan route-choice stage."
+  {:entrypoints #{:continue}
+   :param-spec ::route-after-plan-params
+   :defaults {}}
   (workflow/workflow
     (titled "Devflow route after plan: ")
-    {:params {:feature (workflow/param :required true)}
-     :attributes (stage-attributes "route-after-plan")}
+    {:attributes (stage-attributes "route-after-plan")}
     (workflow/checkpoint :route-after-plan
                          (titled "Recommend next workflow: tasks or direct implementation for ")
                          :kind :agent
@@ -295,18 +330,18 @@
                                     :next :direct-implementation}]
                          :attributes {"workflow/decision-point" "choose-tasks-or-implementation"})))
 
-(defn spec-plan-workflow
-  "Return the spec-delta and plan gate workflow.
+(workflow/defworkflow spec-plan
+  "The spec-delta and plan gate stage.
 
   After review and human sign-off, approval routes to the task/direct
   implementation decision workflow. A revision round (`:revision true`) re-runs
   the whole spec/plan stage."
-  [{:keys [revision] :as _opts}]
+  {:entrypoints #{:continue}
+   :param-spec ::spec-plan-params
+   :defaults {:revision false}}
   (workflow/workflow
     (titled "Devflow spec and plan: ")
-    {:params {:feature (workflow/param :required true)
-              :revision (workflow/param :default (boolean revision))}
-     :attributes (stage-attributes "spec-plan")}
+    {:attributes (stage-attributes "spec-plan")}
     (workflow/step :write-spec-deltas
                    (titled "Write needed spec deltas for ")
                    :self
@@ -317,7 +352,7 @@
                    :depends-on [:write-spec-deltas]
                    :attributes (guided-artifact "<feature>.plan.md"))
     (workflow/call :agent-review-spec-plan
-                   agent-review-workflow
+                   :agent-review
                    {:artifact "spec deltas and plan"}
                    :title (titled "Complete agent review for " " spec deltas and plan")
                    :depends-on [:write-plan])
@@ -340,69 +375,100 @@
                                     :input abort-reason-input}]
                          :attributes {"workflow/decision-point" "plan-signed-off"})))
 
-(defn run-afk-loop-workflow
-  "Return the post-task-signoff AFK loop workflow.
+(workflow/defworkflow run-afk-loop
+  "The post-task-signoff AFK execution stage: choose how the queue runs.
 
-  With no `:tasks` opt, returns the legacy single manual AFK step. With `:tasks`,
-  returns a sequential chain of `:subagent` gates for subagent-executor fulfillment, then a
-  `:human` acceptance checkpoint. Task maps may be keyword- or string-keyed."
-  [{:keys [tasks delegate-harness delegate-cwd delegate-preamble] :as opts}]
-  (let [tasks (validate-afk-tasks (or tasks (get opts "tasks")))
-        delegate-harness (or delegate-harness (get opts "delegate-harness"))
-        delegate-cwd (or delegate-cwd (get opts "delegate-cwd"))
-        delegate-preamble (or delegate-preamble (get opts "delegate-preamble"))]
-    (when tasks
-      (validate-afk-harnesses tasks delegate-harness))
-    (apply workflow/workflow
-           (titled "Devflow AFK execution: ")
-           {:params {:feature (workflow/param :required true)
-                     :tasks (workflow/param :default tasks)
-                     :delegate-harness (workflow/param :default delegate-harness)
-                     :delegate-cwd (workflow/param :default delegate-cwd)
-                     :delegate-preamble (workflow/param :default delegate-preamble)}
-            :attributes (stage-attributes "afk")}
-           (if tasks
-             [(afk-task-gate delegate-harness delegate-cwd)
-              (workflow/checkpoint :human-acceptance-afk
-                                   (titled "Human acceptance for " " AFK task execution")
-                                   :depends-on [:task]
-                                   :kind :human
-                                   :choices [{:key :accepted
-                                              :label "Accept"
-                                              :description "AFK task execution is accepted; the run is done."}
-                                             {:key :revise
-                                              :label "Revise"
-                                              :description "AFK task execution needs changes; re-run the delegated AFK stage."
-                                              :revise {:params {:revision true}}}
-                                             {:key :abort
-                                              :label "Abort"
-                                              :description "Stop or abandon this feature after AFK execution."
-                                              :next :abort
-                                              :input abort-reason-input}]
-                                   :attributes {"workflow/decision-point" "afk-accepted"})]
-             [(workflow/step :run-afk-loop
-                             (titled "Run or hand off AFK task loop for ")
-                             :self
-                             :attributes {"workflow/action-ref" "devflow.tasks.run-afk-loop"
-                                          "devflow/guide" "afk"
-                                          "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (ct.spools.devflow/guidance :afk) for the loop contract and queue checks."})]))))
+  The old constructor decided this invisibly, by whether a `:tasks` opt was
+  supplied. A checkpoint names the decision instead, so each way of running the
+  queue is a continuation a worker can discover and read before choosing it
+  (PROP-Wcd-001.EX6). Delegation carries the queue forward in `:tasks`, so the
+  delegated route is only honest when one is present."
+  {:entrypoints #{:continue}
+   :param-spec ::run-afk-loop-params
+   :defaults {}}
+  (workflow/workflow
+    (titled "Devflow AFK execution: ")
+    {:attributes (stage-attributes "afk")}
+    (workflow/checkpoint :choose-afk-execution
+                         (titled "Choose how the AFK task queue runs for ")
+                         :kind :human
+                         :choices [{:key :manual
+                                    :label "Run manually"
+                                    :description "Run or hand off the AFK task loop in this worker."
+                                    :next :run-afk-manual}
+                                   {:key :delegate
+                                    :label "Delegate"
+                                    :description "Run the approved task queue as sequential subagent gates."
+                                    :next :run-afk-delegated}
+                                   {:key :abort
+                                    :label "Abort"
+                                    :description "Stop or abandon this feature before AFK execution."
+                                    :next :abort
+                                    :input abort-reason-input}]
+                         :attributes {"workflow/decision-point" "afk-execution-mode"})))
 
-(defn task-breakdown-workflow
-  "Return the reviewed task queue workflow.
+(workflow/defworkflow run-afk-manual
+  "Run or hand off the AFK task loop in the current worker."
+  {:entrypoints #{:continue}
+   :param-spec ::run-afk-manual-params
+   :defaults {}}
+  (workflow/workflow
+    (titled "Devflow AFK manual execution: ")
+    {:attributes (stage-attributes "afk")}
+    (workflow/step :run-afk-loop
+                   (titled "Run or hand off AFK task loop for ")
+                   :self
+                   :attributes {"workflow/action-ref" "devflow.tasks.run-afk-loop"
+                                "devflow/guide" "afk"
+                                "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (ct.spools.devflow/guidance :afk) for the loop contract and queue checks."})))
+
+(workflow/defworkflow run-afk-delegated
+  "Run the approved AFK task queue as sequential subagent gates.
+
+  One gate per task, chained, then a `:human` acceptance checkpoint. Task maps
+  may be keyword- or string-keyed; `::run-afk-delegated-params` judges the whole
+  queue — including that every task resolves a harness — before anything pours."
+  {:entrypoints #{:continue}
+   :param-spec ::run-afk-delegated-params
+   :defaults {:revision false}}
+  (workflow/workflow
+    (titled "Devflow AFK delegated execution: ")
+    {:attributes (stage-attributes "afk")}
+    (afk-task-gate)
+    (workflow/checkpoint :human-acceptance-afk
+                         (titled "Human acceptance for " " AFK task execution")
+                         :depends-on [:task]
+                         :kind :human
+                         :choices [{:key :accepted
+                                    :label "Accept"
+                                    :description "AFK task execution is accepted; the run is done."}
+                                   {:key :revise
+                                    :label "Revise"
+                                    :description "AFK task execution needs changes; re-run the delegated AFK stage."
+                                    :revise {:params {:revision true}}}
+                                   {:key :abort
+                                    :label "Abort"
+                                    :description "Stop or abandon this feature after AFK execution."
+                                    :next :abort
+                                    :input abort-reason-input}]
+                         :attributes {"workflow/decision-point" "afk-accepted"})))
+
+(workflow/defworkflow tasks
+  "The reviewed task queue stage.
 
   A revision round (`:revision true`) re-runs the whole task-breakdown stage."
-  [{:keys [revision] :as _opts}]
+  {:entrypoints #{:continue}
+   :param-spec ::tasks-params
+   :defaults {:revision false}}
   (workflow/workflow
     (titled "Devflow task breakdown: ")
-    {:params {:feature (workflow/param :required true)
-              :revision (workflow/param :default (boolean revision))}
-     :attributes (stage-attributes "tasks")}
+    {:attributes (stage-attributes "tasks")}
     (workflow/step :write-tasks
                    (titled "Write AFK/HITL task queue for ")
                    :self
                    :attributes (guided-artifact "tasks/index.yml"))
     (workflow/call :agent-review-tasks
-                   agent-review-workflow
+                   :agent-review
                    {:artifact "task queue"}
                    :title (titled "Complete agent review for " " task queue")
                    :depends-on [:write-tasks])
@@ -412,11 +478,10 @@
                          :kind :human
                          :choices [{:key :approved
                                     :label "Approve"
-                                    :description "Task queue is accepted; run or hand off the AFK loop next."
+                                    :description "Task queue is accepted; choose how the AFK loop runs next."
                                     :next :run-afk-loop
-                                    :input [{:key :tasks
-                                             :required false
-                                             :description "Optional vector of AFK task maps to delegate as sequential subagent gates."}]}
+                                    :input {:spec ::afk-queue-input
+                                            :doc "Optional vector of AFK task maps to delegate as sequential subagent gates."}}
                                    {:key :revise
                                     :label "Revise"
                                     :description "Task queue needs changes; revise the task-breakdown stage and re-review before execution."
@@ -428,16 +493,16 @@
                                     :input abort-reason-input}]
                          :attributes {"workflow/decision-point" "tasks-signed-off"})))
 
-(defn direct-implementation-workflow
-  "Return the post-plan direct implementation workflow for small, settled changes.
+(workflow/defworkflow direct-implementation
+  "The post-plan direct implementation stage for small, settled changes.
 
   A revision round (`:revision true`) re-runs the whole implementation stage."
-  [{:keys [revision] :as _opts}]
+  {:entrypoints #{:continue}
+   :param-spec ::direct-implementation-params
+   :defaults {:revision false}}
   (workflow/workflow
     (titled "Devflow direct implementation: ")
-    {:params {:feature (workflow/param :required true)
-              :revision (workflow/param :default (boolean revision))}
-     :attributes (stage-attributes "implementation")}
+    {:attributes (stage-attributes "implementation")}
     (workflow/step :implement
                    (titled "Implement reviewed plan for ")
                    :self
@@ -450,7 +515,7 @@
                    :attributes {"workflow/action-ref" "devflow.implementation.validate"
                                 "workflow/instruction" "Run validation relevant to the touched implementation and report failures before review."})
     (workflow/call :review-implementation
-                   agent-review-workflow
+                   :agent-review
                    {:artifact "implementation"}
                    :title (titled "Complete implementation review for ")
                    :depends-on [:validate])
@@ -472,14 +537,14 @@
                                     :input abort-reason-input}]
                          :attributes {"workflow/decision-point" "implementation-accepted"})))
 
-(defn abort-workflow
-  "Return a tiny workflow that records intentional feature abortion."
-  [_opts]
+(workflow/defworkflow abort
+  "A tiny stage that records intentional feature abortion."
+  {:entrypoints #{:continue}
+   :param-spec ::abort-params
+   :defaults {}}
   (workflow/workflow
     (titled "Abort devflow feature: ")
-    {:params {:feature (workflow/param :required true)
-              :reason (workflow/param :required true)}
-     :attributes (stage-attributes "abort")}
+    {:attributes (stage-attributes "abort")}
     (workflow/step :record-abort
                    (fn [{:keys [feature reason]}]
                      (str "Record abort for " feature ": " reason))
@@ -487,19 +552,15 @@
                    :attributes {"workflow/action-ref" "devflow.abort.record"
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
-(defn devflow-cycle
-  "Return the ordered composable devflow workflow definitions for `opts`.
+(def devflow-cycle
+  "The ordered devflow stage definitions along the main path, as data.
 
-  Callers can pour the first workflow, then use decision-point strand outcomes to
-  choose and pour the next workflow."
-  [opts]
-  [(intake-workflow opts)
-   (proposal-workflow opts)
-   (spec-plan-workflow opts)
-   (route-after-plan-workflow opts)
-   (task-breakdown-workflow opts)
-   (run-afk-loop-workflow opts)
-   (direct-implementation-workflow opts)])
+  Pour the first, then let each stage's decision-point outcomes route to the
+  next. Order is the path a feature normally walks; `agent-review` is spliced
+  into stages by `call` and `abort` is reachable from every checkpoint, so
+  neither appears here."
+  [intake proposal spec-plan route-after-plan tasks run-afk-loop
+   direct-implementation])
 
 ;; The projection specs below own only the fields devflow adds to the engine's
 ;; views. Everything else — a step view's `:id`/`:title`/`:role`/`:choices`, a
@@ -565,9 +626,8 @@
    (start! feature {}))
   ([feature opts]
    ;; keyword opt values (e.g. :worktree-check :required) are coerced to strings
-   ;; so they survive JSON round-tripping in workflow/context; stage
-   ;; constructors read them back through `name`, which accepts strings
-   ;; unchanged
+   ;; so they survive JSON round-tripping in workflow/context, and because the
+   ;; param specs name the string forms the engine will read back
    (let [context (reduce-kv (fn [m k v] (assoc m k (if (keyword? v) (name v) v)))
                             {:feature feature}
                             opts)]
@@ -575,10 +635,9 @@
       feature
       (workflow/start!
        feature
-       (intake-workflow context)
-       {:feature feature}
+       :intake
+       context
        {:family "devflow"
-        :definition 'ct.spools.devflow/intake-workflow
         ;; seed start opts into context so they survive intake revision loops
         ;; rather than resetting to their defaults
         :context context})))))
@@ -668,30 +727,34 @@
    (stage-result feature (workflow/advance! feature opts))))
 
 (def stage-workflows
-  "Devflow stage constructors registered with the engine under stable routing
-  names. Forward `:next` choices reference these keyword names; `contribute`
-  publishes them as devflow's complete workflow-registry owner partition."
-  {:intake 'ct.spools.devflow/intake-workflow
-   :proposal 'ct.spools.devflow/proposal-workflow
-   :spec-plan 'ct.spools.devflow/spec-plan-workflow
-   :route-after-plan 'ct.spools.devflow/route-after-plan-workflow
-   :tasks 'ct.spools.devflow/task-breakdown-workflow
-   :run-afk-loop 'ct.spools.devflow/run-afk-loop-workflow
-   :direct-implementation 'ct.spools.devflow/direct-implementation-workflow
-   :agent-review 'ct.spools.devflow/agent-review-workflow
-   :abort 'ct.spools.devflow/abort-workflow})
+  "Devflow's stage definitions by the stable routing name each is registered
+  under. Forward `:next` choices reference these keyword names, and every stage
+  is discoverable through `strand workflow show <name>` once devflow is active.
 
-(def workflow-registry
-  "Workflow constructors exposed by the devflow spool: the engine-registered
-  stage constructors (see `stage-workflows`) plus `:cycle`, the ordered
-  composable stage list."
-  (assoc stage-workflows :cycle 'ct.spools.devflow/devflow-cycle))
+  `defworkflow` collects the registry entries itself, so this map is the local
+  read of the same set rather than the thing that publishes it."
+  {:intake intake
+   :proposal proposal
+   :spec-plan spec-plan
+   :route-after-plan route-after-plan
+   :tasks tasks
+   :run-afk-loop run-afk-loop
+   :run-afk-manual run-afk-manual
+   :run-afk-delegated run-afk-delegated
+   :direct-implementation direct-implementation
+   :agent-review agent-review
+   :abort abort})
 
 (def ^:private describe-placeholder-params
   "Placeholder params used to render stage titles when describing devflow workflow
-  shapes. A description reports structure, not a specific run, so `:feature` (and
-  the abort/review stages' `:reason`/`:artifact`) are stand-in strings."
-  {:feature "<feature>" :reason "<reason>" :artifact "<artifact>"})
+  shapes. A description reports structure, not a specific run, so these are
+  stand-in values — and they must satisfy each stage's `:param-spec`, which is
+  why the delegated AFK stage's queue and harness appear here too."
+  {:feature "<feature>"
+   :reason "<reason>"
+   :artifact "<artifact>"
+   :tasks [{:id "task" :title "<task>"}]
+   :delegate-harness "<harness>"})
 
 (defn describe
   "Return the compile-time shape of a devflow stage, or of the whole cycle.
@@ -702,14 +765,12 @@
   `skein.spools.workflow/describe`; titles render against placeholder params
   because a description is run-independent. Fails loudly on an unknown stage key."
   ([]
-   (mapv #(workflow/describe % describe-placeholder-params)
-         (devflow-cycle describe-placeholder-params)))
+   (mapv #(workflow/describe % describe-placeholder-params) devflow-cycle))
   ([stage]
-   (let [sym (or (get stage-workflows stage)
-                 (throw (ex-info "Unknown devflow stage"
-                                 {:stage stage :stages (vec (keys stage-workflows))})))]
-     (workflow/describe ((requiring-resolve sym) describe-placeholder-params)
-                        describe-placeholder-params))))
+   (let [definition (or (get stage-workflows stage)
+                        (throw (ex-info "Unknown devflow stage"
+                                        {:stage stage :stages (vec (keys stage-workflows))})))]
+     (workflow/describe definition describe-placeholder-params))))
 
 (defn guidance
   "Return devflow authoring guidance as inspectable data.
@@ -766,39 +827,13 @@
   ([feature opts]
    (workflow/squash-run! feature opts)))
 
-(defn contribute
-  "Publish devflow's complete named-route contribution.
-
-  The module refresh kernel owns replacement and deletion: a successful refresh
-  replaces this module's entire `workflow/constructor-kind` partition, so a
-  route omitted from `stage-workflows` disappears by omission. Constructors are
-  symbols, not resolved Vars, which deliberately preserves live route
-  re-pointing: an in-flight run resolves the current symbol at its next named
-  `:next` transition while poured stages retain their materialized history."
-  [_ctx]
-  {workflow/constructor-kind stage-workflows})
-
-(defn reconcile
-  "Reconcile devflow's non-declarative resources after a module refresh.
-
-  Route publication is complete before this runs; devflow currently owns no
-  runtime resource beyond its declarative constructors. Keeping this explicit
-  makes the supported module lifecycle stable if such resources are added."
-  [_ctx]
-  {:reconciled :devflow})
-
-(def spool
-  "Entry-point declaration for the devflow spool (ADR-004 `def spool`
-  convention).
-
-  The refresh coordinator resolves `:contribute`/`:reconcile` from this public
-  var at every module evaluation that needs a convention field, so a consumer
-  declares only a source target and world policy
-  (`{:ns 'ct.spools.devflow :spools ['codethread/devflow]}`) and never mirrors
-  the pair. Unqualified symbols resolve against this namespace; fn values are
-  rejected (ADR-002.O1)."
-  {:contribute 'contribute
-   :reconcile 'reconcile})
+;; Devflow's contribution is the registry entries its `defworkflow` forms
+;; collect while this namespace loads, so there is no `contribute` fn and no
+;; `spool` entry-point var: a module may not both collect authoring forms and
+;; supply `:contribute` (SPEC-004.C46). A stage disappears from the registry by
+;; the same rule that publishes it — stop evaluating its form and the next
+;; refresh drops the entry by omission. The consumer declaration is unchanged:
+;; `{:ns 'ct.spools.devflow :spools ['codethread/devflow]}`.
 
 (def command-registry
   "Agent-facing commands exposed by the devflow spool."
@@ -816,9 +851,9 @@
    :squash-run 'ct.spools.devflow/squash-run!})
 
 (defn workflows
-  "Return devflow workflow constructors by stable key."
+  "Return devflow's stage definitions by their stable routing name."
   []
-  workflow-registry)
+  stage-workflows)
 
 (defn commands
   "Return agent-facing devflow commands by stable key."

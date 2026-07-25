@@ -29,32 +29,44 @@
         (str "tested Skein HEAD " head " must contain floor " floor
              "; git error: " (str/trim (:err ancestry-result))))))
 
-(deftest devflow-spool-declares-the-exact-public-entry-points
-  (is (= {:contribute 'contribute
-          :reconcile 'reconcile}
-         devflow/spool))
-  (is (not (contains? devflow/spool :ns)))
-  (is (s/valid? ::spool/spool devflow/spool)
-      (s/explain-str ::spool/spool devflow/spool)))
+(deftest devflow-supplies-no-module-entry-points
+  ;; Devflow's contribution is the entries its `defworkflow` forms collect while
+  ;; the namespace loads. A module may not both collect authoring forms and
+  ;; supply `:contribute` (SPEC-004.C46), so there is no `spool` var at all.
+  (is (nil? (resolve 'ct.spools.devflow/spool)))
+  (is (nil? (resolve 'ct.spools.devflow/contribute))))
+
+(def ^:private route-symbols
+  "Every stage route, as the qualified symbol the registry stores, in an order
+  each entry's references are already registered in.
+
+  Production publishes the whole partition atomically from the entries
+  `defworkflow` collects during source load, which a bare test world cannot
+  perform. Direct registration is the documented REPL-layer equivalent, but it
+  validates the live registry on every call, so a set that routes to itself has
+  to arrive leaves-first."
+  [[:abort 'ct.spools.devflow/abort]
+   [:agent-review 'ct.spools.devflow/agent-review]
+   [:run-afk-manual 'ct.spools.devflow/run-afk-manual]
+   [:run-afk-delegated 'ct.spools.devflow/run-afk-delegated]
+   [:run-afk-loop 'ct.spools.devflow/run-afk-loop]
+   [:tasks 'ct.spools.devflow/tasks]
+   [:direct-implementation 'ct.spools.devflow/direct-implementation]
+   [:route-after-plan 'ct.spools.devflow/route-after-plan]
+   [:spec-plan 'ct.spools.devflow/spec-plan]
+   [:proposal 'ct.spools.devflow/proposal]
+   [:intake 'ct.spools.devflow/intake]])
+
+(deftest route-symbols-cover-every-published-stage
+  ;; The fixture below registers from `route-symbols`; this keeps that list from
+  ;; drifting away from what the namespace actually publishes.
+  (is (= (set (keys devflow/stage-workflows)) (set (map first route-symbols)))))
 
 (defn- publish-devflow-routes!
-  "Declare the devflow module and publish its current route contribution.
-
-  Repeated calls exercise the production replacement semantics: the refresh
-  kernel re-invokes `contribute`, replaces devflow's whole owner partition, and
-  removes any route omitted from `stage-workflows` by omission. Image mode is
-  honest here because this suite's own require of `ct.spools.devflow` loads the
-  namespace, and the coordinator resolves the entry points from that image's
-  `spool` var. Throws with the refresh result unless the module applied."
-  [rt]
-  (let [result (runtime/module! rt :devflow
-                                {:ns 'ct.spools.devflow
-                                 :load :image
-                                 :after [:workflow]})
-        status (get-in result [:modules :devflow :status])]
-    (when-not (contains? #{:applied :unchanged} status)
-      (throw (ex-info "devflow module activation failed"
-                      {:module/key :devflow :module/status status :result result})))))
+  "Register devflow's stage routes in `rt`'s workflow registry."
+  [_rt]
+  (doseq [[name definition-sym] route-symbols]
+    (workflow/register-workflow! name definition-sym)))
 
 (defn- activate-workflow!
   "Activate the workflow spool module on `rt` from the loaded JVM image.
@@ -89,45 +101,42 @@
         (publish-devflow-routes! (:runtime ctx))
         (f (:runtime ctx) (:config-dir ctx))))))
 
-(defn repointed-proposal-workflow
+(s/def ::repointed-params (s/keys :req-un [::devflow/feature]))
+
+(workflow/defworkflow repointed-proposal
   "A test-only replacement proving named routes bind at transition time."
-  [{:keys [feature]}]
+  {:entrypoints #{:continue}
+   :param-spec ::repointed-params
+   :defaults {}}
   (workflow/workflow
-   (str "Repointed proposal: " feature)
-   {:params {:feature (workflow/param :required true)}
-    :attributes {"devflow/stage" "proposal"
-                 "devflow/feature" feature}}
+   (fn [{:keys [feature]}] (str "Repointed proposal: " feature))
+   {:attributes {"devflow/stage" "proposal"
+                 "devflow/feature" (fn [{:keys [feature]}] feature)}}
    (workflow/step :replacement "Use replacement proposal route" :self)))
 
-(deftest devflow-module-routes-repoint-live-and-delete-by-omission
-  ;; Replacing a contribution changes only the next named transition; poured
+(deftest devflow-routes-repoint-live-and-fail-loudly-once-removed
+  ;; Re-pointing a route changes only the next named transition; poured
   ;; molecules stay as historical graph state.
   (with-runtime
     (fn [rt _]
-      (workflow/start! "route-repoint" (devflow/intake-workflow {:feature "route-repoint"})
-                       {:feature "route-repoint"})
+      (workflow/start! "route-repoint" :intake {:feature "route-repoint"})
       (workflow/choose! "route-repoint" :already-in-worktree)
       (workflow/complete! "route-repoint")
       (let [intake-root (:id (workflow/current-root "route-repoint"))]
-        (with-redefs [devflow/stage-workflows
-                      (assoc devflow/stage-workflows :proposal
-                             'ct.spools.devflow-test/repointed-proposal-workflow)]
-          (publish-devflow-routes! rt))
+        (workflow/register-workflow! :proposal 'ct.spools.devflow-test/repointed-proposal)
         (is (= ["Use replacement proposal route"]
                (mapv :title (:ready (workflow/choose! "route-repoint" :proposal-ready))))
-            "the current constructor is resolved when the route is taken")
+            "the current definition is resolved when the route is taken")
         (is (= "closed" (:state (weaver/show rt intake-root)))
             "the poured intake stage was not rewritten")
         (is (= "Repointed proposal: route-repoint"
                (:title (workflow/current-root "route-repoint")))))
-      ;; A complete replacement that omits :proposal removes it and leaves the
-      ;; failed transition resumable with the missing-name registry diagnostic.
-      (workflow/start! "route-deletion" (devflow/intake-workflow {:feature "route-deletion"})
-                       {:feature "route-deletion"})
+      ;; Removing :proposal leaves the failed transition resumable with the
+      ;; missing-name registry diagnostic.
+      (workflow/start! "route-deletion" :intake {:feature "route-deletion"})
       (workflow/choose! "route-deletion" :already-in-worktree)
       (workflow/complete! "route-deletion")
-      (with-redefs [devflow/stage-workflows (dissoc devflow/stage-workflows :proposal)]
-        (publish-devflow-routes! rt))
+      (workflow/unregister-workflow! :proposal)
       (let [checkpoint (:id (workflow/ready-step "route-deletion"))
             data (try
                    (workflow/choose! "route-deletion" :proposal-ready)
@@ -135,7 +144,7 @@
         (is (= :proposal (:name data)))
         (is (not (contains? (set (:registered data)) :proposal)))
         (is (= checkpoint (:id (workflow/ready-step "route-deletion")))
-            "omitted-route failure leaves the active checkpoint resumable")))))
+            "removed-route failure leaves the active checkpoint resumable")))))
 
 (deftest devflow-maven-dependency-is-observable
   (is (= "devflow-spool" (devflow/dependency-sentinel))))
@@ -144,10 +153,12 @@
   (with-runtime
     (fn [rt _]
       (workflow/start! "prop-run"
-                       (devflow/proposal-workflow {:feature "widgets"})
+                       ;; a mid-cycle stage is normally reached by routing, so
+                       ;; start it by Var: only a registered-name start is held
+                       ;; to the definition's declared entrypoints
+                       #'devflow/proposal
                        {:feature "widgets"}
                        {:family "devflow"
-                        :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       (is (= "Inspect relevant RFCs, spikes, root specs, and active feature context for widgets"
              (:title (workflow/ready-step "prop-run"))))
@@ -168,18 +179,21 @@
              (mapv #(select-keys % [:title :role]) (:ready (workflow/choose! "prop-run" :approved)))))
       (let [root (workflow/current-root "prop-run")]
         (is (= "Devflow spec and plan: widgets" (:title root)))
-        ;; entering a fresh stage resets stage-local loop state: the revised
-        ;; round's :revision flag must not ride forward in downstream context
-        (is (not (contains? (get-in root [:attributes :workflow/context]) :revision)))))))
+        ;; entering a fresh stage sheds the previous stage's loop state: the
+        ;; revised round's :revision true does not ride forward, and the new
+        ;; stage's own default takes its place
+        (is (false? (get-in root [:attributes :workflow/context :revision])))))))
 
 (deftest devflow-revise-input-does-not-override-revision-round
   (with-runtime
     (fn [rt _]
       (workflow/start! "prop-input"
-                       (devflow/proposal-workflow {:feature "widgets"})
+                       ;; a mid-cycle stage is normally reached by routing, so
+                       ;; start it by Var: only a registered-name start is held
+                       ;; to the definition's declared entrypoints
+                       #'devflow/proposal
                        {:feature "widgets"}
                        {:family "devflow"
-                        :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       ;; inspect-context, write-proposal, then the inner agent-review step (whose
       ;; completion auto-closes the join) reach the sign-off checkpoint
@@ -207,10 +221,11 @@
 (deftest devflow-spool-composes-decision-point-workflows
   (with-runtime
     (fn [rt _]
-      (let [intake (devflow/intake-workflow {:worktree-check :already-in-worktree-ok})
-            proposal (devflow/proposal-workflow {})
-            route (devflow/route-after-plan-workflow {})
-            intake-result (workflow/pour! intake {:feature "workflow-stress"})
+      (let [intake devflow/intake
+            proposal devflow/proposal
+            route devflow/route-after-plan
+            intake-result (workflow/pour! intake {:feature "workflow-stress"
+                                                  :worktree-check "already-in-worktree-ok"})
             intake-root (first (:created intake-result))
             proposal-payload (workflow/compile proposal {:feature "workflow-stress"})
             route-payload (workflow/compile route {:feature "workflow-stress"})]
@@ -241,47 +256,59 @@
                        [:attributes :devflow/worktree-check])))
         (is (= ["created-worktree" "already-in-worktree" "abort"]
                (:choices first-step)))
-        (is (= {"label" "Abort"
-                "description" "Stop the feature before any substantive work begins."
-                "next" ":abort"
-                "input" [{"key" "reason" "required" true
-                          "description" "Why the feature is being aborted; recorded on the abort step."}]}
-               (devflow/choice-detail "workflow-loop" :abort)))
+        (let [detail (devflow/choice-detail "workflow-loop" :abort)]
+          (is (= {"label" "Abort"
+                  "description" "Stop the feature before any substantive work begins."
+                  "next" ":abort"}
+                 (select-keys detail ["label" "description" "next"])))
+          ;; the choice states its contract as a live spec identity, not a
+          ;; frozen per-key list, and carries the form graph a worker reads
+          (is (= {"spec" "ct.spools.devflow/abort-reason-input"
+                  "doc" "Why the feature is being aborted; recorded on the abort step."}
+                 (select-keys (get detail "input-spec") ["spec" "doc"])))
+          (is (seq (get-in detail ["input-spec" "spec-forms"]))))
         (is (not (contains? first-step :choice-details)))
         (let [ready (first (:ready (devflow/choose! "workflow-loop" :already-in-worktree)))]
           (is (= "Capture user brief for workflow-loop" (:title ready)))
           (is (= "intake" (:stage ready))))))))
 
-(deftest devflow-afk-loop-delegation-shapes-gates-and-legacy-step
-  (let [legacy (workflow/describe (devflow/run-afk-loop-workflow {}) {:feature "widgets"})
-        delegated (workflow/describe
-                   (devflow/run-afk-loop-workflow
-                    {:feature "widgets"
-                     :tasks [{:id "a" :title "Do A" :body "Body A"}
-                             {:id "b" :title "Do B"}]
-                     :delegate-harness "pi-main"
-                     :delegate-cwd "/tmp/widgets"})
-                   {:feature "widgets"})
+(def ^:private afk-params
+  {:feature "widgets"
+   :tasks [{:id "a" :title "Do A" :body "Body A"}
+           {:id "b" :title "Do B"}]
+   :delegate-harness "pi-main"
+   :delegate-cwd "/tmp/widgets"})
+
+(deftest devflow-afk-execution-mode-is-a-checkpoint-not-a-constructor-branch
+  ;; The old constructor chose manual or delegated by whether :tasks was
+  ;; supplied. The decision is now a durable choice with a continuation each
+  ;; (PROP-Wcd-001.EX6), so each route is separately describable.
+  (let [chooser (workflow/describe devflow/run-afk-loop {:feature "widgets"})
+        manual (workflow/describe devflow/run-afk-manual {:feature "widgets"})
+        delegated (workflow/describe devflow/run-afk-delegated afk-params)
         steps (into {} (map (juxt :id identity)) (:steps delegated))]
-    (is (= [:run-afk-loop] (mapv :id (:steps legacy))))
-    (is (= [:task-a :task-b :human-acceptance-afk]
-           (mapv :id (:steps delegated))))
+    (is (= [:choose-afk-execution] (mapv :id (:steps chooser))))
+    (is (= ["manual" "delegate" "abort"]
+           (mapv :key (:choices (first (:steps chooser))))))
+    (is (= [":run-afk-manual" ":run-afk-delegated" ":abort"]
+           (mapv :next (:choices (first (:steps chooser))))))
+    (is (= [:run-afk-loop] (mapv :id (:steps manual))))
+    (is (= [:task-a :task-b :human-acceptance-afk] (mapv :id (:steps delegated))))
     (is (= "subagent" (:gate (steps :task-a))))
     (is (= "subagent" (:gate (steps :task-b))))
     (is (= [] (:depends-on (steps :task-a))))
     (is (= [:task-a] (:depends-on (steps :task-b))))
     (is (= [:task-a :task-b] (:depends-on (steps :human-acceptance-afk))))
     (is (= ["accepted" "revise" "abort"]
-           (mapv :key (:choices (steps :human-acceptance-afk))))))
+           (mapv :key (:choices (steps :human-acceptance-afk)))))))
+
+(deftest devflow-afk-delegated-gates-render-every-value-from-params
   (let [payload (workflow/compile
-                 (devflow/run-afk-loop-workflow
-                  {:feature "widgets"
-                   :tasks [{:id "a" :title "Do A" :body "Body A"}
-                           {:id "b" :title "Do B" :harness "pi-alt"}]
-                   :delegate-harness "pi-main"
-                   :delegate-cwd "/tmp/widgets"
-                   :delegate-preamble "Policy text"})
-                 {:feature "widgets"})
+                 devflow/run-afk-delegated
+                 (assoc afk-params
+                        :tasks [{:id "a" :title "Do A" :body "Body A"}
+                                {:id "b" :title "Do B" :harness "pi-alt"}]
+                        :delegate-preamble "Policy text"))
         by-local-id (into {} (map (juxt :ref identity)) (:strands payload))]
     (is (= {"workflow/gate" "subagent"
             "devflow/task" "a"
@@ -294,57 +321,69 @@
     (is (= "pi-alt"
            (get-in by-local-id [:task-b :attributes "agent-run/harness"])))))
 
-(deftest devflow-afk-loop-prompt-renders-from-params
-  ;; feature supplied only as a workflow param, not a constructor opt: the
-  ;; prompt must render at compile time like the title instead of baking nil
+(deftest devflow-afk-delegated-prompt-renders-from-params
+  ;; Nothing is baked in when the definition is written, so a feature supplied
+  ;; only at pour time still renders into the prompt.
   (let [payload (workflow/compile
-                 (devflow/run-afk-loop-workflow
-                  {:tasks [{:id "a" :title "Do A" :body "Body A"}]
-                   :delegate-harness "pi-main"})
-                 {:feature "widgets"})
+                 devflow/run-afk-delegated
+                 {:feature "widgets"
+                  :tasks [{:id "a" :title "Do A" :body "Body A"}]
+                  :delegate-harness "pi-main"})
         task-a (first (filter #(= :task-a (:ref %)) (:strands payload)))]
     (is (= "Devflow AFK task for widgets: Do A\n\nBody A"
            (get-in task-a [:attributes "agent-run/prompt"])))))
 
-(deftest devflow-afk-loop-delegation-fails-loudly
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"must not be empty"
-                        (devflow/run-afk-loop-workflow {:tasks [] :delegate-harness "pi"})))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"token-safe"
-                        (devflow/run-afk-loop-workflow {:tasks [{:title "No id"}]
-                                                       :delegate-harness "pi"})))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"token-safe"
-                        (devflow/run-afk-loop-workflow {:tasks [{:id "has space" :title "Bad id"}]
-                                                       :delegate-harness "pi"})))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"token-safe"
-                        (devflow/run-afk-loop-workflow {:tasks [{:id :kw-id :title "Bad id"}]
-                                                       :delegate-harness "pi"})))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"harness must be a non-blank string"
-                        (devflow/run-afk-loop-workflow {:tasks [{:id "a" :title "A" :harness :pi}]
-                                                       :delegate-harness "pi"})))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"ids must be unique"
-                        (devflow/run-afk-loop-workflow {:tasks [{:id "a" :title "A"}
-                                                                {:id "a" :title "Again"}]
-                                                       :delegate-harness "pi"})))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"missing harness resolution"
-                        (devflow/run-afk-loop-workflow {:tasks [{:id "a" :title "A"}]}))))
+(defn- afk-params-rejected
+  "Return the failure data from describing the delegated AFK stage with `params`."
+  [params]
+  (try
+    (workflow/describe :run-afk-delegated (merge {:feature "widgets"} params))
+    nil
+    (catch clojure.lang.ExceptionInfo e (ex-data e))))
 
-(deftest devflow-afk-loop-routing-and-revision-pour-delegated-gates
+(deftest devflow-afk-delegated-params-fail-loudly-before-any-pour
+  ;; The queue's shape is the stage's :param-spec, so every one of these is
+  ;; refused by the engine at the boundary rather than by a hand-rolled
+  ;; constructor-time validator.
+  (with-runtime
+   (fn [_ _]
+    (doseq [[label params] [["an empty queue" {:tasks [] :delegate-harness "pi"}]
+                          ["a missing id" {:tasks [{:title "No id"}] :delegate-harness "pi"}]
+                          ["an unsafe id" {:tasks [{:id "has space" :title "Bad id"}]
+                                           :delegate-harness "pi"}]
+                          ["a non-string id" {:tasks [{:id :kw-id :title "Bad id"}]
+                                              :delegate-harness "pi"}]
+                          ["a non-string harness" {:tasks [{:id "a" :title "A" :harness :pi}]
+                                                   :delegate-harness "pi"}]
+                          ["duplicate ids" {:tasks [{:id "a" :title "A"}
+                                                    {:id "a" :title "Again"}]
+                                            :delegate-harness "pi"}]
+                          ["no resolvable harness" {:tasks [{:id "a" :title "A"}]}]
+                          ["no queue at all" {}]]]
+      (is (= :workflow/params-invalid (:reason (afk-params-rejected params)))
+          (str "delegated AFK params must be refused for " label))))))
+
+(deftest devflow-afk-routing-pours-the-chosen-continuation
   (with-runtime
     (fn [rt _]
       (workflow/start! "afk-route"
-                       (devflow/task-breakdown-workflow {:feature "afk-route"})
+                       #'devflow/tasks
                        {:feature "afk-route"}
                        {:family "devflow"
-                        :definition 'ct.spools.devflow/task-breakdown-workflow
                         :context {:feature "afk-route"}})
       (dotimes [_ 2] (workflow/complete! "afk-route"))
+      ;; Sign-off carries the queue forward and lands on the execution-mode
+      ;; checkpoint rather than guessing from the queue's presence.
       (let [ready (:ready (devflow/choose! "afk-route" :approved
-                                           {"tasks" [{"id" "one" "title" "One" "body" "Do one"}
-                                                      {"id" "two" "title" "Two"}]
-                                            "delegate-harness" "sh"}))]
-        (is (= [{:title "Delegate AFK task one for afk-route" :gate "subagent"}]
-               (mapv #(select-keys % [:title :gate]) ready)))
+                                           {:tasks [{"id" "one" "title" "One" "body" "Do one"}
+                                                    {"id" "two" "title" "Two"}]
+                                            :delegate-harness "sh"}))]
+        (is (= ["Choose how the AFK task queue runs for afk-route"] (mapv :title ready)))
+        (is (= "choose-afk-execution" (:checkpoint (first ready))))
         (is (= "afk" (get-in (workflow/current-root "afk-route") [:attributes :devflow/stage]))))
+      (let [delegated (:ready (devflow/choose! "afk-route" :delegate))]
+        (is (= [{:title "Delegate AFK task one for afk-route" :gate "subagent"}]
+               (mapv #(select-keys % [:title :gate]) delegated))))
       (let [after-first (:ready (devflow/complete! "afk-route" {:by "run-one"}))]
         (is (= [{:title "Delegate AFK task two for afk-route" :gate "subagent"}]
                (mapv #(select-keys % [:title :gate]) after-first))))
@@ -354,6 +393,14 @@
         (is (= [{:title "Delegate AFK task one for afk-route" :gate "subagent"}]
                (mapv #(select-keys % [:title :gate]) revised)))
         (is (= "afk-route" (:run-id (first revised))))))))
+
+(deftest devflow-afk-manual-route-pours-the-single-step
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "afk-manual" #'devflow/run-afk-loop {:feature "afk-manual"}
+                       {:family "devflow" :context {:feature "afk-manual"}})
+      (let [ready (:ready (workflow/choose! "afk-manual" :manual))]
+        (is (= ["Run or hand off AFK task loop for afk-manual"] (mapv :title ready)))))))
 
 (deftest devflow-registered-routes-cover-later-stage-runtime-paths
   (with-runtime
@@ -381,7 +428,7 @@
       (devflow/start! "workflow-abort" {:worktree-check :required})
       ;; the abort choice declares a required :reason input, so omitting it fails
       ;; loudly before any mutation (D1.2), leaving the checkpoint active
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"missing required keys"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Value does not satisfy the named spec"
                             (devflow/choose! "workflow-abort" :abort)))
       (is (= "create-or-confirm-worktree"
              (:checkpoint (devflow/ready-step "workflow-abort"))))
@@ -401,27 +448,33 @@
 (deftest devflow-describe-surfaces-stage-choices-and-conditioned-steps
   ;; describing a stage projects its shape without pouring: the proposal stage's
   ;; sign-off checkpoint carries its routing and declared abort input, and the
-  ;; agent-review call expands into a :procedure step.
-  (let [proposal (devflow/describe :proposal)
-        ids (set (map :id (:steps proposal)))
-        signoff (first (filter #(= "checkpoint" (:role %)) (:steps proposal)))
-        choices (into {} (map (juxt :key identity)) (:choices signoff))]
-    (is (contains? ids :inspect-context))
-    (is (some #(= "procedure" (:role %)) (:steps proposal)))
-    (is (= ":spec-plan" (:next (get choices "approved"))))
-    (is (= [{"key" "reason" "required" true
-             "description" "Why the feature is being aborted; recorded on the abort step."}]
-           (:input (get choices "abort")))))
-  ;; a revision round condition-excludes the orientation step
-  (is (not (contains? (set (map :id (:steps (workflow/describe (devflow/proposal-workflow {:revision true})
-                                                               {:feature "widgets"}))))
-                      :inspect-context))))
+  ;; agent-review call expands into a :procedure step. A stage names other
+  ;; registered stages, so describing one reads the live registry.
+  (with-runtime
+    (fn [_ _]
+      (let [proposal (devflow/describe :proposal)
+            ids (set (map :id (:steps proposal)))
+            signoff (first (filter #(= "checkpoint" (:role %)) (:steps proposal)))
+            choices (into {} (map (juxt :key identity)) (:choices signoff))]
+        (is (contains? ids :inspect-context))
+        (is (some #(= "procedure" (:role %)) (:steps proposal)))
+        (is (= ":spec-plan" (:next (get choices "approved"))))
+        (is (= {"spec" "ct.spools.devflow/abort-reason-input"
+                "doc" "Why the feature is being aborted; recorded on the abort step."}
+               (select-keys (:input-spec (get choices "abort")) ["spec" "doc"]))))
+      ;; a revision round condition-excludes the orientation step
+      (is (not (contains? (set (map :id (:steps (workflow/describe :proposal
+                                                                  {:feature "widgets"
+                                                                   :revision true}))))
+                          :inspect-context))))))
 
 (deftest devflow-describe-defaults-to-the-full-cycle
-  (let [cycle (devflow/describe)]
-    (is (= 7 (count cycle)))
-    (is (= "Devflow intake: <feature>" (:name (first cycle))))
-    (is (every? #(seq (:steps %)) cycle))))
+  (with-runtime
+    (fn [_ _]
+      (let [cycle (devflow/describe)]
+        (is (= 7 (count cycle)))
+        (is (= "Devflow intake: <feature>" (:name (first cycle))))
+        (is (every? #(seq (:steps %)) cycle))))))
 
 (deftest devflow-run-history-and-squash-run-project-then-squash-a-run
   (with-runtime
@@ -456,8 +509,7 @@
   [{:keys [feature stage]}]
   (workflow/workflow
     (str "Unstaged run: " feature)
-    {:params {:feature (workflow/param :required true)}
-     :attributes (cond-> {"devflow/feature" feature}
+    {:attributes (cond-> {"devflow/feature" feature}
                    stage (assoc "devflow/stage" stage))}
     (workflow/step :do-the-work (str "Do the work for " feature) :self)
     ;; a second step keeps work ready after a complete!, so the mutation seams
@@ -566,10 +618,12 @@
   (with-runtime
     (fn [rt _]
       (workflow/start! "guide-views"
-                       (devflow/proposal-workflow {:feature "widgets"})
+                       ;; a mid-cycle stage is normally reached by routing, so
+                       ;; start it by Var: only a registered-name start is held
+                       ;; to the definition's declared entrypoints
+                       #'devflow/proposal
                        {:feature "widgets"}
                        {:family "devflow"
-                        :definition 'ct.spools.devflow/proposal-workflow
                         :context {:feature "widgets"}})
       (workflow/complete! "guide-views")
       (let [step (devflow/ready-step "guide-views")]
