@@ -10,5 +10,11 @@ This record prepares `v8`. It is not a tag or a publication instruction.
 - Known consumer: the skein-src repository only, currently pinned at `v7`.
 - Compatibility alarm: `bin/compat-alarm v7` fails compiling the archived `ct.spools.devflow-test` with `No such var: devflow/spool` at line 33. The v7 fixture registers the old `devflow/spool` declaration, which static-form collection deliberately replaces; this is the approved break, and no unrelated failure is accepted.
 - Decision: no compatibility shim. Retaining a `spool` or `contribute` compatibility surface would falsely imply a manually contributed module beside the collected static definitions, which the engine rejects and which would obscure the authoritative discovery surface.
+- Behavior changes beyond the removed names, each deliberate:
+  - Choice input must be keyword-keyed. The deprecated per-key declaration accepted a key as either a keyword or a string; a whole-map spec does not. The CLI keywordizes JSON input, so this reaches only a direct Clojure caller passing string keys.
+  - The delegated AFK gate always declares `agent-run/cwd`, rendering nil when no `:delegate-cwd` was supplied, where the constructor omitted the attribute entirely. The engine prunes no nil attribute values, so the strand carries the key with a null; `attr-get` reads that identically to an absent key, so the subagent executor is unaffected.
+  - `describe` for a single stage now needs a live runtime. A stage names other registered stages, so projecting one reads the registry to check those references.
+  - `workflows` returns stage definitions keyed by routing name. `workflow-registry` and its `:cycle` entry are gone; `devflow-cycle` is a public Var holding the ordered definitions.
+  - Leaving a stage still sheds that stage's `:revise` loop state, but the stage being entered then merges its own `:defaults`, so downstream context carries `:revision false` rather than no `:revision` key.
 
 Rollback is a consumer action: retain or restore the old `v7` pin and peeled SHA. Do not move or replace the old tag.
