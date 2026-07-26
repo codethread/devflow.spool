@@ -18,12 +18,7 @@ by the `guidance` command — no external devflow skill is required.
 
 - A Skein checkout whose HEAD is `70a3c50e27ca0190f363d80d0b0cac72948dbacb` or a descendant. That commit includes static workflow definitions, whole-map `:param-spec` validation, checkpoint `:input-spec` contracts, and returning defer composition through the `:call` entrypoint. Verify a checkout with `git -C /path/to/skein merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD`.
 - No Skein release marker contains that commit yet, so the advisory `spool.edn` declares no `:skein/min` floor. The requirement is carried by this line and by `release-exception.md`.
-- Skein's defer-return change is a cold engine cutover: it removes the old
-  `continue!` worker operation and changes persisted defer semantics. Quiesce
-  producers and prove there are no active workflow roots before installing it;
-  follow Skein's `docs/spools/defer-return-cutover.md`. Devflow's authored
-  checkpoint routes still use the distinct `:continue` entrypoint, while routed
-  stages also advertise `:call` for returning call/defer composition.
+- Skein's defer-return change is a cold engine cutover: it removes the old `continue!` worker operation and changes persisted defer semantics. Quiesce producers and prove there are no active workflow roots before installing it; follow Skein's `docs/spools/defer-return-cutover.md`. Devflow's authored checkpoint routes still use the distinct `:continue` entrypoint, while routed stages also advertise `:call` for returning call/defer composition.
 - `skein.spools.workflow` is one of Skein's in-repo reference
   spools, living in a spool root (`<skein>/spools/workflow`) **off** the base
   classpath — you approve that root in `spools.edn` like any other spool.
