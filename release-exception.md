@@ -1,20 +1,17 @@
-# Def-spool convention release exception
+# Explicit-runtime release exception
 
-This record prepares `v8`. It is not a tag or a publication instruction.
+This record prepares `v9`. It is not a tag or a publication instruction.
 
-- Previous marker: annotated `v7`; immutable peeled commit `20c2850dca7918810aa276f2f2dd1f484dc9fe7b`.
-- Proposed marker: annotated `v8`.
-- Affected root and names: `codethread/devflow`. The removed names are the nine stage constructor functions (`intake-workflow`, `proposal-workflow`, `spec-plan-workflow`, `route-after-plan-workflow`, `task-breakdown-workflow`, `run-afk-loop-workflow`, `direct-implementation-workflow`, `agent-review-workflow`, and `abort-workflow`) and `ct.spools.devflow/contribute`. Their successors are the static definition Vars `intake`, `proposal`, `spec-plan`, `route-after-plan`, `tasks`, `run-afk-loop`, `direct-implementation`, `agent-review`, and `abort`; the AFK split additionally introduces `run-afk-manual` and `run-afk-delegated`. `reconcile`, `spool`, and the old contribution registry are gone because collected `defworkflow` forms are the module contribution.
-- Skein floor: the tested Skein checkout's HEAD must be `ae0888433f369dbd314ac7ab33d9d275748750f3` or a descendant of it. That commit follows `3158b8423edeefbcc7672a6176e28ed49d071a0d`, which shipped static definitions, and is the earliest commit that also ships whole-map `:param-spec` validation and choice `:input-spec` contracts. Check ancestry with `git -C /path/to/skein merge-base --is-ancestor ae0888433f369dbd314ac7ab33d9d275748750f3 HEAD`. No Skein release marker contains that commit, so `:skein/min` cannot express the requirement and this release adds none. The requirement is carried by this record and by the README prerequisite until a Skein marker can state it.
-- Authorization: TEN-000 pre-v1 under kanban card `4l5ey`, user-approved.
-- Known consumer: the skein-src repository only, currently pinned at `v7`.
-- Compatibility alarm: `bin/compat-alarm v7` fails compiling the archived `ct.spools.devflow-test` with `No such var: devflow/spool` at line 33. The v7 fixture registers the old `devflow/spool` declaration, which static-form collection deliberately replaces; this is the approved break, and no unrelated failure is accepted.
-- Decision: no compatibility shim. Retaining a `spool` or `contribute` compatibility surface would falsely imply a manually contributed module beside the collected static definitions, which the engine rejects and which would obscure the authoritative discovery surface.
-- Behavior changes beyond the removed names, each deliberate:
-  - Choice input must be keyword-keyed. The deprecated per-key declaration accepted a key as either a keyword or a string; a whole-map spec does not. The CLI keywordizes JSON input, so this reaches only a direct Clojure caller passing string keys.
-  - The delegated AFK gate always declares `agent-run/cwd`, rendering nil when no `:delegate-cwd` was supplied, where the constructor omitted the attribute entirely. The engine prunes no nil attribute values, so the strand carries the key with a null; `attr-get` reads that identically to an absent key, so the subagent executor is unaffected.
-  - `describe` for a single stage now needs a live runtime. A stage names other registered stages, so projecting one reads the registry to check those references.
-  - `workflows` returns stage definitions keyed by routing name. `workflow-registry` and its `:cycle` entry are gone; `devflow-cycle` is a public Var holding the ordered definitions.
-  - Leaving a stage still sheds that stage's `:revise` loop state, but the stage being entered then merges its own `:defaults`, so downstream context carries `:revision false` rather than no `:revision` key.
+- Previous marker: annotated `v8`; immutable peeled commit `980961cf0d0d730741d5ba65330f589dfcb1d88d`.
+- Proposed marker: annotated `v9`.
+- Affected root: `codethread/devflow`.
+- Breaking change: every runtime-dependent public workflow facade now takes the target runtime as its first argument. Static workflow definitions, registered names, routes, parameters, and CLI behavior are unchanged.
+- Reason: devflow is a shared spool and must work in unpublished runtimes and in JVMs containing more than one runtime. Its public facade no longer selects a process-wide ambient world.
+- Consumer cutover: pass the module or test runtime explicitly, for example `(devflow/start! runtime feature opts)` and `(devflow/ready runtime feature)`.
+- Floor: none. Compatibility remains documented and tested without adding a `:skein/min` requirement.
+- Authorization: TEN-000@1 and the user's explicit instruction to make the required breaking changes.
+- Known consumer: skein-src. Its tracker and CLI adapters move to the explicit runtime API in the same coordinated release.
+- Compatibility alarm: the frozen `v8` suite fails at the changed public calls. Calls whose old and new arity sets overlap interpret the former feature argument as a runtime and fail at the runtime boundary; the others fail with arity errors. `bin/compat-alarm v8` currently reports 15 errors across those two expected classes. No unrelated failure is accepted.
+- Decision: no ambient-runtime compatibility arities. Keeping them would preserve the cross-runtime bug this release removes.
 
-Rollback is a consumer action: retain or restore the old `v7` pin and peeled SHA. Do not move or replace the old tag.
+Rollback is a consumer action: retain or restore the old `v8` pin and peeled SHA. Do not move or replace the old tag.

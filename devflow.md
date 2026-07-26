@@ -81,7 +81,7 @@ Notes:
   routes to the static `abort` definition, whose `:record-abort` step then closes the run.
 - Every abort choice declares a **required `:reason` input** (workflow.md §5,
   D1.2), so `choose!` fails loudly before any mutation unless the aborting call
-  passes it: `(choose! feature :abort {:reason "…"})`. The feature comes from
+  passes it: `(choose! runtime feature :abort {:reason "…"})`. The feature comes from
   context; the reason comes from the input and is recorded on the abort step.
   Abort itself is routed by the registered name `:abort` (`abort`).
 
@@ -132,19 +132,19 @@ specs own devflow's added fields and leave the engine-inherited keys to
 
 | Wrapper | Signature | Notes |
 |---|---|---|
-| `start!` | `(feature)` / `(feature params)` | Pours the registered `:intake` definition under `family "devflow"`. It merges intake defaults with the supplied complete param map, validates the result against `:ct.spools.devflow/intake-params`, and seeds it (plus `:feature`) into `workflow/context` for revision loops. Returns `{:ready [...] :done boolean}`. |
-| `ready` | `(feature)` | All ready step views for the feature (each carrying `:run-id`). |
-| `ready-step` | `(feature)` | The single ready step view; throws if ambiguous. |
-| `complete!` | `(feature)` / `(feature opts)` | Closes the current non-checkpoint step. `opts` (`:step`, `:attributes`, `:by`) pass through. Returns `{:ready [...] :done boolean}`. |
-| `choose!` | `(feature choice)` / `(feature choice input)` / `(feature choice input opts)` | Records the checkpoint choice and routes if the choice has a `:next`. Returns `{:ready [...] :done boolean}`. |
-| `advance!` | `(feature)` / `(feature opts)` | Unified step/checkpoint driver. `opts` may include `:choice`, `:input`, `:step`, `:by`, and `:attributes`. Returns `{:ready [...] :done boolean}`. |
-| `choice-details` | `(feature)` / `(feature opts)` | Choice explanations for the current checkpoint. |
-| `choice-detail` | `(feature choice)` / `(feature choice opts)` | One choice's explanation. |
+| `start!` | `(runtime feature)` / `(runtime feature params)` | Pours the registered `:intake` definition under `family "devflow"`. It merges intake defaults with the supplied complete param map, validates the result against `:ct.spools.devflow/intake-params`, and seeds it (plus `:feature`) into `workflow/context` for revision loops. Returns `{:ready [...] :done boolean}`. |
+| `ready` | `(runtime feature)` | All ready step views for the feature (each carrying `:run-id`). |
+| `ready-step` | `(runtime feature)` | The single ready step view; throws if ambiguous. |
+| `complete!` | `(runtime feature)` / `(runtime feature opts)` | Closes the current non-checkpoint step. `opts` (`:step`, `:attributes`, `:by`) pass through. Returns `{:ready [...] :done boolean}`. |
+| `choose!` | `(runtime feature choice)` / `(runtime feature choice input)` / `(runtime feature choice input opts)` | Records the checkpoint choice and routes if the choice has a `:next`. Returns `{:ready [...] :done boolean}`. |
+| `advance!` | `(runtime feature)` / `(runtime feature opts)` | Unified step/checkpoint driver. `opts` may include `:choice`, `:input`, `:step`, `:by`, and `:attributes`. Returns `{:ready [...] :done boolean}`. |
+| `choice-details` | `(runtime feature)` / `(runtime feature opts)` | Choice explanations for the current checkpoint. |
+| `choice-detail` | `(runtime feature choice)` / `(runtime feature choice opts)` | One choice's explanation. |
 | `describe` | `()` / `(stage)` | Compile-time shape of the full devflow cycle, or one registered stage key such as `:proposal`; writes nothing. |
 | `guidance` | `()` / `(guide)` | Authoring knowledge base (§5a): the workspace overview, or one artifact guide by key (keyword or string); writes nothing. |
-| `run-history` | `(feature)` | Ordered run history for the feature (delegates to `workflow/run-history`), each molecule's `:root` carrying the `:stage` it was poured for. |
-| `squash-run!` | `(feature)` / `(feature opts)` | Squash a finished feature run into one closed digest strand; fails loudly while any stage root is active. Closes out the graph only — the workspace side of finishing follows `(guidance :finish-archive)`. |
-| `current-root` | `(feature)` | The feature's single active stage root molecule, or nil when it has none; throws if ambiguous. |
+| `run-history` | `(runtime feature)` | Ordered run history for the feature (delegates to `workflow/run-history`), each molecule's `:root` carrying the `:stage` it was poured for. |
+| `squash-run!` | `(runtime feature)` / `(runtime feature opts)` | Squash a finished feature run into one closed digest strand; fails loudly while any stage root is active. Closes out the graph only — the workspace side of finishing follows `(guidance :finish-archive)`. |
+| `current-root` | `(runtime feature)` | The feature's single active stage root molecule, or nil when it has none; throws if ambiguous. |
 
 There is no devflow `done?` wrapper — use `skein.spools.workflow/done?` with the
 feature name.
@@ -152,25 +152,28 @@ feature name.
 Driving example with one revise round:
 
 ```clojure
-(require '[ct.spools.devflow :as devflow])
+(require '[ct.spools.devflow :as devflow]
+         '[skein.api.current.alpha :as current])
+
+(def runtime (current/runtime))
 
 ;; feature name is the run-id; step-view's :id is the generated strand id,
 ;; a checkpoint's stable definition name arrives as the :checkpoint string
-(devflow/start! "search-filters")
+(devflow/start! runtime "search-filters")
 ;; => {:ready [{:role "checkpoint" :checkpoint "create-or-confirm-worktree"
 ;;              :choices ["created-worktree" "already-in-worktree" "abort"] ...}]
 ;;     :done false}
 
 ;; terminal choice — stays in the intake molecule and advances to capture-brief
-(devflow/choose! "search-filters" :created-worktree {})
+(devflow/choose! runtime "search-filters" :created-worktree {})
 ;; => {:ready [{:title "Capture user brief for search-filters" :artifact "brief" ...}] :done false}
 
-(devflow/complete! "search-filters")
+(devflow/complete! runtime "search-filters")
 ;; => {:ready [{:role "checkpoint" :checkpoint "discuss-scope"
 ;;              :choices ["proposal-ready" "needs-more-brief"] ...}] :done false}
 
 ;; scope is clear — route to the proposal stage (fresh molecule, same feature)
-(devflow/choose! "search-filters" :proposal-ready {})
+(devflow/choose! runtime "search-filters" :proposal-ready {})
 ;; => {:ready [{:action-ref "devflow.proposal.orient" ...}] :done false}
 
 ;; complete inspect-context, write-proposal, and the inner agent-review step

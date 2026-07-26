@@ -8,12 +8,12 @@
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow.guidance :as guidance]
+            [skein.api.current.alpha :as current]
             [skein.api.runtime.alpha :as runtime]
             [skein.api.spool.alpha :as spool]
             [skein.spools.workflow :as workflow]
             [skein.api.weaver.alpha :as weaver]
-            [skein.test.alpha :as t]
-            [skein.core.weaver.runtime :as weaver-runtime]))
+            [skein.test.alpha :as t]))
 
 (deftest tested-skein-checkout-contains-def-spool-phase-a
   (let [root (str (t/spool-checkout-root "skein/api/spool/alpha.clj"))
@@ -95,11 +95,26 @@
   registry."
   [f]
   (t/with-weaver-world [ctx {:storage :sqlite-memory}]
-    (weaver-runtime/with-runtime-binding (:runtime ctx)
-      (fn []
-        (activate-workflow! (:runtime ctx))
-        (publish-devflow-routes! (:runtime ctx))
-        (f (:runtime ctx) (:config-dir ctx))))))
+    (current/with-runtime (:runtime ctx)
+      (activate-workflow! (:runtime ctx))
+      (publish-devflow-routes! (:runtime ctx))
+      (f (:runtime ctx) (:config-dir ctx)))))
+
+(deftest explicit-runtime-facade-overrides-a-different-ambient-world
+  (t/with-weaver-world [ambient {:storage :sqlite-memory}]
+    (t/with-weaver-world [target {:storage :sqlite-memory}]
+      (let [ambient-runtime (:runtime ambient)
+            target-runtime (:runtime target)]
+        (current/with-runtime target-runtime
+          (activate-workflow! target-runtime)
+          (publish-devflow-routes! target-runtime))
+        (current/with-runtime ambient-runtime
+          (devflow/start! target-runtime "target-run"
+                          {:worktree-check :already-in-worktree-ok})
+          (is (nil? (workflow/current-root "target-run")))
+          (is (= "target-run"
+                 (get-in (devflow/current-root target-runtime "target-run")
+                         [:attributes :workflow/run-id]))))))))
 
 (s/def ::repointed-params (s/keys :req-un [::devflow/feature]))
 
@@ -207,12 +222,12 @@
 (deftest devflow-intake-revision-preserves-start-opts
   (with-runtime
     (fn [rt _]
-      (devflow/start! "intake-loop" {:worktree-check :already-in-worktree-ok})
-      (devflow/choose! "intake-loop" :already-in-worktree)
-      (devflow/complete! "intake-loop")
+      (devflow/start! rt "intake-loop" {:worktree-check :already-in-worktree-ok})
+      (devflow/choose! rt "intake-loop" :already-in-worktree)
+      (devflow/complete! rt "intake-loop")
       ;; the revision round skips the worktree checkpoint and resumes at capture-brief
       (is (= "Capture user brief for intake-loop"
-             (:title (first (:ready (devflow/choose! "intake-loop" :needs-more-brief))))))
+             (:title (first (:ready (devflow/choose! rt "intake-loop" :needs-more-brief))))))
       ;; the start opt survived the loop: the fresh intake root still records it
       (is (= "already-in-worktree-ok"
              (get-in (workflow/current-root "intake-loop")
@@ -246,17 +261,17 @@
 (deftest devflow-spool-exposes-small-operational-loop
   (with-runtime
     (fn [rt _]
-      (devflow/start! "workflow-loop" {:worktree-check :already-in-worktree-ok})
-      (let [first-step (devflow/ready-step "workflow-loop")]
+      (devflow/start! rt "workflow-loop" {:worktree-check :already-in-worktree-ok})
+      (let [first-step (devflow/ready-step rt "workflow-loop")]
         (is (= "checkpoint" (:role first-step)))
         (is (= "intake" (:stage first-step)))
         (is (= "create-or-confirm-worktree" (:checkpoint first-step)))
         (is (= "already-in-worktree-ok"
-               (get-in (devflow/current-root "workflow-loop")
+               (get-in (devflow/current-root rt "workflow-loop")
                        [:attributes :devflow/worktree-check])))
         (is (= ["created-worktree" "already-in-worktree" "abort"]
                (:choices first-step)))
-        (let [detail (devflow/choice-detail "workflow-loop" :abort)]
+        (let [detail (devflow/choice-detail rt "workflow-loop" :abort)]
           (is (= {"label" "Abort"
                   "description" "Stop the feature before any substantive work begins."
                   "next" ":abort"}
@@ -268,7 +283,7 @@
                  (select-keys (get detail "input-spec") ["spec" "doc"])))
           (is (seq (get-in detail ["input-spec" "spec-forms"]))))
         (is (not (contains? first-step :choice-details)))
-        (let [ready (first (:ready (devflow/choose! "workflow-loop" :already-in-worktree)))]
+        (let [ready (first (:ready (devflow/choose! rt "workflow-loop" :already-in-worktree)))]
           (is (= "Capture user brief for workflow-loop" (:title ready)))
           (is (= "intake" (:stage ready))))))))
 
@@ -374,22 +389,22 @@
       (dotimes [_ 2] (workflow/complete! "afk-route"))
       ;; Sign-off carries the queue forward and lands on the execution-mode
       ;; checkpoint rather than guessing from the queue's presence.
-      (let [ready (:ready (devflow/choose! "afk-route" :approved
+      (let [ready (:ready (devflow/choose! rt "afk-route" :approved
                                            {:tasks [{"id" "one" "title" "One" "body" "Do one"}
                                                     {"id" "two" "title" "Two"}]
                                             :delegate-harness "sh"}))]
         (is (= ["Choose how the AFK task queue runs for afk-route"] (mapv :title ready)))
         (is (= "choose-afk-execution" (:checkpoint (first ready))))
         (is (= "afk" (get-in (workflow/current-root "afk-route") [:attributes :devflow/stage]))))
-      (let [delegated (:ready (devflow/choose! "afk-route" :delegate))]
+      (let [delegated (:ready (devflow/choose! rt "afk-route" :delegate))]
         (is (= [{:title "Delegate AFK task one for afk-route" :gate "subagent"}]
                (mapv #(select-keys % [:title :gate]) delegated))))
-      (let [after-first (:ready (devflow/complete! "afk-route" {:by "run-one"}))]
+      (let [after-first (:ready (devflow/complete! rt "afk-route" {:by "run-one"}))]
         (is (= [{:title "Delegate AFK task two for afk-route" :gate "subagent"}]
                (mapv #(select-keys % [:title :gate]) after-first))))
-      (devflow/complete! "afk-route" {:by "run-two"})
-      (is (= "human-acceptance-afk" (:checkpoint (devflow/ready-step "afk-route"))))
-      (let [revised (:ready (devflow/choose! "afk-route" :revise))]
+      (devflow/complete! rt "afk-route" {:by "run-two"})
+      (is (= "human-acceptance-afk" (:checkpoint (devflow/ready-step rt "afk-route"))))
+      (let [revised (:ready (devflow/choose! rt "afk-route" :revise))]
         (is (= [{:title "Delegate AFK task one for afk-route" :gate "subagent"}]
                (mapv #(select-keys % [:title :gate]) revised)))
         (is (= "afk-route" (:run-id (first revised))))))))
@@ -405,45 +420,45 @@
 (deftest devflow-registered-routes-cover-later-stage-runtime-paths
   (with-runtime
     (fn [rt _]
-      (devflow/start! "route-happy" {:worktree-check :already-in-worktree-ok})
-      (devflow/advance! "route-happy" {:choice :already-in-worktree})
-      (devflow/advance! "route-happy")
-      (devflow/advance! "route-happy" {:choice :proposal-ready})
-      (dotimes [_ 3] (devflow/advance! "route-happy"))
-      (devflow/advance! "route-happy" {:choice :approved})
-      (dotimes [_ 3] (devflow/advance! "route-happy"))
-      (let [route (first (:ready (devflow/advance! "route-happy" {:choice :approved})))]
+      (devflow/start! rt "route-happy" {:worktree-check :already-in-worktree-ok})
+      (devflow/advance! rt "route-happy" {:choice :already-in-worktree})
+      (devflow/advance! rt "route-happy")
+      (devflow/advance! rt "route-happy" {:choice :proposal-ready})
+      (dotimes [_ 3] (devflow/advance! rt "route-happy"))
+      (devflow/advance! rt "route-happy" {:choice :approved})
+      (dotimes [_ 3] (devflow/advance! rt "route-happy"))
+      (let [route (first (:ready (devflow/advance! rt "route-happy" {:choice :approved})))]
         (is (= "route-after-plan" (:stage route)))
         (is (= "route-after-plan" (:checkpoint route))))
-      (let [implementation (first (:ready (devflow/advance! "route-happy" {:choice :direct-implementation})))]
+      (let [implementation (first (:ready (devflow/advance! rt "route-happy" {:choice :direct-implementation})))]
         (is (= "implementation" (:stage implementation)))
         (is (= "devflow.implementation.direct" (:action-ref implementation))))
-      (dotimes [_ 3] (devflow/advance! "route-happy"))
+      (dotimes [_ 3] (devflow/advance! rt "route-happy"))
       (is (= {:ready [] :done true}
-             (devflow/advance! "route-happy" {:choice :accepted}))))))
+             (devflow/advance! rt "route-happy" {:choice :accepted}))))))
 
 (deftest devflow-choice-next-workflow-validates-lazily
   (with-runtime
     (fn [rt _]
-      (devflow/start! "workflow-abort" {:worktree-check :required})
+      (devflow/start! rt "workflow-abort" {:worktree-check :required})
       ;; the abort choice declares a required :reason input, so omitting it fails
       ;; loudly before any mutation (D1.2), leaving the checkpoint active
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Value does not satisfy the named spec"
-                            (devflow/choose! "workflow-abort" :abort)))
+                            (devflow/choose! rt "workflow-abort" :abort)))
       (is (= "create-or-confirm-worktree"
-             (:checkpoint (devflow/ready-step "workflow-abort"))))
+             (:checkpoint (devflow/ready-step rt "workflow-abort"))))
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Choice input must be a map"
-                            (devflow/choose! "workflow-abort" :abort [:bad])))
-      (let [ready (first (:ready (devflow/choose! "workflow-abort" :abort {:reason "cancelled"})))]
+                            (devflow/choose! rt "workflow-abort" :abort [:bad])))
+      (let [ready (first (:ready (devflow/choose! rt "workflow-abort" :abort {:reason "cancelled"})))]
         (is (= "Record abort for workflow-abort: cancelled" (:title ready)))
         (is (= "abort" (:stage ready)))))))
 
 (deftest devflow-start-fails-on-multiple-active-roots
   (with-runtime
     (fn [rt _]
-      (devflow/start! "workflow-duplicate-root" {:worktree-check :required})
+      (devflow/start! rt "workflow-duplicate-root" {:worktree-check :required})
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Active workflow run already exists"
-                            (devflow/start! "workflow-duplicate-root" {:worktree-check :required}))))))
+                            (devflow/start! rt "workflow-duplicate-root" {:worktree-check :required}))))))
 
 (deftest devflow-describe-surfaces-stage-choices-and-conditioned-steps
   ;; describing a stage projects its shape without pouring: the proposal stage's
@@ -479,12 +494,12 @@
 (deftest devflow-run-history-and-squash-run-project-then-squash-a-run
   (with-runtime
     (fn [rt _]
-      (devflow/start! "af-run" {:worktree-check :already-in-worktree-ok})
+      (devflow/start! rt "af-run" {:worktree-check :already-in-worktree-ok})
       ;; abort the feature: intake routes to the abort stage, then record the abort
-      (devflow/choose! "af-run" :abort {:reason "not needed"})
-      (devflow/complete! "af-run")
+      (devflow/choose! rt "af-run" :abort {:reason "not needed"})
+      (devflow/complete! rt "af-run")
       (is (workflow/done? "af-run"))
-      (let [history (devflow/run-history "af-run")
+      (let [history (devflow/run-history rt "af-run")
             intake-mol (first (filter #(= "intake" (get-in % [:root :stage])) history))
             ;; the abort route also force-closes intake's later discuss-scope
             ;; checkpoint (a decision-less :choice event), so select by outcome
@@ -493,14 +508,14 @@
         (is (= #{"intake" "abort"} (set (keep #(get-in % [:root :stage]) history))))
         (is (= :choice (:type abort-choice)))
         (is (= {:reason "not needed"} (:input abort-choice))))
-      (let [digest (devflow/squash-run! "af-run")]
+      (let [digest (devflow/squash-run! rt "af-run")]
         (is (= "digest" (get-in digest [:attributes :workflow/role])))
         (is (= "af-run" (get-in digest [:attributes :workflow/run-id])))
         (is (some #(str/includes? (:title % "") "intake")
                   (get-in digest [:attributes :workflow/summary])))
         ;; the run's molecules are burned, so history now fails loudly
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown workflow run"
-                              (devflow/run-history "af-run")))))))
+                              (devflow/run-history rt "af-run")))))))
 
 (defn unstaged-workflow
   "Return a one-step workflow whose root carries `stage` verbatim (nil for a root
@@ -531,10 +546,10 @@
       ;; every seam that projects :stage refuses the root, so no caller sees a
       ;; ready view that silently dropped the stage it advertises; each seam gets
       ;; its own run because the mutating ones consume a step to reach a view
-      (doseq [[feature project] [["no-stage-ready" devflow/ready]
-                                 ["no-stage-ready-step" devflow/ready-step]
-                                 ["no-stage-complete" #(devflow/complete! %)]
-                                 ["no-stage-advance" #(devflow/advance! %)]]]
+      (doseq [[feature project] [["no-stage-ready" #(devflow/ready rt %)]
+                                 ["no-stage-ready-step" #(devflow/ready-step rt %)]
+                                 ["no-stage-complete" #(devflow/complete! rt %)]
+                                 ["no-stage-advance" #(devflow/advance! rt %)]]]
         (start-unstaged! feature nil)
         (is (thrown-with-msg? clojure.lang.ExceptionInfo
                               #"no active root carrying a known devflow/stage"
@@ -544,7 +559,7 @@
       ;; what it was allowed to carry
       (start-unstaged! "no-stage" nil)
       (let [root (workflow/current-root "no-stage")
-            data (try (devflow/ready "no-stage")
+            data (try (devflow/ready rt "no-stage")
                       (catch clojure.lang.ExceptionInfo e (ex-data e)))]
         (is (= "no-stage" (:feature data)))
         (is (= (:id root) (:strand data)))
@@ -553,7 +568,7 @@
         (is (= (vec (sort devflow/stages)) (:stages data))))
       ;; an out-of-enum stage is no more acceptable than a missing one
       (start-unstaged! "bad-stage" "wandering")
-      (let [data (try (devflow/ready-step "bad-stage")
+      (let [data (try (devflow/ready-step rt "bad-stage")
                       (catch clojure.lang.ExceptionInfo e (ex-data e)))]
         (is (= "wandering" (:stage data)))
         (is (= (vec (sort devflow/stages)) (:stages data)))))))
@@ -562,7 +577,7 @@
   (with-runtime
     (fn [rt _]
       (start-unstaged! "history-no-stage" nil)
-      (let [data (try (devflow/run-history "history-no-stage")
+      (let [data (try (devflow/run-history rt "history-no-stage")
                       (catch clojure.lang.ExceptionInfo e (ex-data e)))]
         (is (= "history-no-stage" (:feature data)))
         (is (= (:id (workflow/current-root "history-no-stage")) (:strand data)))
@@ -570,33 +585,35 @@
       (start-unstaged! "history-bad-stage" "wandering")
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"carries no known devflow/stage"
-                            (devflow/run-history "history-bad-stage"))))))
+                            (devflow/run-history rt "history-bad-stage"))))))
 
 (deftest devflow-projections-conform-to-their-public-specs
   (with-runtime
     (fn [rt _]
-      (devflow/start! "spec-shapes" {:worktree-check :already-in-worktree-ok})
-      (let [ready (devflow/ready "spec-shapes")]
+      (devflow/start! rt "spec-shapes" {:worktree-check :already-in-worktree-ok})
+      (let [ready (devflow/ready rt "spec-shapes")]
         (is (s/valid? ::devflow/ready ready) (s/explain-str ::devflow/ready ready))
         (is (= "intake" (:stage (first ready))))
-        (is (s/valid? ::devflow/step-view (devflow/ready-step "spec-shapes"))))
-      (let [ready (:ready (devflow/choose! "spec-shapes" :abort {:reason "shape check"}))]
+        (is (s/valid? ::devflow/step-view (devflow/ready-step rt "spec-shapes"))))
+      (let [ready (:ready (devflow/choose! rt "spec-shapes" :abort {:reason "shape check"}))]
         (is (s/valid? ::devflow/ready ready) (s/explain-str ::devflow/ready ready))
         (is (= "abort" (:stage (first ready)))))
-      (devflow/complete! "spec-shapes")
-      (let [history (devflow/run-history "spec-shapes")]
+      (devflow/complete! rt "spec-shapes")
+      (let [history (devflow/run-history rt "spec-shapes")]
         (is (s/valid? ::devflow/run-history history)
             (s/explain-str ::devflow/run-history history))
         (is (= #{"intake" "abort"} (set (map #(get-in % [:root :stage]) history))))))))
 
 (deftest devflow-guidance-serves-the-authoring-knowledge-base
   ;; the overview orients without picking a guide
-  (let [overview (devflow/guidance)]
-    (is (= (set (keys guidance/guides)) (set (keys (:guides overview)))))
+  (let [overview (devflow/guidance)
+        guides (into {} (map (fn [key] [key (devflow/guidance key)])) (keys (:guides overview)))]
+    (is (= (set (keys guides)) (set (keys (:guides overview)))))
     (is (contains? (get-in overview [:workspace :paths]) :proposal))
     (is (seq (get-in overview [:workspace :invariants]))))
   ;; every guide shares the documented shape (procedures as named step vectors)
-  (doseq [[key guide] guidance/guides]
+  (doseq [[key guide] (into {} (map (fn [key] [key (devflow/guidance key)]))
+                            (keys (:guides (devflow/guidance))))]
     (is (string? (:purpose guide)) (str key " has a purpose"))
     (is (map? (:artifacts guide)) (str key " has artifact paths"))
     (is (and (map? (:procedures guide))
@@ -626,7 +643,7 @@
                        {:family "devflow"
                         :context {:feature "widgets"}})
       (workflow/complete! "guide-views")
-      (let [step (devflow/ready-step "guide-views")]
+      (let [step (devflow/ready-step rt "guide-views")]
         (is (= "proposal.md" (:artifact step)))
         (is (= :proposal (:guide step)))
         (is (str/includes? (:instruction step) "guidance :proposal"))))))

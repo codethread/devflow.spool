@@ -582,8 +582,8 @@
   known `stages` member: stage is devflow's own vocabulary and every devflow root
   records it, so a run with ready work but no stage is unexpected state, not a
   view that may quietly ship without one. Ask only while work is ready."
-  [feature]
-  (let [root (workflow/current-root feature)
+  [runtime feature]
+  (let [root (current/with-runtime runtime (workflow/current-root feature))
         stage (spool/attr-get root :devflow/stage)]
     (or (stages stage)
         (throw (ex-info "Devflow run has no active root carrying a known devflow/stage"
@@ -603,9 +603,9 @@
 (defn- stage-views
   "Return engine ready step views as devflow views carrying `feature`'s active
   stage (shape: `:ct.spools.devflow/ready`)."
-  [feature steps]
+  [runtime feature steps]
   (if (seq steps)
-    (let [stage (active-stage feature)]
+    (let [stage (active-stage runtime feature)]
       (spool/require-valid! ::ready
                             (mapv (partial stage-view stage) steps)
                             "Devflow ready step views are invalid"))
@@ -613,8 +613,8 @@
 
 (defn- stage-result
   "Add the feature's current stage to every ready step in a mutation result."
-  [feature result]
-  (update result :ready #(stage-views feature %)))
+  [runtime feature result]
+  (update result :ready #(stage-views runtime feature %)))
 
 (defn start!
   "Start the devflow intake workflow for `feature` and return the engine
@@ -622,9 +622,9 @@
 
   Each ready step view carries the current devflow `:stage` (shape:
   `:ct.spools.devflow/ready`)."
-  ([feature]
-   (start! feature {}))
-  ([feature opts]
+  ([runtime feature]
+   (start! runtime feature {}))
+  ([runtime feature opts]
    ;; keyword opt values (e.g. :worktree-check :required) are coerced to strings
    ;; so they survive JSON round-tripping in workflow/context, and because the
    ;; param specs name the string forms the engine will read back
@@ -632,53 +632,57 @@
                             {:feature feature}
                             opts)]
      (stage-result
+      runtime
       feature
-      (workflow/start!
-       feature
-       :intake
-       context
-       {:family "devflow"
-        ;; seed start opts into context so they survive intake revision loops
-        ;; rather than resetting to their defaults
-        :context context})))))
+      (current/with-runtime
+        runtime
+        (workflow/start!
+         feature
+         :intake
+         context
+         {:family "devflow"
+          ;; seed start opts into context so they survive intake revision loops
+          ;; rather than resetting to their defaults
+          :context context}))))))
 
 (defn current-root
   "Return the feature's single active devflow stage root, or nil when the run has
   none (see `skein.spools.workflow/current-root`). Throws when ambiguous."
-  [feature]
-  (workflow/current-root feature))
+  [runtime feature]
+  (current/with-runtime runtime (workflow/current-root feature)))
 
 (defn ready
   "Return agent-facing ready devflow steps for `feature`, each carrying `:stage`
   (shape: `:ct.spools.devflow/ready`)."
-  [feature]
-  (stage-views feature (workflow/ready feature)))
+  [runtime feature]
+  (stage-views runtime feature (current/with-runtime runtime (workflow/ready feature))))
 
 (defn ready-step
   "Return the single agent-facing ready devflow step for `feature` (shape:
   `:ct.spools.devflow/step-view`), nil when none is ready, or fail if ambiguous."
-  [feature]
-  (first (stage-views feature (some-> (workflow/ready-step feature) vector))))
+  [runtime feature]
+  (first (stage-views runtime feature
+                      (some-> (current/with-runtime runtime (workflow/ready-step feature)) vector))))
 
 (defn choice-details
   "Return choice explanations for the current devflow checkpoint.
 
   opts may include `:step` (materialized strand id) to select among multiple
   ready checkpoints."
-  ([feature]
-   (choice-details feature {}))
-  ([feature opts]
-   (workflow/choice-details feature opts)))
+  ([runtime feature]
+   (choice-details runtime feature {}))
+  ([runtime feature opts]
+   (current/with-runtime runtime (workflow/choice-details feature opts))))
 
 (defn choice-detail
   "Return one choice explanation for the current devflow checkpoint.
 
   opts may include `:step` (materialized strand id) to select among multiple
   ready checkpoints."
-  ([feature choice]
-   (choice-detail feature choice {}))
-  ([feature choice opts]
-   (workflow/choice-detail feature choice opts)))
+  ([runtime feature choice]
+   (choice-detail runtime feature choice {}))
+  ([runtime feature choice opts]
+   (current/with-runtime runtime (workflow/choice-detail feature choice opts))))
 
 (defn complete!
   "Close the current devflow step for `feature` and return the engine
@@ -688,10 +692,11 @@
   opts may include `:step` and `:attributes`; see
   `skein.spools.workflow/complete!`. The engine records no outcome prose, so a
   stage's own outcome vocabulary rides `:attributes`."
-  ([feature]
-   (complete! feature {}))
-  ([feature opts]
-   (stage-result feature (workflow/complete! feature opts))))
+  ([runtime feature]
+   (complete! runtime feature {}))
+  ([runtime feature opts]
+   (stage-result runtime feature
+                 (current/with-runtime runtime (workflow/complete! feature opts)))))
 
 (defn- keywordize-choice-input
   "Return choice input with top-level string keys converted to keywords."
@@ -708,12 +713,19 @@
   the devflow `:stage` (shape: `:ct.spools.devflow/ready`).
 
   opts may include `:step`; see `skein.spools.workflow/choose!`."
-  ([feature choice]
-   (stage-result feature (workflow/choose! feature choice)))
-  ([feature choice input]
-   (stage-result feature (workflow/choose! feature choice (keywordize-choice-input input))))
-  ([feature choice input opts]
-   (stage-result feature (workflow/choose! feature choice (keywordize-choice-input input) opts))))
+  ([runtime feature choice]
+   (stage-result runtime feature
+                 (current/with-runtime runtime (workflow/choose! feature choice))))
+  ([runtime feature choice input]
+   (stage-result runtime feature
+                 (current/with-runtime
+                   runtime
+                   (workflow/choose! feature choice (keywordize-choice-input input)))))
+  ([runtime feature choice input opts]
+   (stage-result runtime feature
+                 (current/with-runtime
+                   runtime
+                   (workflow/choose! feature choice (keywordize-choice-input input) opts)))))
 
 (defn advance!
   "Advance the current devflow step or checkpoint for `feature`.
@@ -721,10 +733,11 @@
   Delegates to `skein.spools.workflow/advance!` and adds the active devflow
   `:stage` to returned ready step views (shape: `:ct.spools.devflow/ready`).
   opts may include `:choice`, `:input`, `:step`, `:by`, and `:attributes`."
-  ([feature]
-   (advance! feature {}))
-  ([feature opts]
-   (stage-result feature (workflow/advance! feature opts))))
+  ([runtime feature]
+   (advance! runtime feature {}))
+  ([runtime feature opts]
+   (stage-result runtime feature
+                 (current/with-runtime runtime (workflow/advance! feature opts)))))
 
 (def stage-workflows
   "Devflow's stage definitions by the stable routing name each is registered
@@ -795,8 +808,8 @@
   history reports only engine-owned root fields. Every root devflow poured for a
   run records its stage, so a molecule whose root carries no known `stages`
   member fails loudly (TEN-003) rather than projecting a stageless root."
-  [feature]
-  (let [rt (current/runtime)]
+  [runtime feature]
+  (let [rt runtime]
     (spool/require-valid!
      ::run-history
      (mapv (fn [{:keys [root] :as molecule}]
@@ -810,7 +823,7 @@
                                   :attributes (:attributes strand)
                                   :stages (vec (sort stages))})))
                (assoc-in molecule [:root :stage] stage)))
-           (workflow/run-history feature))
+           (current/with-runtime runtime (workflow/run-history feature)))
      "Devflow run history molecules are invalid")))
 
 (defn squash-run!
@@ -822,10 +835,10 @@
   spec promotion, plan status, and moving the feature folder into
   `devflow/archive/` — is a separate devflow procedure: follow
   `(guidance :finish-archive)`."
-  ([feature]
-   (workflow/squash-run! feature))
-  ([feature opts]
-   (workflow/squash-run! feature opts)))
+  ([runtime feature]
+   (current/with-runtime runtime (workflow/squash-run! feature)))
+  ([runtime feature opts]
+   (current/with-runtime runtime (workflow/squash-run! feature opts))))
 
 ;; Devflow's contribution is the registry entries its `defworkflow` forms
 ;; collect while this namespace loads, so there is no `contribute` fn and no
