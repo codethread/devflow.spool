@@ -419,7 +419,31 @@
                (mapv #(select-keys % [:title :gate]) revised)))
         (is (= "afk-route" (:run-id (first revised))))))))
 
+(def ^:private returning-afk-stage-caller
+  (workflow/workflow
+   "Caller around a routed devflow stage"
+   (workflow/call :manual-stage :run-afk-manual {:feature "afk-return"})
+   (workflow/step :after-stage "Continue after the devflow stage returns"
+                  :self
+                  :depends-on [:manual-stage])))
+
+(deftest devflow-routed-stage-returns-to-its-caller
+  (with-runtime
+    (fn [_rt _]
+      (let [started (workflow/start! "afk-return" returning-afk-stage-caller {})
+            root-id (get-in started [:root :id])]
+        (is (= ["Run or hand off AFK task loop for afk-return"]
+               (mapv :title (:ready started))))
+        (let [returned (workflow/complete! "afk-return")]
+          (is (= root-id (get-in returned [:root :id]))
+              "the registered stage executes inside the caller's run")
+          (is (= ["Continue after the devflow stage returns"]
+                 (mapv :title (:ready returned)))
+              "closing the called stage resumes the caller after its procedure join"))
+        (is (true? (:done (workflow/complete! "afk-return"))))))))
+
 (deftest devflow-afk-manual-route-pours-the-single-step
+  ;; The checkpoint route still enters the same stage through :continue.
   (with-runtime
     (fn [rt _]
       (workflow/start! "afk-manual" #'devflow/run-afk-loop {:feature "afk-manual"}
