@@ -15,9 +15,9 @@
             [skein.api.weaver.alpha :as weaver]
             [skein.test.alpha :as t]))
 
-(deftest tested-skein-checkout-contains-def-spool-phase-a
+(deftest tested-skein-checkout-contains-defer-return
   (let [root (str (t/spool-checkout-root "skein/api/spool/alpha.clj"))
-        floor "343f886880092bc38ed3e0522eca2d95a7cf04bc"
+        floor "70a3c50e27ca0190f363d80d0b0cac72948dbacb"
         head-result (shell/sh "git" "-C" root "rev-parse" "HEAD")
         head (str/trim (:out head-result))
         ancestry-result (shell/sh "git" "-C" root "merge-base" "--is-ancestor"
@@ -61,6 +61,16 @@
   ;; The fixture below registers from `route-symbols`; this keeps that list from
   ;; drifting away from what the namespace actually publishes.
   (is (= (set (keys devflow/stage-workflows)) (set (map first route-symbols)))))
+
+(deftest routed-stages-support-transfer-and-returning-composition
+  ;; Checkpoint :next still requires :continue at Skein's authored root-transfer
+  ;; boundary. The same stages advertise :call so a fixed call or runtime-selected
+  ;; defer can execute them as returning procedures.
+  (is (= #{:start} (:entrypoints devflow/intake)))
+  (is (= #{:call} (:entrypoints devflow/agent-review)))
+  (doseq [[stage definition] (dissoc devflow/stage-workflows :intake :agent-review)]
+    (is (= #{:continue :call} (:entrypoints definition))
+        (str stage " supports checkpoint routing and returning composition"))))
 
 (defn- publish-devflow-routes!
   "Register devflow's stage routes in `rt`'s workflow registry."
@@ -120,7 +130,7 @@
 
 (workflow/defworkflow repointed-proposal
   "A test-only replacement proving named routes bind at transition time."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::repointed-params
    :defaults {}}
   (workflow/workflow
@@ -409,7 +419,31 @@
                (mapv #(select-keys % [:title :gate]) revised)))
         (is (= "afk-route" (:run-id (first revised))))))))
 
+(def ^:private returning-afk-stage-caller
+  (workflow/workflow
+   "Caller around a routed devflow stage"
+   (workflow/call :manual-stage :run-afk-manual {:feature "afk-return"})
+   (workflow/step :after-stage "Continue after the devflow stage returns"
+                  :self
+                  :depends-on [:manual-stage])))
+
+(deftest devflow-routed-stage-returns-to-its-caller
+  (with-runtime
+    (fn [_rt _]
+      (let [started (workflow/start! "afk-return" returning-afk-stage-caller {})
+            root-id (get-in started [:root :id])]
+        (is (= ["Run or hand off AFK task loop for afk-return"]
+               (mapv :title (:ready started))))
+        (let [returned (workflow/complete! "afk-return")]
+          (is (= root-id (get-in returned [:root :id]))
+              "the registered stage executes inside the caller's run")
+          (is (= ["Continue after the devflow stage returns"]
+                 (mapv :title (:ready returned)))
+              "closing the called stage resumes the caller after its procedure join"))
+        (is (true? (:done (workflow/complete! "afk-return"))))))))
+
 (deftest devflow-afk-manual-route-pours-the-single-step
+  ;; The checkpoint route still enters the same stage through :continue.
   (with-runtime
     (fn [rt _]
       (workflow/start! "afk-manual" #'devflow/run-afk-loop {:feature "afk-manual"}

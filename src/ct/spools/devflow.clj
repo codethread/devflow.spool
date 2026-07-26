@@ -268,7 +268,7 @@
   review, then stop for human sign-off. On a revision round (`:revision true`),
   `:inspect-context` is skipped because orientation was done on the first pass;
   F4's splice reattaches `:write-proposal` as the entry step."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::proposal-params
    :defaults {:revision false}}
   (workflow/workflow
@@ -311,7 +311,7 @@
 
 (workflow/defworkflow route-after-plan
   "The post-plan route-choice stage."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::route-after-plan-params
    :defaults {}}
   (workflow/workflow
@@ -336,7 +336,7 @@
   After review and human sign-off, approval routes to the task/direct
   implementation decision workflow. A revision round (`:revision true`) re-runs
   the whole spec/plan stage."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::spec-plan-params
    :defaults {:revision false}}
   (workflow/workflow
@@ -383,7 +383,7 @@
   queue is a continuation a worker can discover and read before choosing it
   (PROP-Wcd-001.EX6). Delegation carries the queue forward in `:tasks`, so the
   delegated route is only honest when one is present."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::run-afk-loop-params
    :defaults {}}
   (workflow/workflow
@@ -409,7 +409,7 @@
 
 (workflow/defworkflow run-afk-manual
   "Run or hand off the AFK task loop in the current worker."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::run-afk-manual-params
    :defaults {}}
   (workflow/workflow
@@ -428,7 +428,7 @@
   One gate per task, chained, then a `:human` acceptance checkpoint. Task maps
   may be keyword- or string-keyed; `::run-afk-delegated-params` judges the whole
   queue — including that every task resolves a harness — before anything pours."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::run-afk-delegated-params
    :defaults {:revision false}}
   (workflow/workflow
@@ -457,7 +457,7 @@
   "The reviewed task queue stage.
 
   A revision round (`:revision true`) re-runs the whole task-breakdown stage."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::tasks-params
    :defaults {:revision false}}
   (workflow/workflow
@@ -497,7 +497,7 @@
   "The post-plan direct implementation stage for small, settled changes.
 
   A revision round (`:revision true`) re-runs the whole implementation stage."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::direct-implementation-params
    :defaults {:revision false}}
   (workflow/workflow
@@ -539,7 +539,7 @@
 
 (workflow/defworkflow abort
   "A tiny stage that records intentional feature abortion."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::abort-params
    :defaults {}}
   (workflow/workflow
