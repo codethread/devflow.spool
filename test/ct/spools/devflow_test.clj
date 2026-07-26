@@ -15,9 +15,9 @@
             [skein.api.weaver.alpha :as weaver]
             [skein.test.alpha :as t]))
 
-(deftest tested-skein-checkout-contains-def-spool-phase-a
+(deftest tested-skein-checkout-contains-defer-return
   (let [root (str (t/spool-checkout-root "skein/api/spool/alpha.clj"))
-        floor "343f886880092bc38ed3e0522eca2d95a7cf04bc"
+        floor "70a3c50e27ca0190f363d80d0b0cac72948dbacb"
         head-result (shell/sh "git" "-C" root "rev-parse" "HEAD")
         head (str/trim (:out head-result))
         ancestry-result (shell/sh "git" "-C" root "merge-base" "--is-ancestor"
@@ -61,6 +61,16 @@
   ;; The fixture below registers from `route-symbols`; this keeps that list from
   ;; drifting away from what the namespace actually publishes.
   (is (= (set (keys devflow/stage-workflows)) (set (map first route-symbols)))))
+
+(deftest routed-stages-support-transfer-and-returning-composition
+  ;; Checkpoint :next still requires :continue at Skein's authored root-transfer
+  ;; boundary. The same stages advertise :call so a fixed call or runtime-selected
+  ;; defer can execute them as returning procedures.
+  (is (= #{:start} (:entrypoints devflow/intake)))
+  (is (= #{:call} (:entrypoints devflow/agent-review)))
+  (doseq [[stage definition] (dissoc devflow/stage-workflows :intake :agent-review)]
+    (is (= #{:continue :call} (:entrypoints definition))
+        (str stage " supports checkpoint routing and returning composition"))))
 
 (defn- publish-devflow-routes!
   "Register devflow's stage routes in `rt`'s workflow registry."
@@ -120,7 +130,7 @@
 
 (workflow/defworkflow repointed-proposal
   "A test-only replacement proving named routes bind at transition time."
-  {:entrypoints #{:continue}
+  {:entrypoints #{:continue :call}
    :param-spec ::repointed-params
    :defaults {}}
   (workflow/workflow
