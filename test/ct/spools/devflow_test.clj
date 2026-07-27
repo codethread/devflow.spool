@@ -185,6 +185,9 @@
                        {:feature "widgets"}
                        {:family "devflow"
                         :context {:feature "widgets"}})
+      (is (= "devflow"
+             (get-in (workflow/current-root "prop-run")
+                     [:attributes :workflow/family])))
       (is (= "Inspect relevant RFCs, spikes, root specs, and active feature context for widgets"
              (:title (workflow/ready-step "prop-run"))))
       (is (= "Write devflow proposal for widgets" (:title (first (:ready (workflow/complete! "prop-run"))))))
@@ -195,7 +198,10 @@
       ;; revise routes back into a fresh proposal round that skips :inspect-context
       (let [remaining (:ready (workflow/choose! "prop-run" :revise))]
         (is (= [{:title "Write devflow proposal for widgets" :role "step"}]
-               (mapv #(select-keys % [:title :role]) remaining))))
+               (mapv #(select-keys % [:title :role]) remaining)))
+        (is (= "devflow"
+               (get-in (workflow/current-root "prop-run")
+                       [:attributes :workflow/family]))))
       (is (= "Run agent review for widgets proposal" (:title (first (:ready (workflow/complete! "prop-run"))))))
       (is (= "Human sign-off for widgets proposal" (:title (first (:ready (workflow/complete! "prop-run"))))))
       ;; :approved routes on to the spec/plan stage; the poured spec-plan root
@@ -204,6 +210,7 @@
              (mapv #(select-keys % [:title :role]) (:ready (workflow/choose! "prop-run" :approved)))))
       (let [root (workflow/current-root "prop-run")]
         (is (= "Devflow spec and plan: widgets" (:title root)))
+        (is (= "devflow" (get-in root [:attributes :workflow/family])))
         ;; entering a fresh stage sheds the previous stage's loop state: the
         ;; revised round's :revision true does not ride forward, and the new
         ;; stage's own default takes its place
@@ -242,6 +249,16 @@
       (is (= "already-in-worktree-ok"
              (get-in (workflow/current-root "intake-loop")
                      [:attributes :devflow/worktree-check]))))))
+
+(deftest generic-workflow-start-identifies-devflow-family
+  (with-runtime
+    (fn [_rt _]
+      (workflow/start! "generic-intake"
+                       :intake
+                       {:feature "generic-intake"})
+      (is (= "devflow"
+             (get-in (workflow/current-root "generic-intake")
+                     [:attributes :workflow/family]))))))
 
 (deftest devflow-spool-composes-decision-point-workflows
   (with-runtime

@@ -65,14 +65,16 @@
     (get params k)))
 
 (defn- stage-attributes
-  "Root attributes every devflow stage workflow carries: the stage it was poured
-  for and the feature it runs against. Fails loudly on an unregistered stage name
-  so a definition cannot mint a value the projections will later reject."
+  "Root attributes every devflow stage workflow carries: its workflow family,
+  the stage it was poured for, and the feature it runs against. Fails loudly on
+  an unregistered stage name so a definition cannot mint a value the projections
+  will later reject."
   [stage]
   (when-not (stages stage)
     (throw (ex-info "Unknown devflow stage name"
                     {:stage stage :stages (vec (sort stages))})))
-  {"devflow/stage" stage
+  {"workflow/family" "devflow"
+   "devflow/stage" stage
    "devflow/feature" (param-value :feature)})
 
 (defn- task-value
