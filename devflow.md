@@ -132,7 +132,7 @@ specs own devflow's added fields and leave the engine-inherited keys to
 
 | Wrapper | Signature | Notes |
 |---|---|---|
-| `start!` | `(runtime feature)` / `(runtime feature params)` | Pours the registered `:intake` definition under `family "devflow"`. It merges intake defaults with the supplied complete param map, validates the result against `:ct.spools.devflow/intake-params`, and seeds it (plus `:feature`) into `workflow/context` for revision loops. Returns `{:ready [...] :done boolean}`. |
+| `start!` | `(runtime feature)` / `(runtime feature params)` | Pours the registered `:intake` definition. Every devflow stage definition stamps `workflow/family "devflow"`, including runs started through the generic workflow API. This wrapper merges intake defaults with the supplied complete param map, validates the result against `:ct.spools.devflow/intake-params`, and seeds it (plus `:feature`) into `workflow/context` for revision loops. Returns `{:ready [...] :done boolean}`. |
 | `ready` | `(runtime feature)` | All ready step views for the feature (each carrying `:run-id`). |
 | `ready-step` | `(runtime feature)` | The single ready step view; throws if ambiguous. |
 | `complete!` | `(runtime feature)` / `(runtime feature opts)` | Closes the current non-checkpoint step. `opts` (`:step`, `:attributes`, `:by`) pass through. Returns `{:ready [...] :done boolean}`. |
@@ -263,6 +263,7 @@ molecule; the rest sit on individual step/checkpoint strands.
 
 | Attribute | Meaning | Set on / by |
 |---|---|---|
+| `workflow/family` | `"devflow"` for every devflow stage, including stages poured by generic `workflow start`, revision loops, and named routes. | Root molecule, by each stage definition. |
 | `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. The `stages` set is the enum of record — the definitions write it through one helper and the projections (§4) reject a root that carries anything else. | Root molecule, by each stage definition. |
 | `devflow/feature` | The feature name. Carries the same value as `workflow/run-id`, but is not redundant with it: the roster spool reads this key's *presence* to derive `roster/engine "devflow"` rather than `"workflow"` (roster.md, SPEC-RosterSpool-001.C13), so a devflow root that stopped stamping it would silently register as a plain workflow run. | Root molecule, by each stage definition. |
 | `workflow/artifact` | Artifact a step produces (`"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"`). The engine's own key, caller-supplied; `step-view` surfaces it as `:artifact`. | Artifact-writing steps. |
