@@ -269,7 +269,12 @@
   This encodes: inspect RFCs/spikes/specs first, write proposal, run agent
   review, then stop for human sign-off. On a revision round (`:revision true`),
   `:inspect-context` is skipped because orientation was done on the first pass;
-  F4's splice reattaches `:write-proposal` as the entry step."
+  F4's splice reattaches `:write-proposal` as the entry step.
+
+  Revision rounds are the proposal's whole editing window. Sign-off freezes the
+  document as the intent that was agreed; later divergence is recorded in the
+  spec deltas and plan, so no downstream stage edits it back into agreement
+  with what was built."
   {:entrypoints #{:continue :call}
    :param-spec ::proposal-params
    :defaults {:revision false}}
@@ -298,18 +303,23 @@
                          :kind :human
                          :choices [{:key :approved
                                     :label "Approve"
-                                    :description "Proposal is accepted; continue to spec and plan work."
+                                    :description "Proposal is accepted and frozen as the agreed intent; mark it Approved and continue to spec and plan work."
                                     :next :spec-plan}
                                    {:key :revise
                                     :label "Revise"
-                                    :description "Proposal needs changes; revise the proposal stage and re-review before proceeding."
+                                    :description "Proposal needs changes; revise the proposal stage and re-review before proceeding. Revision rounds are the only time the proposal is rewritten."
                                     :revise {:params {:revision true}}}
                                    {:key :abort
                                     :label "Abort"
                                     :description "Stop this feature intentionally. Do not proceed to spec or plan work."
                                     :next :abort
                                     :input abort-reason-input}]
-                         :attributes {"workflow/decision-point" "proposal-signed-off"})))
+                         :attributes {"workflow/decision-point" "proposal-signed-off"
+                                      "workflow/instruction" (str "Approval freezes the proposal: set its Status to Approved with "
+                                                                  "the sign-off date and make no further content edits. Later "
+                                                                  "divergence belongs in the spec deltas and plan, not in a "
+                                                                  "rewritten proposal. Choose revise while the document still "
+                                                                  "needs to change.")})))
 
 (workflow/defworkflow route-after-plan
   "The post-plan route-choice stage."

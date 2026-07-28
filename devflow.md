@@ -106,6 +106,16 @@ The `spec-plan`, `tasks`, and `direct-implementation` stages carry a
 `:revision` param too, but declare no condition on it, so their revision rounds
 re-run the whole stage.
 
+Proposal revision rounds are also the proposal document's **only** editing
+window. `:approved` freezes `proposal.md` as the intent that was agreed: the
+sign-off checkpoint's instruction says to mark it Approved and stop editing, and
+no later stage reopens it. Implementation is free to diverge — the spec deltas,
+the plan, and the code carry what is true now, and the plan records why scope
+moved. Keeping an approved proposal in sync with the build would hide the
+original intent behind a document that always looks current, and cost a round of
+busywork per change to do it. The rules live with the artifact, in
+`(guidance :proposal)` under `:knowledge :immutability` (see §5a).
+
 The caller's complete start parameter map is seeded into `workflow/context` by `start!` (see §4) and survives every revision loop rather than resetting to defaults, because `:revise` merges its overrides over the carried-forward context.
 
 `:revision` is stage-local: it is recorded as `workflow/stage-params` on the
@@ -223,8 +233,9 @@ Devflow exposes static definitions and commands as data for trusted resolution:
 artifacts the lifecycle produces. It replaces the markdown devflow skill: the
 guide content lives in ordinary Clojure defs built from shared blocks —
 `paths` (every workspace location by role), `id-convention` (the stable
-document-ID scheme), `document-ownership` (what each document kind owns and
-must not absorb), `invariants`, and markdown templates composed from a shared
+document-ID scheme), `document-ownership` (what each document kind owns,
+must not absorb, and how long it stays writable — the proposal only until
+sign-off), `invariants`, and markdown templates composed from a shared
 `config-identification` renderer so the ID rules never drift between document
 kinds.
 

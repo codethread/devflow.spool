@@ -73,6 +73,7 @@
    "devflow/feat/<feature>/specs/ is staging for active feature changes."
    "devflow/archive/* is historical context, not current truth."
    "Any feature using tasks/ must have proposal.md and <feature>.plan.md."
+   "An approved proposal is frozen: it records the intent agreed at sign-off. Later change belongs in spec deltas, the plan, and code — never in a rewritten proposal."
    "Developer Notes live in the feature plan; never create task-note README files."
    "Do not copy RFC alternatives into specs, plans, or tasks; link to the RFC."
    "Only the current feature's documents are writable during normal stage work; never edit archives or sibling feature folders, and touch root specs/RFCs only when the stage promotes or records durable outcomes."])
@@ -95,9 +96,9 @@
    :root-spec    {:owns     "Durable domain contracts, boundaries, rationale, non-goals"
                   :not      "Feature-local sequencing or task detail"
                   :lifetime "Permanent; evolves with the domain"}
-   :proposal     {:owns     "Problem framing, goals, non-goals, scope, links to decisions"
-                  :not      "Alternatives history (belongs in an RFC) or implementation strategy (belongs in the plan)"
-                  :lifetime "Archived with the feature"}
+   :proposal     {:owns     "Problem framing, goals, non-goals, scope, links to decisions — the intent agreed at sign-off"
+                  :not      "Alternatives history (belongs in an RFC), implementation strategy (belongs in the plan), or how the work actually turned out (spec deltas, plan, and code carry that)"
+                  :lifetime "Rewritable while under review; frozen at human sign-off and archived unchanged with the feature"}
    :spec-delta   {:owns     "Pending changes to durable specs staged by the feature"
                   :not      "Long-term duplicated spec content"
                   :lifetime "Merged into root specs when the feature ships, then archived"}
@@ -134,10 +135,14 @@
   (str "# <Feature name> Proposal
 
 **Document ID:** `PROP-<name>-<nnn>[@<version>]`
-**Last Updated:** <YYYY-MM-DD>
+**Status:** Draft | Approved
+**Approved:** <YYYY-MM-DD, or \"—\" while Draft>
 **Related RFCs:** <links or \"None\">
 **Related root specs:** <links or \"None\">
 " (config-identification "PROP") "
+
+Once approved this document is frozen: it records the intent agreed at sign-off, not
+what was later built. Implementation change lives in the spec deltas, the plan, and code.
 
 ## PROP-<name>-<nnn>.P1 Problem
 
@@ -393,32 +398,62 @@ Append notes here. Do not rewrite earlier notes.
 ;; Guides
 
 (def ^:private proposal-guide
-  {:purpose "Feature-local problem framing that starts an active feature folder: why the feature exists and what product/domain scope it owns, before planning or task slicing."
+  {:purpose "Feature-local problem framing that starts an active feature folder: why the feature exists and what product/domain scope it owns, before planning or task slicing. Approved, it is the frozen record of the intent everyone agreed to."
    :artifacts {:proposal (:proposal paths)
                :feature-specs (:feature-specs paths)}
    :prerequisites
    ["The request has enough scope to name a kebab-case <feature>; ask when ambiguous or when one request spans several features."
     "Relevant root specs, RFCs, and code have been read when they affect problem framing or scope."]
-   :knowledge {:ownership (select-keys document-ownership [:proposal :rfc :root-spec :plan :tasks])}
+   :knowledge
+   {:statuses
+    {"Draft"    "Under discussion; rewrite freely across sign-off revision rounds."
+     "Approved" "Signed off by a human at :human-signoff-proposal; frozen from that point on."}
+    :immutability
+    {:rule "A proposal is rewritten only while Draft. Human sign-off freezes it: the approved text is what intent was, and nothing later edits it back into agreement with reality."
+     :why ["The proposal exists to drive and record the sign-off discussion, so its value is being the intent as agreed, not a mirror of the build."
+           "Rewriting an approved proposal hides the original intent, and the drift is invisible in a document that always looks current."
+           "Keeping it in sync is busywork: spec deltas, the plan, and the code already carry what is true now."]
+     :drift-lands-in
+     {:spec-delta "Durable contract change — what will be true when the feature ships."
+      :plan       "Changed approach, phases, or validation strategy; Developer Notes record why scope moved."
+      :tasks      "Changed execution slices and acceptance criteria."
+      :code       "What actually exists and how it behaves."}
+     :allowed-after-approval
+     ["Nothing that changes meaning. Repairing a broken link or an ID typo is fine; restating problem, goals, non-goals, or scope is not."]
+     :intent-really-changed
+     ["Small drift within the agreed problem: leave the proposal alone and record the change in the spec deltas and the plan."
+      "The agreed problem or scope no longer holds: raise it with the human rather than editing. They either accept the feature as re-scoped through the plan, or abort the run (`choose! :abort`) so a fresh feature run frames the new intent in its own proposal."
+      "A new proposal for the same problem supersedes rather than overwrites: the earlier approved document keeps its ID and text, and the successor allocates the next version per the ID convention."]}
+    :ownership (select-keys document-ownership [:proposal :rfc :root-spec :plan :tasks])}
    :procedures
    {:write
     ["Choose a kebab-case <feature> from the request; ask if ambiguous."
      "Create devflow/feat/<feature>/ and devflow/feat/<feature>/specs/ if needed."
-     "Write proposal.md from the template, allocating the document ID and document-prefixed sub IDs per the ID convention."
+     "Write proposal.md from the template with Status Draft, allocating the document ID and document-prefixed sub IDs per the ID convention."
      "If the proposal exposes unresolved alternatives, write an RFC (see the :rfc guide) before planning."
-     "If the proposal changes durable contracts, stage feature-local spec deltas (see the :spec guide)."]}
+     "If the proposal changes durable contracts, stage feature-local spec deltas (see the :spec guide)."]
+    :revise
+    ["Only for a Draft proposal in a sign-off revision round; an Approved proposal is frozen."
+     "Read the review feedback and rewrite the affected sections in place — a Draft proposal is a working document, not a history log."
+     "Keep the document ID stable; the round is still the first version."]
+    :approve
+    ["On :approved at :human-signoff-proposal, set Status to Approved and fill Approved with the sign-off date."
+     "Make no further content edits: from here the proposal is read-only input to spec, plan, task, and archive work."]}
    :constraints
    ["Keep implementation strategy out of Proposed scope; it belongs in the feature plan."
     "Do not copy RFC alternatives into the proposal; link to the RFC."
     "Keep the proposal short enough to orient future plan/task authors quickly."
+    "Never edit an Approved proposal to match what was planned, built, or cut; that change belongs in the spec deltas, the plan's Developer Notes, and the code."
     (:editing id-convention)]
    :validation
    ["File lives at devflow/feat/<feature>/proposal.md"
     "Feature folder and specs/ staging folder exist"
     "Problem, goals, non-goals, proposed scope, and open questions are present"
     "Document has a stable PROP-<name>-<nnn>[@<version>] ID with document-prefixed sub IDs"
+    "Status is Draft while under review, or Approved with the sign-off date once signed off"
     "Relevant RFCs and root specs are linked or explicitly marked None"
-    "Proposed scope avoids implementation phases and task detail"]
+    "Proposed scope avoids implementation phases and task detail"
+    "An Approved proposal is unchanged since sign-off apart from meaning-preserving repairs"]
    :templates {:proposal proposal-template}
    :see-also [:rfc :spec :plan]})
 
@@ -462,7 +497,7 @@ Append notes here. Do not rewrite earlier notes.
     ["Set status to Accepted, Rejected, or Superseded."
      "Fill Outcome with the decision, rationale, date, and follow-up links."
      "For Accepted RFCs, update or create the affected root specs or feature-local spec deltas."
-     "If implementation is needed, create or update the feature proposal and continue with the plan."]}
+     "If implementation is needed, write a feature proposal (or update one still under review; an approved proposal is frozen) and continue with the plan."]}
    :constraints
    ["RFC status records the decision state, not implementation progress; finished feature work retires the RFC by archiving it with the feature."
     "Keep RFCs concise enough that a future agent can quickly recover the decision."
@@ -532,7 +567,7 @@ Append notes here. Do not rewrite earlier notes.
     ["Read the proposal, feature plan if present, relevant root specs, RFCs, and code."
      "Create devflow/feat/<feature>/specs/ if needed and allocate the next DELTA (or SPEC) ID per the ID convention."
      "For an existing root spec, write <spec-name>.delta.md from the delta template; for a new feature-owned spec, use the root-spec format with status Planned or Draft."
-     "Link the file from the feature plan/proposal when present."]
+     "Link the file from the feature plan when present; never add the link to an approved proposal."]
     :promote-feature-specs
     ["Read all files in devflow/feat/<feature>/specs/ plus the affected root specs."
      "Merge each *.delta.md's durable changes into its root spec and mark the delta Merged."
@@ -544,6 +579,7 @@ Append notes here. Do not rewrite earlier notes.
     "No implementation phases, task checklists, or per-file code maps in specs."
     "Do not duplicate RFC alternatives or proposal narrative in specs."
     "Feature deltas are temporary staging; merge shipped outcomes into root specs."
+    "Deltas absorb contract change discovered after proposal sign-off; the approved proposal is never edited to match."
     "Prefer minimal specs; grow only when the domain needs more explanation."
     (:editing id-convention)]
    :validation
@@ -553,7 +589,7 @@ Append notes here. Do not rewrite earlier notes.
     "Document has a stable SPEC/DELTA ID with document-prefixed sub IDs"
     "Deltas live in devflow/feat/<feature>/specs/, use <spec-name>.delta.md, and state only changes relative to the root spec"
     "devflow/README.md index is updated for root spec changes"
-    "Feature plan/proposal links are updated when present"]
+    "Feature plan links are updated when present"]
    :templates {:root-spec root-spec-template
                :spec-delta spec-delta-template}
    :see-also [:rfc :plan :finish-archive]})
@@ -574,6 +610,10 @@ Append notes here. Do not rewrite earlier notes.
      "Phases describe independently reviewable delivery increments, not final task files."
      "Validation strategy names the suites, scenarios, or manual checks that matter; task files make checks exact later."
      "Developer Notes are append-only operational context for agents running the task loop."]
+    :drift-from-the-proposal
+    ["The proposal is frozen at sign-off, so the plan is where the feature stays current: approach changes, re-scoping, and cut scope are recorded here and in the spec deltas."
+     "State a divergence plainly in Goal and scope or Developer Notes — the proposal it diverges from is intent, not a competing spec."
+     "If the divergence means the agreed problem itself no longer holds, raise it with the human rather than editing the proposal (see the :proposal guide's intent-really-changed rules)."]
     :statuses
     {"Draft"     "Approach is still being written or critiqued; do not generate AFK tasks yet."
      "Reviewed"  "Approach has been critiqued and is ready to slice into tasks."
@@ -592,11 +632,13 @@ Append notes here. Do not rewrite earlier notes.
     ["Read the plan, proposal, linked RFC/specs, task queue if present, and affected code."
      "Critique for approach fit, missing dependencies, over-broad phases, hidden domain decisions, and task-generation readiness."
      "Rewrite the plan in place; plans are working documents, not history logs."
+     "Record divergence from the approved proposal here rather than editing the proposal."
      "Move durable contract changes to feature-local spec deltas or new specs."
      "If direction-level uncertainty remains, pause task generation and write an RFC."
      "When the approach is settled and phases are sliceable, set status Reviewed."]}
    :constraints
    ["Plans are reviewable strategy documents, not task queues."
+    "The plan may diverge from the approved proposal and say so; it must never be resolved by rewriting the proposal."
     "One active plan per feature folder; split multi-feature roadmaps into separate feature folders."
     "Never plan against imagined code structure; read affected code first."
     "A Draft plan must not be sliced into AFK tasks; for small obvious queued work, create a minimal plan and mark it Reviewed after a sanity check."
@@ -723,7 +765,8 @@ Append notes here. Do not rewrite earlier notes.
      "Choose the delegated or external mode and start the loop."]}
    :constraints
    ["AFK work follows the signed-off plan and task contracts; queue-shape changes go through the :tasks guide's update procedure."
-    "HITL tasks are never picked up by the loop; they wait for human input."]
+    "HITL tasks are never picked up by the loop; they wait for human input."
+    "Never edit proposal.md during the loop; discoveries go to the plan's Developer Notes and contract changes to the spec deltas."]
    :validation
    ["Each completed slice is committed and its index status is complete"
     "Blockers and discoveries are recorded in the plan's Developer Notes"
@@ -761,6 +804,7 @@ Append notes here. Do not rewrite earlier notes.
      "Report the root specs updated, feature folder archived, RFCs archived, and any cut or unpromoted scope."]}
    :constraints
    ["Do not promote unshipped behavior into root specs unless the user explicitly asks."
+    "Archive the approved proposal exactly as signed off; shipped versus cut scope is reconciled in the plan, never by rewriting intent after the fact."
     "Do not delete proposal, plan, task, or archived RFC files; preserving feature-local context is the point of the archive."
     "Never edit other archived features or sibling feature folders while archiving."]
    :validation
