@@ -815,6 +815,50 @@ Append notes here. Do not rewrite earlier notes.
     "Implemented RFCs moved into the archive's rfcs/ folder"]
    :see-also [:spec :plan]})
 
+(def ^:private decompose-guide
+  {:purpose "Decompose a merged, approved proposal into self-contained implementation cards a cold agent can work without this run's context."
+   :artifacts {:proposal (:proposal paths)}
+   :prerequisites
+   ["The approved proposal is merged on the repository mainline; decomposition reads the merged copy, not a working-tree draft."
+    "The proposal, its linked RFCs, and the affected root specs have been read."
+    "The workspace's card system (kanban board, issue tracker, ...) is known; devflow does not supply or assume one."]
+   :knowledge
+   {:cold-card-contract
+    [(str "Each card is workable cold: an agent holding only the card body and the merged proposal "
+          "can claim it, do the work, and finish it — card bodies carry context, never pointers "
+          "into this run's conversation.")
+     (str "A card body states what exists today (with file/line evidence where it helps), the "
+          "target shape, and any constraints or design decisions already validated during "
+          "proposal work.")
+     "Each card names an explicit done-when: observable outcomes, the validation gates that must be green, and how the work lands (merge and release discipline included)."
+     "Every card lands independently before it closes; a card that cannot land alone is sliced wrong."]
+    :dependency-edges
+    ["Cards that must land in order declare dependency edges, so a ready/frontier view serves only workable cards."
+     "Independent cards declare no edges; false edges serialize work that could land in any order."]
+    :open-decisions
+    [(str "A decision the proposal left open is either resolved on the card as recorded guidance, "
+          "or the card instructs the worker to surface it as a blocker — a cold worker never "
+          "decides it silently.")]}
+   :procedures
+   {:decompose
+    ["Read the merged proposal; note its goals, non-goals, and validation requirements."
+     "Draft the card set: one independently landable outcome per card, sliced by outcome rather than by file or layer."
+     "Write each card body per the cold-card contract: current state, target shape, constraints, done-when with validation gates and landing discipline."
+     "Declare dependency edges exactly where landing order is constrained."
+     (str "Record the card ids (and the epic or grouping id, when the card system has one) "
+          "wherever the workspace tracks the feature, then complete the decompose step — "
+          "the run ends here.")]}
+   :constraints
+   ["Never edit the merged proposal; divergence discovered while decomposing is recorded on the affected cards."
+    "Do not start implementation from this run; implementation belongs to the card loop that works the authored cards."
+    "Cards are not filesystem artifacts: author them in the workspace's card system, not as devflow/ documents."]
+   :validation
+   ["Every proposal goal is covered by at least one card and every card traces back to the proposal"
+    "Each card body passes the cold-card contract: context, target shape, done-when, validation gates, landing discipline"
+    "Dependency edges reflect real landing-order constraints and nothing else"
+    "Open decisions are recorded as card guidance or explicit surface-a-blocker instructions, never left implicit"]
+   :see-also [:proposal :finish-archive]})
+
 (def guides
   "Every devflow authoring guide by stable key. Workflow steps reference these
   keys through the `devflow/guide` attribute; `overview` indexes them."
@@ -824,6 +868,7 @@ Append notes here. Do not rewrite earlier notes.
    :plan plan-guide
    :tasks tasks-guide
    :afk afk-guide
+   :decompose decompose-guide
    :finish-archive finish-archive-guide})
 
 (defn guide

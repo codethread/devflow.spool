@@ -89,7 +89,7 @@ code:
 
 A declaration names a source target and world policy only. Devflow contributes its `defworkflow` forms as it loads; it has no `spool`, `contribute`, or `reconcile` Var for a consumer to call or mirror.
 
-Keep the `:workflow` module before `:devflow` and keep `:after [:workflow]` so missing or failed prerequisites are explicit. Once active, devflow's eleven static definitions are discoverable data: run `strand workflow list` and `strand workflow show <name>` against the weaver to inspect their routes, defaults, parameter spec, and checkpoint contracts before starting a run.
+Keep the `:workflow` module before `:devflow` and keep `:after [:workflow]` so missing or failed prerequisites are explicit. Once active, devflow's thirteen static definitions are discoverable data: run `strand workflow list` and `strand workflow show <name>` against the weaver to inspect their routes, defaults, parameter spec, and checkpoint contracts before starting a run.
 
 Runtime-dependent Clojure functions take the target runtime first. For example, use `(devflow/start! runtime feature opts)`, `(devflow/ready runtime feature)`, and `(devflow/choose! runtime feature choice)`. Static definition inspection and authoring guidance remain runtime-free.
 
