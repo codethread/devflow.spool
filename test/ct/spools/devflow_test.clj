@@ -54,12 +54,20 @@
    [:direct-implementation 'ct.spools.devflow/direct-implementation]
    [:route-after-plan 'ct.spools.devflow/route-after-plan]
    [:spec-plan 'ct.spools.devflow/spec-plan]
+   [:decompose 'ct.spools.devflow/decompose]
+   [:land-proposal 'ct.spools.devflow/land-proposal]
    [:proposal 'ct.spools.devflow/proposal]
    [:intake 'ct.spools.devflow/intake]])
 
 (deftest route-symbols-cover-every-published-stage
   ;; The fixture below registers from `route-symbols`; this keeps that list from
-  ;; drifting away from what the namespace actually publishes.
+  ;; drifting away from what the namespace actually publishes. Because the
+  ;; equality is closed-world, the frozen copy of this test in a previous
+  ;; release turns `bin/compat-alarm` red whenever a later release accretes a
+  ;; stage (v13 added :land-proposal and :decompose against v12's frozen list).
+  ;; That single failure class is accretion under the shared-spools contract
+  ;; rule, not a break: classify it at release time rather than weakening the
+  ;; live drift check.
   (is (= (set (keys devflow/stage-workflows)) (set (map first route-symbols)))))
 
 (deftest routed-stages-support-transfer-and-returning-composition
@@ -215,6 +223,49 @@
         ;; revised round's :revision true does not ride forward, and the new
         ;; stage's own default takes its place
         (is (false? (get-in root [:attributes :workflow/context :revision])))))))
+
+(deftest devflow-approved-to-cards-lands-the-proposal-then-decomposes
+  ;; The cards route ends devflow's job at "approved proposal on mainline plus
+  ;; implementation cards authored": sign-off routes to the landing gate, the
+  ;; agent confirms the merge, and the one-step decompose stage closes the run.
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "cards-route"
+                       ;; a mid-cycle stage is normally reached by routing, so
+                       ;; start it by Var: only a registered-name start is held
+                       ;; to the definition's declared entrypoints
+                       #'devflow/proposal
+                       {:feature "widgets"}
+                       {:family "devflow"
+                        :context {:feature "widgets"}})
+      ;; inspect-context, write-proposal, then the inner agent-review step (whose
+      ;; completion auto-closes the join) reach the sign-off checkpoint
+      (dotimes [_ 3] (workflow/complete! "cards-route"))
+      ;; the new sign-off choice routes to the landing stage: the mainline merge
+      ;; is an external wait-point, not driving-agent work
+      (let [ready (:ready (devflow/choose! rt "cards-route" :approved-to-cards))]
+        (is (= [{:title "Land approved proposal for widgets on mainline"
+                 :gate "human"
+                 :stage "land-proposal"}]
+               (mapv #(select-keys % [:title :gate :stage]) ready))))
+      ;; the merge gate closes only with :by recording who landed the proposal
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"non-blank :by"
+                            (devflow/complete! rt "cards-route")))
+      (devflow/complete! rt "cards-route" {:by "coordinator"})
+      (let [confirm (devflow/ready-step rt "cards-route")]
+        (is (= "confirm-proposal-landed" (:checkpoint confirm)))
+        (is (= "land-proposal" (:stage confirm)))
+        (is (= ["landed" "abort"] (:choices confirm))))
+      ;; confirming the merge pours the terminal decompose stage
+      (let [ready (:ready (devflow/choose! rt "cards-route" :landed))]
+        (is (= [{:title "Author implementation cards for widgets"
+                 :stage "decompose"
+                 :action-ref "devflow.decompose.cards"}]
+               (mapv #(select-keys % [:title :stage :action-ref]) ready)))
+        (is (str/includes? (:instruction (first ready)) "guidance :decompose")))
+      ;; the run ends at authored cards: no implementation stage follows
+      (is (true? (:done (devflow/complete! rt "cards-route"))))
+      (is (workflow/done? "cards-route")))))
 
 (deftest devflow-revise-input-does-not-override-revision-round
   (with-runtime
@@ -525,6 +576,9 @@
         (is (contains? ids :inspect-context))
         (is (some #(= "procedure" (:role %)) (:steps proposal)))
         (is (= ":spec-plan" (:next (get choices "approved"))))
+        ;; the cards route targets its stage by definition symbol (see the
+        ;; choice's comment in ct.spools.devflow), so no leading colon here
+        (is (= "ct.spools.devflow/land-proposal" (:next (get choices "approved-to-cards"))))
         (is (= {"spec" "ct.spools.devflow/abort-reason-input"
                 "doc" "Why the feature is being aborted; recorded on the abort step."}
                (select-keys (:input-spec (get choices "abort")) ["spec" "doc"]))))

@@ -37,9 +37,17 @@ start! ─▶ intake
                  needs-more-brief   ─▶ intake (revision)
           proposal
              :human-signoff-proposal  (human)
-                 approved ─▶ spec-plan
-                 revise   ─▶ proposal (revision)
-                 abort    ─▶ abort
+                 approved          ─▶ spec-plan
+                 approved-to-cards ─▶ land-proposal
+                 revise            ─▶ proposal (revision)
+                 abort             ─▶ abort
+          land-proposal
+             :merge-proposal  (gate, waiter "human": proposal merged to mainline)
+             :confirm-proposal-landed  (agent)
+                 landed ─▶ decompose
+                 abort  ─▶ abort
+          decompose
+             :author-cards step ─▶ (run auto-closes: done)
           spec-plan
              :human-signoff-spec-plan  (human)
                  approved ─▶ route-after-plan
@@ -74,11 +82,31 @@ start! ─▶ intake
 
 Notes:
 
-- **Two terminal paths** reach a done run without routing: `run-afk-manual` and `direct-implementation` on `:accepted`. The route-after-plan checkpoint chooses between AFK and direct implementation; the static `run-afk-loop` checkpoint then makes the AFK manual/delegated decision explicit. In delegated AFK mode, `run-afk-delegated` first pours one sequential `workflow/gate "subagent"` per approved task, then requires the `:human-acceptance-afk` human checkpoint. A caller may pass optional `:delegate-preamble` text; devflow prepends it to each delegated AFK prompt as data and remains policy-free.
+- **The proposal sign-off is where the two working models split.** `approved-to-cards` is the
+  cards route, added in v13 and preferred where implementation runs as a card loop (each card
+  worked cold by its own agent): devflow's job ends at "approved proposal merged on mainline plus
+  implementation cards authored", so the run routes through the `land-proposal` gate to the
+  one-step `decompose` stage and closes there. The original `approved` route — spec-plan, tasks,
+  AFK/direct implementation inside this one run — stays registered intact under the accretion
+  promise, but is sidelined: prefer `approved-to-cards` unless the feature genuinely wants its
+  implementation driven inside the devflow run.
+- `approved-to-cards` routes by **definition symbol** (`ct.spools.devflow/land-proposal`) rather
+  than registered name, deliberately: a new registry-name reference from an already-published
+  definition retroactively grows the registration set that definition demands, which breaks every
+  consumer's existing direct-registration set. A symbol target keeps the accreted choice
+  self-contained. Inside the new stages, `:landed` and `:abort` use registered names as usual —
+  new names carry no legacy registration sets.
+- The `:merge-proposal` gate is repo-agnostic: any mainline merge process counts, and `complete!`
+  records who landed it through `:by`. The gate's waiter is `"human"`, an ordinary external
+  wait-point with no executor.
+- **Three terminal paths** reach a done run without routing: `run-afk-manual`, `direct-implementation` on `:accepted`, and `decompose` (completing `:author-cards` ends the cards route). The route-after-plan checkpoint chooses between AFK and direct implementation; the static `run-afk-loop` checkpoint then makes the AFK manual/delegated decision explicit. In delegated AFK mode, `run-afk-delegated` first pours one sequential `workflow/gate "subagent"` per approved task, then requires the `:human-acceptance-afk` human checkpoint. A caller may pass optional `:delegate-preamble` text; devflow prepends it to each delegated AFK prompt as data and remains policy-free.
 - **`:abort` is reachable from every `:human` checkpoint** — the intake
-  worktree checkpoint and the four sign-off checkpoints. The two `:agent`
-  checkpoints (`:discuss-scope`, `:route-after-plan`) offer no abort. Aborting
-  routes to the static `abort` definition, whose `:record-abort` step then closes the run.
+  worktree checkpoint and the four sign-off checkpoints. Of the three `:agent`
+  checkpoints, `:discuss-scope` and `:route-after-plan` offer no abort;
+  `:confirm-proposal-landed` does, because it is the last decision point before
+  the terminal decompose stage and a feature whose approved proposal will not
+  land needs an exit. Aborting routes to the static `abort` definition, whose
+  `:record-abort` step then closes the run.
 - Every abort choice declares a **required `:reason` input** (workflow.md §5,
   D1.2), so `choose!` fails loudly before any mutation unless the aborting call
   passes it: `(choose! runtime feature :abort {:reason "…"})`. The feature comes from
@@ -221,8 +249,8 @@ Choose `:manual` at `:choose-afk-execution` to use the single `:run-afk-loop` ma
 
 Devflow exposes static definitions and commands as data for trusted resolution:
 
-- `stage-workflows` is the local map of stable routing names to the eleven static definitions: `:intake`, `:proposal`, `:spec-plan`, `:route-after-plan`, `:tasks`, `:run-afk-loop`, `:run-afk-manual`, `:run-afk-delegated`, `:direct-implementation`, `:agent-review`, and `:abort`. Forward `:next` choices reference these names. `intake` advertises `:start`, `agent-review` advertises `:call`, and every routed lifecycle stage advertises both `:continue` for authored checkpoint transfer and `:call` for returning call/defer composition. The engine collects the Vars when the namespace loads, so a caller discovers the same definitions through `strand workflow list` and `strand workflow show <name>`; there is no separate registration or contribution call.
-- `(workflows)` returns `stage-workflows`, and `devflow-cycle` is the ordered composable main path.
+- `stage-workflows` is the local map of stable routing names to the thirteen static definitions: `:intake`, `:proposal`, `:land-proposal`, `:decompose`, `:spec-plan`, `:route-after-plan`, `:tasks`, `:run-afk-loop`, `:run-afk-manual`, `:run-afk-delegated`, `:direct-implementation`, `:agent-review`, and `:abort`. Forward `:next` choices reference these names, with one deliberate exception: the `:approved-to-cards` choice targets `land-proposal` by definition symbol (see §2's notes). `intake` advertises `:start`, `agent-review` advertises `:call`, and every routed lifecycle stage advertises both `:continue` for authored checkpoint transfer and `:call` for returning call/defer composition. The engine collects the Vars when the namespace loads, so a caller discovers the same definitions through `strand workflow list` and `strand workflow show <name>`; there is no separate registration or contribution call.
+- `(workflows)` returns `stage-workflows`, and `devflow-cycle` is the ordered composable single-run path. The cards route's stages are not part of that vector (its frozen shape predates them); describe them individually with `describe :land-proposal` and `describe :decompose`.
 - `(commands)` returns `command-registry` — agent-facing commands by key: `:start`, `:ready-step`, `:ready`, `:choice-details`, `:choice-detail`, `:choose`, `:complete`, `:advance`, `:describe`, `:guidance`, `:run-history`, and `:squash-run`.
 - Workspace configuration activates the spool through `runtime/module!`, the sole route-publication path. The declaration names a source target and world policy only; static forms provide the workflow catalogue.
 - `(dependency-sentinel)` returns `"devflow-spool"`, produced through this spool's declared `camel-snake-kebab` Maven dependency so runtime validation can observe that approved spool dependencies were resolved.
@@ -242,8 +270,9 @@ kinds.
 `(guidance)` returns the workspace overview (layout, paths, invariants, ID
 convention, ownership, and a key → purpose index of the guides).
 `(guidance :proposal)` returns one guide; keys are `:proposal`, `:rfc`,
-`:spec`, `:plan`, `:tasks`, `:afk`, and `:finish-archive`, accepted as
-keywords or strings, failing loudly otherwise. Every guide shares one shape:
+`:spec`, `:plan`, `:tasks`, `:afk`, `:decompose`, and `:finish-archive`,
+accepted as keywords or strings, failing loudly otherwise. Every guide shares
+one shape:
 
 | Key | Contents |
 |---|---|
@@ -275,20 +304,20 @@ molecule; the rest sit on individual step/checkpoint strands.
 | Attribute | Meaning | Set on / by |
 |---|---|---|
 | `workflow/family` | `"devflow"` for every devflow stage, including stages poured by generic `workflow start`, revision loops, and named routes. | Root molecule, by each stage definition. |
-| `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. The `stages` set is the enum of record — the definitions write it through one helper and the projections (§4) reject a root that carries anything else. | Root molecule, by each stage definition. |
+| `devflow/stage` | Lifecycle stage: `"intake"`, `"proposal"`, `"land-proposal"`, `"decompose"`, `"spec-plan"`, `"route-after-plan"`, `"tasks"`, `"afk"`, `"implementation"`, `"abort"`. The `stages` set is the enum of record — the definitions write it through one helper and the projections (§4) reject a root that carries anything else. | Root molecule, by each stage definition. |
 | `devflow/feature` | The feature name. Carries the same value as `workflow/run-id`, but is not redundant with it: the roster spool reads this key's *presence* to derive `roster/engine "devflow"` rather than `"workflow"` (roster.md, SPEC-RosterSpool-001.C13), so a devflow root that stopped stamping it would silently register as a plain workflow run. | Root molecule, by each stage definition. |
 | `workflow/artifact` | Artifact a step produces (`"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"`). The engine's own key, caller-supplied; `step-view` surfaces it as `:artifact`. | Artifact-writing steps. |
 | `devflow/task` | Stable approved AFK task id attached to delegated `run-afk-delegated` task gates. | `:task-<id>` subagent gates in delegated AFK mode. |
 | `devflow/review` | `"agent"` marking a step as an agent review round (the reusable `agent-review` definition). Distinct from the engine's `workflow/checkpoint-kind`, which says who decides a *checkpoint*. | The `:review` step of `agent-review`. |
 | `workflow/checkpoint-kind` | `"human"` or `"agent"` — who decides the checkpoint. | Auto-stamped by the engine `checkpoint` builder from its `:kind` opt (workflow.md §7); devflow never sets it by hand. |
-| `workflow/decision-point` | Freeform label for what the checkpoint decides (`"worktree-ready"`, `"scope-ready"`, `"proposal-signed-off"`, `"choose-tasks-or-implementation"`, `"plan-signed-off"`, `"tasks-signed-off"`, `"afk-accepted"`, `"implementation-accepted"`). | Each checkpoint. |
-| `workflow/action-ref` | Pointer to the action/skill an agent should invoke (`"devflow.worktree.ensure"`, `"devflow.proposal.orient"`, `"devflow.tasks.run-afk-loop"`, `"devflow.implementation.direct"`, `"devflow.implementation.validate"`, `"devflow.abort.record"`). Surfaced by `step-view`. | Steps/checkpoints that hand off to a named action. |
-| `workflow/gate` | `"subagent"` on delegated AFK task gates; agent-run consumes these gates when installed, otherwise they remain ordinary external wait-points. | `:task-<id>` gates in delegated AFK mode. |
+| `workflow/decision-point` | Freeform label for what the checkpoint decides (`"worktree-ready"`, `"scope-ready"`, `"proposal-signed-off"`, `"proposal-landed"`, `"choose-tasks-or-implementation"`, `"plan-signed-off"`, `"tasks-signed-off"`, `"afk-accepted"`, `"implementation-accepted"`). | Each checkpoint. |
+| `workflow/action-ref` | Pointer to the action/skill an agent should invoke (`"devflow.worktree.ensure"`, `"devflow.proposal.orient"`, `"devflow.proposal.land"`, `"devflow.decompose.cards"`, `"devflow.tasks.run-afk-loop"`, `"devflow.implementation.direct"`, `"devflow.implementation.validate"`, `"devflow.abort.record"`). Surfaced by `step-view`. | Steps/checkpoints that hand off to a named action. |
+| `workflow/gate` | `"subagent"` on delegated AFK task gates (agent-run consumes these when installed, otherwise they remain ordinary external wait-points), and `"human"` on the land-proposal merge gate, which is always an ordinary external wait-point. | `:task-<id>` gates in delegated AFK mode; `:merge-proposal` in the land-proposal stage. |
 | `agent-run/harness` | Harness or alias requested for the delegated task run. Required for each delegated AFK gate, via task `:harness` or `:delegate-harness`. | `:task-<id>` gates in delegated AFK mode. |
 | `agent-run/prompt` | Prompt sent to the delegated agent run, prefixed with feature/task context and then the task body or title. | `:task-<id>` gates in delegated AFK mode. |
 | `agent-run/cwd` | Optional working directory for delegated AFK task runs, from `:delegate-cwd`. | `:task-<id>` gates in delegated AFK mode. |
 | `workflow/instruction` | Freeform instruction text surfaced in `step-view`. | Steps/checkpoints needing explicit guidance, including every guided artifact step's pointer to `guidance`. |
-| `devflow/guide` | Guidance key (`"proposal"`, `"spec"`, `"plan"`, `"tasks"`, `"afk"`) naming the authoring guide for the step (§5a). | The four `write-*` artifact steps and the `run-afk-manual` step (`:capture-brief` produces `"brief"` without one). |
+| `devflow/guide` | Guidance key (`"proposal"`, `"spec"`, `"plan"`, `"tasks"`, `"afk"`, `"decompose"`) naming the authoring guide for the step (§5a). | The four `write-*` artifact steps, the `run-afk-manual` step, and the decompose `:author-cards` step (`:capture-brief` produces `"brief"` without one). |
 
 The intake root additionally carries `devflow/worktree-check` (`"required"` or `"already-in-worktree-ok"`), seeded from the `:worktree-check` start parameter.
 

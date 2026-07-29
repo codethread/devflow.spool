@@ -37,8 +37,8 @@
   the enum the projections check a root against: `stage-attributes` is the only
   writer and `active-stage`/`run-history` are the readers. Names are routing-
   independent, so they need not match the `stage-workflows` keys."
-  #{"intake" "proposal" "spec-plan" "route-after-plan" "tasks" "afk"
-    "implementation" "abort"})
+  #{"intake" "proposal" "land-proposal" "decompose" "spec-plan"
+    "route-after-plan" "tasks" "afk" "implementation" "abort"})
 
 (defn- guided-artifact
   "Attributes for a step that authors a guided artifact: the artifact path, its
@@ -144,6 +144,8 @@
   (s/keys :req-un [::feature] :opt-un [::worktree-check ::revision]))
 (s/def ::agent-review-params (s/keys :req-un [::feature ::artifact]))
 (s/def ::proposal-params (s/keys :req-un [::feature] :opt-un [::revision]))
+(s/def ::land-proposal-params (s/keys :req-un [::feature]))
+(s/def ::decompose-params (s/keys :req-un [::feature]))
 (s/def ::spec-plan-params (s/keys :req-un [::feature] :opt-un [::revision]))
 (s/def ::route-after-plan-params (s/keys :req-un [::feature]))
 (s/def ::tasks-params (s/keys :req-un [::feature] :opt-un [::revision]))
@@ -305,6 +307,19 @@
                                     :label "Approve"
                                     :description "Proposal is accepted and frozen as the agreed intent; mark it Approved and continue to spec and plan work."
                                     :next :spec-plan}
+                                   {:key :approved-to-cards
+                                    :label "Approve to cards"
+                                    :description (str "Proposal is accepted and frozen as the agreed intent; "
+                                                      "land it on mainline, decompose it into implementation "
+                                                      "cards, and end the run there. Implementation belongs "
+                                                      "to the card loop, not to this run.")
+                                    ;; routed by definition symbol, not registered name: a new
+                                    ;; registry-name reference from an already-published definition
+                                    ;; retroactively grows the registration set that definition
+                                    ;; demands, breaking every consumer's existing direct-registration
+                                    ;; set (v12's frozen suite catches exactly this). A symbol target
+                                    ;; keeps the accreted choice self-contained.
+                                    :next 'ct.spools.devflow/land-proposal}
                                    {:key :revise
                                     :label "Revise"
                                     :description "Proposal needs changes; revise the proposal stage and re-review before proceeding. Revision rounds are the only time the proposal is rewritten."
@@ -320,6 +335,71 @@
                                                                   "divergence belongs in the spec deltas and plan, not in a "
                                                                   "rewritten proposal. Choose revise while the document still "
                                                                   "needs to change.")})))
+
+(workflow/defworkflow land-proposal
+  "The proposal landing stage on the cards route.
+
+  Reached by the sign-off's `:approved-to-cards` choice. Devflow's job on this
+  route ends at \"approved proposal on mainline plus implementation cards
+  authored\", so the frozen proposal must land before decomposition reads it.
+  The merge is an external wait-point rather than driving-agent work: the gate
+  stays repo-agnostic — any mainline merge process counts — and `complete!`
+  records who landed it through `:by`. The follow-up `:agent` checkpoint then
+  routes to the decompose stage, or aborts a feature whose proposal will not
+  land."
+  {:entrypoints #{:continue :call}
+   :param-spec ::land-proposal-params
+   :defaults {}}
+  (workflow/workflow
+    (titled "Devflow land proposal: ")
+    {:attributes (stage-attributes "land-proposal")}
+    (workflow/gate :merge-proposal
+                   (titled "Land approved proposal for " " on mainline")
+                   :human
+                   :attributes {"workflow/action-ref" "devflow.proposal.land"
+                                "workflow/instruction" (str "Merge the approved proposal to the repository "
+                                                            "mainline through the workspace's own landing "
+                                                            "process, then complete this gate with :by "
+                                                            "recording who merged it.")})
+    (workflow/checkpoint :confirm-proposal-landed
+                         (titled "Confirm the proposal landed for ")
+                         :depends-on [:merge-proposal]
+                         :kind :agent
+                         :choices [{:key :landed
+                                    :label "Landed"
+                                    :description "The approved proposal is merged on mainline; decompose it into implementation cards next."
+                                    :next :decompose}
+                                   {:key :abort
+                                    :label "Abort"
+                                    :description "Stop this feature; its approved proposal will not land on mainline."
+                                    :next :abort
+                                    :input abort-reason-input}]
+                         :attributes {"workflow/decision-point" "proposal-landed"})))
+
+(workflow/defworkflow decompose
+  "The implementation-card decomposition stage that ends the cards route.
+
+  A one-step terminal stage: completing `:author-cards` auto-closes the run,
+  because implementation on this route is not a devflow stage but a card loop
+  worked cold from the authored cards. Cards are not filesystem artifacts, so
+  the step advertises its guide explicitly rather than through
+  `guided-artifact`, and devflow stays agnostic about which card system the
+  workspace uses."
+  {:entrypoints #{:continue :call}
+   :param-spec ::decompose-params
+   :defaults {}}
+  (workflow/workflow
+    (titled "Devflow decompose: ")
+    {:attributes (stage-attributes "decompose")}
+    (workflow/step :author-cards
+                   (titled "Author implementation cards for ")
+                   :self
+                   :attributes {"workflow/action-ref" "devflow.decompose.cards"
+                                "devflow/guide" "decompose"
+                                "workflow/instruction" (str "Author self-contained implementation cards "
+                                                            "from the merged proposal. Call "
+                                                            "(ct.spools.devflow/guidance :decompose) for "
+                                                            "the cold-card contract before writing them.")})))
 
 (workflow/defworkflow route-after-plan
   "The post-plan route-choice stage."
@@ -565,12 +645,15 @@
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
 (def devflow-cycle
-  "The ordered devflow stage definitions along the main path, as data.
+  "The ordered devflow stage definitions along the single-run path, as data.
 
   Pour the first, then let each stage's decision-point outcomes route to the
-  next. Order is the path a feature normally walks; `agent-review` is spliced
+  next. Order is the path a single-run feature walks; `agent-review` is spliced
   into stages by `call` and `abort` is reachable from every checkpoint, so
-  neither appears here."
+  neither appears here. The cards route (`:approved-to-cards` →
+  `land-proposal` → `decompose`) branches off at proposal sign-off and is not
+  part of this vector: its stages are described individually through
+  `describe` with their `stage-workflows` keys."
   [intake proposal spec-plan route-after-plan tasks run-afk-loop
    direct-implementation])
 
@@ -760,6 +843,8 @@
   read of the same set rather than the thing that publishes it."
   {:intake intake
    :proposal proposal
+   :land-proposal land-proposal
+   :decompose decompose
    :spec-plan spec-plan
    :route-after-plan route-after-plan
    :tasks tasks
