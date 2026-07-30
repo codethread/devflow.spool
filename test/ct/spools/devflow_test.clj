@@ -54,6 +54,7 @@
    [:direct-implementation 'ct.spools.devflow/direct-implementation]
    [:route-after-plan 'ct.spools.devflow/route-after-plan]
    [:spec-plan 'ct.spools.devflow/spec-plan]
+   [:review-cards 'ct.spools.devflow/review-cards]
    [:decompose 'ct.spools.devflow/decompose]
    [:land-proposal 'ct.spools.devflow/land-proposal]
    [:proposal 'ct.spools.devflow/proposal]
@@ -224,10 +225,37 @@
         ;; stage's own default takes its place
         (is (false? (get-in root [:attributes :workflow/context :revision])))))))
 
-(deftest devflow-approved-to-cards-lands-the-proposal-then-decomposes
-  ;; The cards route ends devflow's job at "approved proposal on mainline plus
-  ;; implementation cards authored": sign-off routes to the landing gate, the
-  ;; agent confirms the merge, and the one-step decompose stage closes the run.
+(deftest devflow-approved-to-cards-requires-reviewers-before-landing
+  (with-runtime
+    (fn [rt _]
+      (workflow/start! "cards-missing-reviewers"
+                       #'devflow/proposal
+                       {:feature "widgets"}
+                       {:family "devflow" :context {:feature "widgets"}})
+      (dotimes [_ 3] (workflow/complete! "cards-missing-reviewers"))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Value does not satisfy the named spec"
+                            (devflow/choose! rt "cards-missing-reviewers"
+                                             :approved-to-cards)))
+      ;; Target validation precedes the routed mutation, so the sign-off remains
+      ;; ready and no proposal-landing gate (an external side effect) was poured.
+      (is (= "human-signoff-proposal"
+             (:checkpoint (devflow/ready-step rt "cards-missing-reviewers")))))))
+
+(def ^:private card-review-context
+  {:feature "widgets"
+   :feature-card-reviewer "focused-ro"
+   :epic-card-reviewer "strong-ro"
+   :review-cwd "/tmp/widgets"})
+
+(def ^:private authored-card-set
+  {:epic-card {:id "epic" :title "Widgets epic"}
+   :feature-cards [{:id "api" :title "Widget API"}
+                   {:id "ui" :title "Widget UI"}]})
+
+(deftest devflow-approved-to-cards-fans-out-focused-reviews-before-epic-review
+  ;; The cards route ends only after the driving agent reconciles parallel
+  ;; focused reviews and the later whole-epic cohesion review.
   (with-runtime
     (fn [rt _]
       (workflow/start! "cards-route"
@@ -235,14 +263,14 @@
                        ;; start it by Var: only a registered-name start is held
                        ;; to the definition's declared entrypoints
                        #'devflow/proposal
-                       {:feature "widgets"}
+                       card-review-context
                        {:family "devflow"
-                        :context {:feature "widgets"}})
+                        :context card-review-context})
       ;; inspect-context, write-proposal, then the inner agent-review step (whose
       ;; completion auto-closes the join) reach the sign-off checkpoint
       (dotimes [_ 3] (workflow/complete! "cards-route"))
-      ;; the new sign-off choice routes to the landing stage: the mainline merge
-      ;; is an external wait-point, not driving-agent work
+      ;; sign-off routes to the landing stage: the mainline merge is an external
+      ;; wait-point, not driving-agent work
       (let [ready (:ready (devflow/choose! rt "cards-route" :approved-to-cards))]
         (is (= [{:title "Land approved proposal for widgets on mainline"
                  :gate "human"
@@ -256,16 +284,120 @@
         (is (= "confirm-proposal-landed" (:checkpoint confirm)))
         (is (= "land-proposal" (:stage confirm)))
         (is (= ["landed" "abort"] (:choices confirm))))
-      ;; confirming the merge pours the terminal decompose stage
+      ;; confirming the merge pours decompose; authoring then stops at the data
+      ;; handoff because loop expansion needs the just-created card refs
       (let [ready (:ready (devflow/choose! rt "cards-route" :landed))]
         (is (= [{:title "Author implementation cards for widgets"
                  :stage "decompose"
                  :action-ref "devflow.decompose.cards"}]
                (mapv #(select-keys % [:title :stage :action-ref]) ready)))
         (is (str/includes? (:instruction (first ready)) "guidance :decompose")))
-      ;; the run ends at authored cards: no implementation stage follows
-      (is (true? (:done (devflow/complete! rt "cards-route"))))
+      (devflow/complete! rt "cards-route")
+      (is (= "handoff-card-review" (:checkpoint (devflow/ready-step rt "cards-route"))))
+      ;; both focused gates are ready together: edge absence is the workflow's
+      ;; fan-out, while the executor decides actual process concurrency
+      (let [focused (:ready (devflow/advance!
+                             rt "cards-route"
+                             {:choice :review
+                              ;; Nested card refs may also arrive string-keyed
+                              ;; after the unified driver crosses JSON.
+                              :input {"epic-card" {"id" "epic" "title" "Widgets epic"}
+                                      "feature-cards" [{"id" "api" "title" "Widget API"}
+                                                       {"id" "ui" "title" "Widget UI"}]}}))]
+        (is (= [{:title "Focused review of feature card api: Widget API"
+                 :gate "subagent" :stage "card-review"}
+                {:title "Focused review of feature card ui: Widget UI"
+                 :gate "subagent" :stage "card-review"}]
+               (mapv #(select-keys % [:title :gate :stage]) focused)))
+        (doseq [gate focused]
+          (let [strand (weaver/show rt (:id gate))]
+            (is (= "focused-ro" (spool/attr-get strand :agent-run/harness)))
+            (is (= "feature-card" (spool/attr-get strand :devflow/review-scope)))
+            (is (str/includes? (spool/attr-get strand :agent-run/prompt)
+                               "Do not redesign the epic"))))
+        ;; Manually fulfill the executor-owned gates in the test world. The epic
+        ;; gate stays blocked until both focused gates close (base-id fan-in).
+        (devflow/complete! rt "cards-route" {:step (:id (first focused)) :by "review-api"})
+        (is (= 1 (count (devflow/ready rt "cards-route"))))
+        (let [after-focused (:ready (devflow/complete! rt "cards-route"
+                                                       {:step (:id (second focused))
+                                                        :by "review-ui"}))
+              epic (first after-focused)]
+          (is (= {:title "Cohesion review of epic card epic: Widgets epic"
+                  :gate "subagent" :stage "card-review"}
+                 (select-keys epic [:title :gate :stage])))
+          (let [strand (weaver/show rt (:id epic))]
+            (is (= "strong-ro" (spool/attr-get strand :agent-run/harness)))
+            (is (= "epic" (spool/attr-get strand :devflow/review-scope)))
+            (is (str/includes? (spool/attr-get strand :agent-run/prompt)
+                               "do not repeat that fine-grained work")))
+          (devflow/complete! rt "cards-route" {:step (:id epic) :by "review-epic"})))
+      (let [reconcile (devflow/ready-step rt "cards-route")]
+        (is (= "devflow.decompose.reconcile-reviews" (:action-ref reconcile)))
+        (is (= "card-review" (:stage reconcile))))
+      (devflow/complete! rt "cards-route")
+      (is (= ["accepted" "review-again" "abort"]
+             (:choices (devflow/ready-step rt "cards-route"))))
+      ;; no implementation stage follows accepted reviewed cards
+      (is (true? (:done (devflow/choose! rt "cards-route" :accepted))))
       (is (workflow/done? "cards-route")))))
+
+(deftest devflow-card-review-again-replaces-the-fan-out-card-set
+  (with-runtime
+    (fn [rt _]
+      (let [params (merge card-review-context authored-card-set)
+            focused (:ready (workflow/start! "card-review-again"
+                                             #'devflow/review-cards
+                                             params
+                                             {:family "devflow" :context params}))]
+        (doseq [gate focused]
+          (devflow/complete! rt "card-review-again" {:step (:id gate) :by "focused"}))
+        (let [epic (devflow/ready-step rt "card-review-again")]
+          (devflow/complete! rt "card-review-again" {:step (:id epic) :by "epic"}))
+        (devflow/complete! rt "card-review-again")
+        (let [current-set {:epic-card {:id "epic" :title "Widgets epic"}
+                           :feature-cards [{:id "core" :title "Unified widget slice"}]}
+              revised (:ready (devflow/choose! rt "card-review-again"
+                                               :review-again current-set))]
+          (is (= ["Focused review of feature card core: Unified widget slice"]
+                 (mapv :title revised)))
+          (is (true? (get-in (workflow/current-root "card-review-again")
+                             [:attributes :workflow/context :revision])))
+          (is (= (:feature-cards current-set)
+                 (get-in (workflow/current-root "card-review-again")
+                         [:attributes :workflow/context :feature-cards]))))))))
+
+(defn- definition-params-rejected [definition params]
+  (try
+    (workflow/describe definition params)
+    nil
+    (catch clojure.lang.ExceptionInfo e (ex-data e))))
+
+(deftest devflow-card-review-params-fail-loudly-before-pour
+  ;; Missing review policy is refused at decompose entry, before cards are
+  ;; authored and before the later review route needs the harnesses.
+  (is (= :workflow/params-invalid
+         (:reason (definition-params-rejected
+                   #'devflow/decompose
+                   (dissoc card-review-context :feature-card-reviewer)))))
+  (doseq [[label params]
+          [["missing focused reviewer"
+            (dissoc (merge card-review-context authored-card-set) :feature-card-reviewer)]
+           ["empty feature set"
+            (assoc (merge card-review-context authored-card-set) :feature-cards [])]
+           ["duplicate feature ids"
+            (assoc (merge card-review-context authored-card-set)
+                   :feature-cards [{:id "same" :title "One"}
+                                   {:id "same" :title "Two"}])]
+           ["epic reused as a feature id"
+            (assoc (merge card-review-context authored-card-set)
+                   :feature-cards [{:id "epic" :title "Not distinct"}])]
+           ["unsafe loop id"
+            (assoc (merge card-review-context authored-card-set)
+                   :feature-cards [{:id "not safe" :title "Bad"}])]]]
+    (is (= :workflow/params-invalid
+           (:reason (definition-params-rejected #'devflow/review-cards params)))
+        label)))
 
 (deftest devflow-revise-input-does-not-override-revision-round
   (with-runtime
@@ -729,6 +861,12 @@
   ;; keyword and string keys resolve alike; unknown keys fail loudly
   (is (= (devflow/guidance :proposal) (devflow/guidance "proposal")))
   (is (str/includes? (get-in (devflow/guidance :tasks) [:templates :task-index]) "blocked_by"))
+  (let [decompose (devflow/guidance :decompose)]
+    (is (= #{:feature-card :epic}
+           (set (keys (get-in decompose [:knowledge :review-scopes])))))
+    (is (some #(str/includes? % "must not repeat fine-grained")
+              (get-in decompose [:knowledge :review-scopes :epic])))
+    (is (seq (get-in decompose [:procedures :reconcile-reviews]))))
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unknown devflow guide"
                         (devflow/guidance :nope))))
 

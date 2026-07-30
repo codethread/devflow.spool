@@ -1,46 +1,91 @@
 # devflow.spool
 
-`ct.spools.devflow` provides the devflow feature-delivery lifecycle for
-[Skein](https://github.com/codethread/skein) as a git-distributed spool.
+An opinionated **feature-delivery lifecycle**, built on
+[Skein workflows](https://github.com/codethread/skein/blob/main/spools/workflow.md)
+and shipped as a git-distributed spool for [Skein](https://github.com/codethread/skein).
 
-It is trusted Clojure code for a live Skein weaver. The spool has no
-implicit installation contract: approve source in the consumer's `spools.edn`
-or `spools.local.edn`, then declare its module explicitly from trusted startup
-or REPL code. The tracked singular `spool.edn` is advisory producer metadata
-for authoring tools; the Skein core loader does not read it.
+You give it a feature name. It walks you and your agents from "here's a rough
+idea" to either **reviewed implementation cards on mainline** or **accepted,
+implemented code** — and leaves a documentation trail behind in the repo.
 
-Full workflow documentation lives in [devflow.md](./devflow.md). The spool is
-self-contained: artifact authoring knowledge (proposal/RFC/spec/plan/task
-rules and templates) ships as data in `ct.spools.devflow.guidance`, served
-by the `guidance` command — no external devflow skill is required.
+```clojure
+(devflow/start! runtime "search-filters")
+;; => next up: create the worktree
+```
 
-## Prerequisites
+Everything is keyed by that feature name — it *is* the `workflow/run-id`, so
+there is no separate run handle to keep.
 
-- A Skein checkout whose HEAD is `70a3c50e27ca0190f363d80d0b0cac72948dbacb` or a descendant. That commit includes static workflow definitions, whole-map `:param-spec` validation, checkpoint `:input-spec` contracts, and returning defer composition through the `:call` entrypoint. Verify a checkout with `git -C /path/to/skein merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD`.
-- No Skein release marker contains that commit yet, so the advisory `spool.edn` declares no `:skein/min` floor. The requirement is carried by this line and by `release-exception.md`.
-- Skein's defer-return change is a cold engine cutover: it removes the old `continue!` worker operation and changes persisted defer semantics. Quiesce producers and prove there are no active workflow roots before installing it; follow Skein's `docs/spools/defer-return-cutover.md`. Devflow's authored checkpoint routes still use the distinct `:continue` entrypoint, while routed stages also advertise `:call` for returning call/defer composition.
-- `skein.spools.workflow` is one of Skein's in-repo reference
-  spools, living in a spool root (`<skein>/spools/workflow`) **off** the base
-  classpath — you approve that root in `spools.edn` like any other spool.
-- A live weaver configured from a workspace you control.
-- A 40-hex git SHA pin for this repository, or a local checkout approved through
-  `spools.local.edn` for development.
-- Network or cache access for this spool's Maven dependencies. This spool
-  declares `camel-snake-kebab/camel-snake-kebab` in its top-level `deps.edn
-  :deps`; module refresh resolves it as an approved spool Maven dependency.
+## What you get out of it
 
-## Dependency information
+> **Code tells you *what*. Devflow docs tell you *why*.**
 
-Approve every source spool explicitly; no prerequisite is fetched
-transitively. `devflow.spool` requires `skein.spools.workflow`, which you
-approve as a root inside your Skein checkout (or as a sha-pinned nested-root
-git coordinate on the Skein repo — `:git/url` + `:git/sha` +
-`:deps/root "spools/workflow"` — if you want the engine pinned independently
-of your checkout). Both coordinate forms and the version-skew convention are
-covered in [Skein's nested-spool prerequisites
-guidance](https://github.com/codethread/skein/blob/main/docs/spools/writing-shared-spools.md#nested-spool-prerequisites).
+```
+devflow/
+|-- rfcs/YYYY-MM-DD-<slug>.md
+|-- specs/<spec-name>.md              <- canonical: how the system behaves
+|-- feat/<feature>/
+|   |-- proposal.md                   <- why, agreed before any code
+|   |-- specs/<spec-name>.delta.md    <- how this feature changes the above
+|   |-- <feature>.plan.md
+|   `-- tasks/index.yml + <id>-<slug>.md
+`-- archive/yy-mm-dd__<feature>/      <- every past feature, proposals and deltas
+```
 
-Shared workspace example:
+- **`proposal.md` is plan mode, written down.** It comes before any code and the
+  run stops for human sign-off, so there's time to align with the agent while
+  changing your mind is still cheap. Approval freezes it as the record of what
+  was agreed.
+- **`specs/` + `<spec>.delta.md` keep the docs with the code.** `specs/` is
+  canonical for the system's observable behaviours; every feature states its
+  change as a delta beside its proposal, reviewable as a diff against the current
+  contract. Those deltas merge into the canonical specs when the feature
+  completes — updating the docs *is* how a feature finishes.
+- **`archive/` holds every feature that came before**, proposals and deltas
+  intact: why the current specs say what they say.
+- **Stable ids throughout** — `PROP-Sfl-001`, `PLAN-Sfl-001.P1` — so you can
+  point an agent at one exact paragraph in chat, and still find it by the same
+  search years later.
+
+The rules for writing each document ship as data: `(devflow/guidance :proposal)`
+returns its purpose, prerequisites, procedure, constraints, checklist, and
+markdown template. No external skill file needed.
+
+## How it gets there
+
+- **A staged lifecycle.** Intake → proposal → sign-off →
+  (cards | spec+plan → tasks → execution), each stage its own workflow
+  definition.
+- **Two working models.** Either hand the feature off to a card loop (each card
+  worked cold by its own agent), or drive spec/plan/tasks/implementation inside
+  the one run.
+- **Revision loops that don't waste work.** "Revise" re-runs a stage and skips
+  the setup steps it already did.
+- **Delegated review and execution.** Card reviews fan out to subagents
+  (focused per-card reviews, then one whole-epic cohesion review); approved task
+  queues can run as sequential subagent gates.
+- **An abort path from every human decision point**, with a required reason.
+
+👉 **[devflow.md](./devflow.md) is the guide** — the documents, the stage flows,
+and how to drive a run.
+
+## Install
+
+### Prerequisites
+
+- **Skein at `70a3c50e27ca0190f363d80d0b0cac72948dbacb` or later**, and a live
+  weaver:
+  ```sh
+  git -C /path/to/skein merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD
+  ```
+  No release marker contains it yet, so `spool.edn` declares no `:skein/min`
+  floor; see `release-exception.md`.
+- **`skein.spools.workflow`** — the engine devflow builds on.
+- **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
+
+### Approve the sources
+
+In the **consumer's** `spools.edn`:
 
 ```clojure
 {:spools {skein.spools/workflow {:local/root "/path/to/your/skein/spools/workflow"}
@@ -48,22 +93,20 @@ Shared workspace example:
                               :git/sha "<40-hex-sha-for-the-approved-commit>"}}}
 ```
 
-Local development overlay example (`spools.local.edn`, usually gitignored):
+For local development, overlay in `spools.local.edn` (usually gitignored):
 
 ```clojure
 {:spools {codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
 ```
 
-Do not use the producer's singular `spool.edn` as consumer approval. Copy and
-review the full family entry above in the consumer's plural `spools.edn`.
-Prerequisites and activation order remain explicit here. Once a compatible
-Skein release marker exists, the producer floor belongs in `spool.edn` as
-`:skein/min`.
+> This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
-## Activation
+To pin the engine independently of your Skein checkout, `skein.spools/workflow`
+also takes `:git/url` + `:git/sha` + `:deps/root "spools/workflow"`.
 
-Declare prerequisite modules before dependents. From trusted `init.clj` or REPL
-code:
+### Activate the modules
+
+From trusted `init.clj` or REPL code:
 
 ```clojure
 (require '[skein.api.current.alpha :as current]
@@ -71,8 +114,6 @@ code:
 
 (def runtime (current/runtime))
 
-;; workflow is an approved spool root, not base-classpath code: guard the
-;; module on its coordinate so a missing approval fails loudly.
 (runtime/module! runtime
   :workflow
   {:ns 'skein.spools.workflow
@@ -87,10 +128,31 @@ code:
    :required? true})
 ```
 
-A declaration names a source target and world policy only. Devflow contributes its `defworkflow` forms as it loads; it has no `spool`, `contribute`, or `reconcile` Var for a consumer to call or mirror.
+Devflow needs `:workflow` declared first, and `:after [:workflow]` keeps a failed
+prerequisite explicit. Its stage definitions register as the namespace loads —
+there is no `spool`, `contribute`, or `reconcile` Var to call.
 
-Keep the `:workflow` module before `:devflow` and keep `:after [:workflow]` so missing or failed prerequisites are explicit. Once active, devflow's thirteen static definitions are discoverable data: run `strand workflow list` and `strand workflow show <name>` against the weaver to inspect their routes, defaults, parameter spec, and checkpoint contracts before starting a run.
+### Check it worked
 
-Runtime-dependent Clojure functions take the target runtime first. For example, use `(devflow/start! runtime feature opts)`, `(devflow/ready runtime feature)`, and `(devflow/choose! runtime feature choice)`. Static definition inspection and authoring guidance remain runtime-free.
+All fourteen stages should be listed, with their routes, defaults, parameter
+specs, and checkpoint contracts:
 
-The shipped workflow engine still exposes ambient-runtime lifecycle functions. Devflow scopes each call with `current/with-runtime` at that dependency boundary; callers never select ambient state themselves, and cross-runtime tests hold a different runtime ambient while driving the supplied one. This adapter can disappear when the workflow spool publishes explicit-runtime lifecycle entry points.
+```sh
+strand workflow list
+strand workflow show proposal
+```
+
+## Using it
+
+Runtime-dependent functions take the runtime first:
+
+```clojure
+(devflow/start! runtime "search-filters" {:worktree-check "already-in-worktree-ok"})
+(devflow/ready runtime "search-filters")
+(devflow/choose! runtime "search-filters" :approved-to-cards {})
+```
+
+Static inspection (`describe`, `guidance`) needs no runtime.
+
+See [devflow.md](./devflow.md) for the stage flows, the command reference, and
+worked examples.

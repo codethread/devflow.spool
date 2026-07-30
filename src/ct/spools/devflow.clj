@@ -37,7 +37,7 @@
   the enum the projections check a root against: `stage-attributes` is the only
   writer and `active-stage`/`run-history` are the readers. Names are routing-
   independent, so they need not match the `stage-workflows` keys."
-  #{"intake" "proposal" "land-proposal" "decompose" "spec-plan"
+  #{"intake" "proposal" "land-proposal" "decompose" "card-review" "spec-plan"
     "route-after-plan" "tasks" "afk" "implementation" "abort"})
 
 (defn- guided-artifact
@@ -82,9 +82,9 @@
   [task k]
   (or (get task k) (get task (name k))))
 
-(def ^:private afk-task-id-pattern
-  "AFK task ids become workflow step ids (`:task-<id>`), so they must be
-  token-safe: no whitespace, slashes, colons, or leading punctuation."
+(def ^:private loop-item-id-pattern
+  "Loop item ids become workflow step ids, so they must be token-safe: no
+  whitespace, slashes, colons, or leading punctuation."
   #"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 (defn dependency-sentinel
@@ -112,16 +112,19 @@
 (s/def ::delegate-harness non-blank-string?)
 (s/def ::delegate-cwd non-blank-string?)
 (s/def ::delegate-preamble non-blank-string?)
+(s/def ::feature-card-reviewer non-blank-string?)
+(s/def ::epic-card-reviewer non-blank-string?)
+(s/def ::review-cwd non-blank-string?)
 
-(defn- afk-task-id? [v]
-  (and (non-blank-string? v) (some? (re-matches afk-task-id-pattern v))))
+(defn- workflow-step-id? [v]
+  (and (non-blank-string? v) (some? (re-matches loop-item-id-pattern v))))
 
 (defn- optional-non-blank? [v]
   (or (nil? v) (non-blank-string? v)))
 
 (s/def ::afk-task
   (s/and map?
-         #(afk-task-id? (task-value % :id))
+         #(workflow-step-id? (task-value % :id))
          #(non-blank-string? (task-value % :title))
          #(optional-non-blank? (task-value % :body))
          #(optional-non-blank? (task-value % :harness))))
@@ -135,17 +138,54 @@
 (s/def ::tasks
   (s/and (s/coll-of ::afk-task :kind vector? :min-count 1) distinct-task-ids?))
 
+(defn- card-value
+  "Return card-ref field `k`, accepting keyword or string keyed maps."
+  [card k]
+  (or (get card k) (get card (name k))))
+
+(s/def ::review-card
+  (s/and map?
+         #(workflow-step-id? (card-value % :id))
+         #(non-blank-string? (card-value % :title))))
+
+(defn- distinct-card-ids? [cards]
+  (let [ids (map #(card-value % :id) cards)]
+    (= (count ids) (count (distinct ids)))))
+
+(s/def ::feature-cards
+  (s/and (s/coll-of ::review-card :kind vector? :min-count 1) distinct-card-ids?))
+(s/def ::epic-card ::review-card)
+
+(defn- epic-distinct-from-features?
+  [{:keys [epic-card feature-cards]}]
+  (not (contains? (set (map #(card-value % :id) feature-cards))
+                  (card-value epic-card :id))))
+
 (defn- harnesses-resolve?
   "Every delegated task names a harness, or inherits the stage's default one."
   [{:keys [tasks delegate-harness]}]
   (every? #(non-blank-string? (or (task-value % :harness) delegate-harness)) tasks))
 
 (s/def ::intake-params
-  (s/keys :req-un [::feature] :opt-un [::worktree-check ::revision]))
+  (s/keys :req-un [::feature]
+          :opt-un [::worktree-check ::revision ::feature-card-reviewer
+                   ::epic-card-reviewer ::review-cwd]))
 (s/def ::agent-review-params (s/keys :req-un [::feature ::artifact]))
 (s/def ::proposal-params (s/keys :req-un [::feature] :opt-un [::revision]))
-(s/def ::land-proposal-params (s/keys :req-un [::feature]))
-(s/def ::decompose-params (s/keys :req-un [::feature]))
+(s/def ::land-proposal-params
+  (s/keys :req-un [::feature ::feature-card-reviewer ::epic-card-reviewer]
+          :opt-un [::review-cwd]))
+(s/def ::decompose-params
+  (s/keys :req-un [::feature ::feature-card-reviewer ::epic-card-reviewer]
+          :opt-un [::review-cwd]))
+(s/def ::card-set-input
+  (s/and (s/keys :req-un [::epic-card ::feature-cards])
+         epic-distinct-from-features?))
+(s/def ::review-cards-params
+  (s/and (s/keys :req-un [::feature ::feature-card-reviewer ::epic-card-reviewer
+                          ::epic-card ::feature-cards]
+                 :opt-un [::review-cwd ::revision])
+         epic-distinct-from-features?))
 (s/def ::spec-plan-params (s/keys :req-un [::feature] :opt-un [::revision]))
 (s/def ::route-after-plan-params (s/keys :req-un [::feature]))
 (s/def ::tasks-params (s/keys :req-un [::feature] :opt-un [::revision]))
@@ -190,6 +230,58 @@
                               "agent-run/cwd" (param-value :delegate-cwd)
                               "agent-run/prompt" (fn [{:keys [feature item delegate-preamble]}]
                                                    (afk-task-prompt feature item delegate-preamble))}))
+
+(defn- feature-card-review-prompt
+  "Render the focused review prompt for one feature card."
+  [{:keys [feature item]}]
+  (str "Review one implementation feature card for " feature " as a focused, read-only "
+       "reviewer. Use the workspace's card system to inspect card "
+       (card-value item :id) " (" (card-value item :title) ") and read the merged, approved "
+       "proposal it implements.\n\nJudge only this card's cold-work contract: current-state "
+       "evidence, target outcome, constraints, proposal traceability, explicit done-when, "
+       "validation gates, landing discipline, and whether its direct dependencies let it land "
+       "independently. Do not redesign the epic or repeat set-wide coverage analysis; a separate "
+       "epic reviewer owns relationships across cards. Do not edit cards.\n\nReturn `VERDICT: pass` "
+       "or `VERDICT: revise`, followed by concrete findings ordered by severity. Say plainly "
+       "when the card passes."))
+
+(defn- epic-card-review-prompt
+  "Render the set-level review prompt after every focused card review fans in."
+  [{:keys [feature epic-card feature-cards]}]
+  (str "Review the implementation-card decomposition for " feature " as the set-level, "
+       "read-only epic reviewer. Focused reviewers have already reviewed each feature card's "
+       "cold-work contract; do not repeat that fine-grained work.\n\nUse the workspace's card "
+       "system to inspect epic " (card-value epic-card :id) " (" (card-value epic-card :title)
+       ") and these feature cards:\n"
+       (str/join "\n" (map #(str "- " (card-value % :id) ": " (card-value % :title))
+                            feature-cards))
+       "\n\nReview only the connections and whole-epic shape: complete proposal-goal coverage, "
+       "gaps and overlaps, outcome-oriented slicing, independently landable increments, "
+       "dependency-edge direction and necessity, integration seams, and open decisions that "
+       "would otherwise be decided inconsistently by cold workers. Do not edit cards.\n\nReturn "
+       "`VERDICT: pass` or `VERDICT: revise`, followed by concrete set-level findings ordered "
+       "by severity. Say plainly when the decomposition is cohesive."))
+
+(defn- feature-card-review-gate
+  "The parallel subagent gate expanded once per authored feature card."
+  []
+  (workflow/gate :feature-card-review
+                 (fn [{:keys [item]}]
+                   (str "Focused review of feature card " (card-value item :id) ": "
+                        (card-value item :title)))
+                 :subagent
+                 :loop {:each :feature-cards}
+                 :attributes {"devflow/review" "agent"
+                              "devflow/review-scope" "feature-card"
+                              "devflow/card" (fn [{:keys [item]}] (card-value item :id))
+                              "agent-run/harness" (param-value :feature-card-reviewer)
+                              "agent-run/cwd" (param-value :review-cwd)
+                              "agent-run/prompt" feature-card-review-prompt
+                              "workflow/instruction" (str "Executor-owned focused card review. "
+                                                          "The configured feature-card reviewer "
+                                                          "must inspect exactly this card and return "
+                                                          "its verdict; parallel sibling gates review "
+                                                          "the other feature cards.")}))
 
 (def ^:private abort-reason-input
   "Declared choice input for every abort choice: a required `:reason` recorded on
@@ -377,14 +469,13 @@
                          :attributes {"workflow/decision-point" "proposal-landed"})))
 
 (workflow/defworkflow decompose
-  "The implementation-card decomposition stage that ends the cards route.
+  "Author implementation cards, then hand their refs to the review stage.
 
-  A one-step terminal stage: completing `:author-cards` auto-closes the run,
-  because implementation on this route is not a devflow stage but a card loop
-  worked cold from the authored cards. Cards are not filesystem artifacts, so
-  the step advertises its guide explicitly rather than through
-  `guided-artifact`, and devflow stays agnostic about which card system the
-  workspace uses."
+  Workflow loops expand when a stage pours, before `:author-cards` has created
+  anything. The agent checkpoint after authoring is therefore the explicit data
+  boundary: its `:review` choice supplies the epic and feature card refs that
+  the continuation fans out over. Reviewer seats are caller-selected params,
+  and cards remain in the workspace's own card system."
   {:entrypoints #{:continue :call}
    :param-spec ::decompose-params
    :defaults {}}
@@ -396,10 +487,103 @@
                    :self
                    :attributes {"workflow/action-ref" "devflow.decompose.cards"
                                 "devflow/guide" "decompose"
-                                "workflow/instruction" (str "Author self-contained implementation cards "
-                                                            "from the merged proposal. Call "
+                                "workflow/instruction" (str "Author one epic and self-contained "
+                                                            "feature cards from the merged proposal. Call "
                                                             "(ct.spools.devflow/guidance :decompose) for "
-                                                            "the cold-card contract before writing them.")})))
+                                                            "the cold-card and review handoff contracts.")})
+    (workflow/checkpoint :handoff-card-review
+                         (titled "Hand authored cards to review for ")
+                         :depends-on [:author-cards]
+                         :kind :agent
+                         :choices [{:key :review
+                                    :label "Review cards"
+                                    :description "Supply the authored epic and feature card refs; fan focused reviews out before the epic cohesion review."
+                                    ;; Like proposal's later-added cards route, this
+                                    ;; continuation is accreted onto an already-published
+                                    ;; definition. A symbol keeps old direct-registration
+                                    ;; sets able to register :decompose; the new review
+                                    ;; definition remains published and discoverable itself.
+                                    :next 'ct.spools.devflow/review-cards
+                                    :input {:spec ::card-set-input
+                                            :doc "The authored epic card and non-empty feature-card vector; each ref requires token-safe id and title."}}
+                                   {:key :abort
+                                    :label "Abort"
+                                    :description "Stop this feature because a reviewable implementation-card set could not be authored."
+                                    :next :abort
+                                    :input abort-reason-input}]
+                         :attributes {"workflow/decision-point" "implementation-cards-authored"
+                                      "workflow/instruction" (str "After authoring the cards, choose review "
+                                                                  "with the epic card and every feature-card "
+                                                                  "ref. The review stage uses the configured "
+                                                                  "feature-card-reviewer and epic-card-reviewer "
+                                                                  "seats.")})))
+
+(workflow/defworkflow review-cards
+  "Review authored implementation cards at focused and whole-epic scopes.
+
+  The feature-card gate expands without a chain, so every focused review is
+  ready together and the subagent executor may run them up to its fan-out
+  ceiling. The epic gate depends on the loop's base id, which fans in over all
+  focused reviews, and its prompt deliberately judges only cross-card cohesion.
+  The driving agent then reconciles both result classes. Material changes may
+  choose `:review-again`, re-pouring this stage with the current card refs."
+  {:entrypoints #{:continue :call}
+   :param-spec ::review-cards-params
+   :defaults {:revision false}}
+  (workflow/workflow
+    (titled "Devflow card review: ")
+    {:attributes (stage-attributes "card-review")}
+    (feature-card-review-gate)
+    (workflow/gate :epic-card-review
+                   (fn [{:keys [epic-card]}]
+                     (str "Cohesion review of epic card " (card-value epic-card :id) ": "
+                          (card-value epic-card :title)))
+                   :subagent
+                   :depends-on [:feature-card-review]
+                   :attributes {"devflow/review" "agent"
+                                "devflow/review-scope" "epic"
+                                "devflow/card" (fn [{:keys [epic-card]}]
+                                                 (card-value epic-card :id))
+                                "agent-run/harness" (param-value :epic-card-reviewer)
+                                "agent-run/cwd" (param-value :review-cwd)
+                                "agent-run/prompt" epic-card-review-prompt
+                                "workflow/instruction" (str "Executor-owned epic cohesion review. "
+                                                            "It starts only after every focused "
+                                                            "feature-card review closes and must not "
+                                                            "repeat those per-card checks.")})
+    (workflow/step :reconcile-card-reviews
+                   (titled "Reconcile implementation-card reviews for ")
+                   :self
+                   :depends-on [:epic-card-review]
+                   :attributes {"workflow/action-ref" "devflow.decompose.reconcile-reviews"
+                                "devflow/guide" "decompose"
+                                "workflow/instruction" (str "Read agent-run/result from every closed "
+                                                            "feature-card-review-* gate and from the "
+                                                            "epic-card-review gate. Apply valid focused "
+                                                            "findings to their cards and valid cohesion "
+                                                            "findings to card slicing or dependency edges. "
+                                                            "Do not collapse the two review scopes. If any "
+                                                            "material card changed, choose review-again and "
+                                                            "supply the current full card set.")})
+    (workflow/checkpoint :card-review-verdict
+                         (titled "Decide whether implementation cards are reviewed for ")
+                         :depends-on [:reconcile-card-reviews]
+                         :kind :agent
+                         :choices [{:key :accepted
+                                    :label "Accept reviewed cards"
+                                    :description "The focused and epic findings are resolved; end devflow and leave implementation to the card loop."}
+                                   {:key :review-again
+                                    :label "Review again"
+                                    :description "Cards changed materially while reconciling findings; fan out a fresh review round over the current set."
+                                    :input {:spec ::card-set-input
+                                            :doc "Resupply the current epic and complete feature-card refs for the next review round."}
+                                    :revise {:params {:revision true}}}
+                                   {:key :abort
+                                    :label "Abort"
+                                    :description "Stop this feature because the implementation-card decomposition cannot be made reviewable."
+                                    :next :abort
+                                    :input abort-reason-input}]
+                         :attributes {"workflow/decision-point" "implementation-cards-reviewed"})))
 
 (workflow/defworkflow route-after-plan
   "The post-plan route-choice stage."
@@ -651,7 +835,7 @@
   next. Order is the path a single-run feature walks; `agent-review` is spliced
   into stages by `call` and `abort` is reachable from every checkpoint, so
   neither appears here. The cards route (`:approved-to-cards` →
-  `land-proposal` → `decompose`) branches off at proposal sign-off and is not
+  `land-proposal` → `decompose` → `review-cards`) branches off at proposal sign-off and is not
   part of this vector: its stages are described individually through
   `describe` with their `stage-workflows` keys."
   [intake proposal spec-plan route-after-plan tasks run-afk-loop
@@ -831,8 +1015,10 @@
   ([runtime feature]
    (advance! runtime feature {}))
   ([runtime feature opts]
-   (stage-result runtime feature
-                 (current/with-runtime runtime (workflow/advance! feature opts)))))
+   (let [opts (cond-> opts
+                (contains? opts :input) (update :input keywordize-choice-input))]
+     (stage-result runtime feature
+                   (current/with-runtime runtime (workflow/advance! feature opts))))))
 
 (def stage-workflows
   "Devflow's stage definitions by the stable routing name each is registered
@@ -845,6 +1031,7 @@
    :proposal proposal
    :land-proposal land-proposal
    :decompose decompose
+   :review-cards review-cards
    :spec-plan spec-plan
    :route-after-plan route-after-plan
    :tasks tasks
@@ -863,6 +1050,10 @@
   {:feature "<feature>"
    :reason "<reason>"
    :artifact "<artifact>"
+   :feature-card-reviewer "<feature-card-reviewer>"
+   :epic-card-reviewer "<epic-card-reviewer>"
+   :epic-card {:id "epic" :title "<epic>"}
+   :feature-cards [{:id "card" :title "<feature-card>"}]
    :tasks [{:id "task" :title "<task>"}]
    :delegate-harness "<harness>"})
 

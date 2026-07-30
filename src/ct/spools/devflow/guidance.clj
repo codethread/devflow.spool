@@ -838,16 +838,28 @@ Append notes here. Do not rewrite earlier notes.
     :open-decisions
     [(str "A decision the proposal left open is either resolved on the card as recorded guidance, "
           "or the card instructs the worker to surface it as a blocker — a cold worker never "
-          "decides it silently.")]}
+          "decides it silently.")]
+    :review-scopes
+    {:feature-card
+     ["One focused reviewer per feature card checks only that card's cold-work contract, proposal traceability, direct dependencies, validation, and independent landing shape."
+      "Focused reviews fan out without dependency edges; the configured feature-card reviewer seat is reused for each card."
+      "A focused reviewer does not redesign the epic or repeat set-wide coverage analysis."]
+     :epic
+     ["One separately configured epic reviewer starts after every focused review fans in."
+      "It checks proposal-goal coverage, gaps and overlaps, slicing, dependency direction, integration seams, and cross-card open decisions."
+      "It assumes focused review is complete and must not repeat fine-grained card-contract checks."]}}
    :procedures
    {:decompose
     ["Read the merged proposal; note its goals, non-goals, and validation requirements."
-     "Draft the card set: one independently landable outcome per card, sliced by outcome rather than by file or layer."
-     "Write each card body per the cold-card contract: current state, target shape, constraints, done-when with validation gates and landing discipline."
+     "Draft one epic/grouping card and the feature-card set: one independently landable outcome per feature card, sliced by outcome rather than by file or layer."
+     "Write each feature-card body per the cold-card contract: current state, target shape, constraints, done-when with validation gates and landing discipline."
      "Declare dependency edges exactly where landing order is constrained."
-     (str "Record the card ids (and the epic or grouping id, when the card system has one) "
-          "wherever the workspace tracks the feature, then complete the decompose step — "
-          "the run ends here.")]}
+     "At handoff-card-review, choose review with the epic ref and complete feature-card ref vector; each ref carries a token-safe id and title."]
+    :reconcile-reviews
+    ["Wait for all focused feature-card review gates and the later epic cohesion gate to close."
+     "Read agent-run/result from every review gate; keep focused findings attached to their feature card and epic findings attached to slicing, coverage, or edges."
+     "Apply valid findings in the workspace's card system without editing the merged proposal."
+     "If any material card changed, choose review-again with the current full card set; otherwise choose accepted and let the card loop own implementation."]}
    :constraints
    ["Never edit the merged proposal; divergence discovered while decomposing is recorded on the affected cards."
     "Do not start implementation from this run; implementation belongs to the card loop that works the authored cards."
@@ -856,7 +868,10 @@ Append notes here. Do not rewrite earlier notes.
    ["Every proposal goal is covered by at least one card and every card traces back to the proposal"
     "Each card body passes the cold-card contract: context, target shape, done-when, validation gates, landing discipline"
     "Dependency edges reflect real landing-order constraints and nothing else"
-    "Open decisions are recorded as card guidance or explicit surface-a-blocker instructions, never left implicit"]
+    "Open decisions are recorded as card guidance or explicit surface-a-blocker instructions, never left implicit"
+    "Every feature card has a focused review result from the configured feature-card reviewer seat"
+    "The epic has one later cohesion result from the configured epic reviewer seat, scoped to connections rather than repeated fine-grained checks"
+    "The driving agent reconciled both result classes and repeated review after material card changes"]
    :see-also [:proposal :finish-archive]})
 
 (def guides
