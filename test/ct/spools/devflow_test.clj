@@ -88,16 +88,14 @@
     (workflow/register-workflow! name definition-sym)))
 
 (defn- activate-workflow!
-  "Activate the workflow spool module on `rt` from the loaded JVM image.
+  "Activate the workflow spool module on `rt` from source.
 
-  The suite's own require of `skein.spools.workflow` guarantees the namespace
-  is image-loaded, so `:load :image` skips the source sync a bare test world
-  cannot perform and the coordinator resolves the entry points from that
-  image's `spool` var. Throws with the refresh result unless the module applied."
+  Source activation evaluates the authoring forms and retains their declaration
+  record in the fresh test runtime. Throws with the refresh result unless the
+  module applied."
   [rt]
   (let [result (runtime/module! rt :workflow
-                                {:ns 'skein.spools.workflow
-                                 :load :image})
+                                {:ns 'skein.spools.workflow})
         status (get-in result [:modules :workflow :status])]
     (when-not (contains? #{:applied :unchanged} status)
       (throw (ex-info "workflow module activation failed"
