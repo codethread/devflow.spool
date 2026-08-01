@@ -93,6 +93,7 @@ Rules:
 - No speculative future work unless needed to protect the MVP boundary.
 - Tasks are not durable documentation: root specs own durable outcomes.
 - Acceptance criteria belong in Done when; follow-up ideas belong in the plan's Developer Notes.
+- When the plan uses different section numbering, preserve its local numbering but keep the Task context and Developer Notes headings with document-prefixed sub IDs.
 - {{id-editing}}
 
 ## Validation

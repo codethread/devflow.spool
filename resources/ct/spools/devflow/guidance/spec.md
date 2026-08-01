@@ -109,6 +109,7 @@ Reference code at module/package granularity, never per-file; feature plans and 
 - Deltas live in `devflow/feat/<feature>/specs/`, use `<spec-name>.delta.md`, and state only changes relative to the root spec
 - `devflow/README.md` index is updated for root spec changes
 - Feature plan links are updated when present
+- New feature specs are ready to promote into `devflow/specs/` when the feature ships
 
 ## Templates
 

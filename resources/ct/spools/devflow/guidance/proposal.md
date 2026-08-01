@@ -64,7 +64,7 @@ When intent really changed:
 
 ### Approve
 
-1. On `:approved` at `:human-signoff-proposal`, set Status to Approved and fill Approved with the sign-off date.
+1. On `:approved` or `:approved-to-cards` at `:human-signoff-proposal`, set Status to Approved and fill Approved with the sign-off date.
 2. Make no further content edits: from here the proposal is read-only input to spec, plan, task, and archive work.
 
 ## Constraints

@@ -23,6 +23,7 @@ devflow/
 |           `-- <zero-padded-id>-<slug>.md
 `-- archive/
     `-- yy-mm-dd__<feature>/
+        |-- ...everything from feat/<feature>/
         `-- rfcs/
             `-- YYYY-MM-DD-<slug>.md
 ```
