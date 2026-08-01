@@ -4,30 +4,23 @@ A feature-delivery lifecycle, built as
 [Skein workflows](https://github.com/codethread/skein/blob/main/spools/workflow.md).
 You name a feature; each stage hands you the next step or the next decision.
 
-```clojure
-(require '[ct.spools.devflow :as devflow]
-         '[skein.api.current.alpha :as current])
-
-(def runtime (current/runtime))
-
-(devflow/start! runtime "search-filters")
-;; => {:ready [{:role "checkpoint" :checkpoint "create-or-confirm-worktree"
-;;              :choices ["created-worktree" "already-in-worktree" "abort"]
-;;              :stage "intake" ...}]
-;;     :done false}
+```sh
+strand workflow start search-filters --workflow intake \
+  --params '{"feature":"search-filters"}'
+# => {"ready":[{"role":"checkpoint","checkpoint":"create-or-confirm-worktree",
+#                "choices":["created-worktree","already-in-worktree","abort"]}],
+#     "done":false}
 ```
 
 **The feature name is the handle.** It *is* the `workflow/run-id`, so there is no
-separate run handle to keep: `(devflow/ready runtime "search-filters")` answers
-"what now?".
-
-Three verbs drive everything:
+separate run handle to keep. Devflow owns static workflow definitions; Skein's
+generic workflow API owns execution.
 
 | You have | You call |
 |---|---|
-| A step to do | `(devflow/complete! runtime feature)` |
-| A decision to make | `(devflow/choose! runtime feature :choice input)` |
-| Either, and you don't want to care which | `(devflow/advance! runtime feature opts)` |
+| A step to do | `strand workflow complete <feature>` |
+| A decision to make | `strand workflow choose <feature> <choice> --input '<json>'` |
+| Either, and you don't want to care which | `strand workflow next <feature> [--choice <choice>]` |
 
 ## What devflow leaves behind
 
@@ -192,18 +185,17 @@ the *current* full card set and the next round fans out over that.
 The cards route needs two reviewer seats, supplied as start params so your
 workspace config picks the harnesses:
 
-```clojure
-(devflow/start! runtime "search-filters"
-  {:feature-card-reviewer "pi-low-ro"
-   :epic-card-reviewer "opus-strong-ro"
-   :review-cwd "/path/to/worktree"})
+```sh
+strand workflow start search-filters --workflow intake --params \
+  '{"feature":"search-filters","feature-card-reviewer":"pi-low-ro",\
+    "epic-card-reviewer":"opus-strong-ro","review-cwd":"/path/to/worktree"}'
 
 ;; ... approve to cards, land the proposal, author the cards ...
 
-(devflow/choose! runtime "search-filters" :review
-  {:epic-card {:id "epic-42" :title "Search filters"}
-   :feature-cards [{:id "card-43" :title "Filter query contract"}
-                   {:id "card-44" :title "Filter result UI"}]})
+strand workflow choose search-filters review --input \
+  '{"epic-card":{"id":"epic-42","title":"Search filters"},\
+    "feature-cards":[{"id":"card-43","title":"Filter query contract"},\
+                     {"id":"card-44","title":"Filter result UI"}]}'
 ;; => {:ready [{:gate "subagent" :title "Focused review of feature card card-43: ..."}
 ;;             {:gate "subagent" :title "Focused review of feature card card-44: ..."}]
 ;;     :done false}
@@ -255,12 +247,11 @@ sequenceDiagram
 Delegating the queue is opt-in. Pass the tasks when you approve it, then choose
 `:delegate`:
 
-```clojure
-(devflow/choose! runtime "search-filters" :approved
-  {:tasks [{:id "impl" :title "Implement filters" :body "Use the signed-off plan."}
-           {:id "tests" :title "Add regression tests"}]
-   :delegate-harness "pi-main"
-   :delegate-cwd "/path/to/feature/worktree"})
+```sh
+strand workflow choose search-filters approved --input \
+  '{"tasks":[{"id":"impl","title":"Implement filters","body":"Use the signed-off plan."},\
+              {"id":"tests","title":"Add regression tests"}],\
+    "delegate-harness":"pi-main","delegate-cwd":"/path/to/feature/worktree"}'
 ;; => {:ready [{:gate "subagent" :title "Delegate AFK task impl for search-filters" ...}]
 ;;     :done false}
 ```
@@ -332,8 +323,8 @@ Abort always requires a reason, and `choose!` fails before mutating anything if
 you omit it:
 
 ```clojure
-(devflow/choose! runtime "search-filters" :abort
-  {:reason "Superseded by the unified query work"})
+strand workflow choose search-filters abort --input \
+  '{"reason":"Superseded by the unified query work"}'
 ```
 
 The reason is recorded on the abort step, which then closes the run.
@@ -341,8 +332,8 @@ The reason is recorded on the abort step, which then closes the run.
 ## Authoring guidance
 
 Devflow doesn't just tell you to write a proposal — it ships the rules for
-writing one, as data. Any step that authors a document advertises a guide key,
-and the ready step view surfaces it as `:guide`.
+writing one, as data. Any step that authors a document advertises its guide key
+in the `devflow/guide` strand attribute.
 
 ```clojure
 (devflow/guidance)           ; workspace overview: layout, paths, invariants, ID scheme
@@ -374,8 +365,12 @@ id without clashing with the archive.
 
 ## Finishing a run
 
+From trusted Clojure (the generic worker CLI deliberately has no squash verb):
+
 ```clojure
-(devflow/squash-run! runtime "search-filters")
+(require '[skein.spools.workflow :as workflow])
+
+(workflow/squash-run! "search-filters")
 ```
 
 Squashes a finished run into one closed digest strand. It fails loudly while any
@@ -389,35 +384,35 @@ side, described by `(devflow/guidance :finish-archive)`.
 
 ### Commands
 
-Every runtime-dependent call takes the runtime first and the feature name
-second. Mutating calls return `{:ready [step-view ...] :done boolean}`.
+Devflow adds no runtime façade. Use Skein's generic workflow surface:
 
-| Command | Signature |
+| Need | Command |
 |---|---|
-| `start!` | `(runtime feature)` / `(runtime feature params)` |
-| `ready` | `(runtime feature)` — all ready step views |
-| `ready-step` | `(runtime feature)` — the single ready view; throws if ambiguous |
-| `complete!` | `(runtime feature)` / `(runtime feature opts)` — `opts`: `:step`, `:attributes`, `:by` |
-| `choose!` | `(runtime feature choice)` / `(… input)` / `(… input opts)` |
-| `advance!` | `(runtime feature)` / `(runtime feature opts)` — `opts`: `:choice`, `:input`, `:step`, `:by`, `:attributes` |
-| `choice-details` | `(runtime feature)` / `(runtime feature opts)` — what each choice at this checkpoint means |
-| `choice-detail` | `(runtime feature choice)` / `(… opts)` |
-| `run-history` | `(runtime feature)` — every stage the run passed through, in order |
-| `current-root` | `(runtime feature)` — the active stage root, or nil |
-| `squash-run!` | `(runtime feature)` / `(runtime feature opts)` |
-| `describe` | `()` / `(stage)` — compile-time shape; no runtime, writes nothing |
-| `guidance` | `()` / `(guide)` — authoring knowledge; no runtime, writes nothing |
+| Discover definitions | `strand workflow list`, then `strand workflow show intake` |
+| Start the lifecycle | `strand workflow start <feature> --workflow intake --params '<json>'` |
+| Inspect a feature | `strand workflow ready <feature>` or `strand workflow choices <feature>` |
+| Advance it | `strand workflow complete`, `choose`, or `next` |
+| Read history / archive | trusted Clojure: `workflow/run-history`, `workflow/squash-run!` |
 
-`(devflow/commands)` returns this set as data. For "is it finished?", use
-`skein.spools.workflow/done?` with the feature name — devflow adds no wrapper.
+The generic workflow functions own the equivalent Clojure API. Devflow's one
+static helper is `(devflow/guidance)`.
 
-Every ready step view carries the current `:stage`, and artifact-authoring steps
-carry `:guide`.
+### Resume discovery
+
+Devflow publishes two named queries with the module:
+
+| Query | Command | Result |
+|---|---|---|
+| `devflow-runs` | `strand list --query devflow-runs` | Active lifecycle roots that can be resumed. |
+| `devflow-ready` | `strand ready --query devflow-ready` | Ready work beneath active Devflow roots. |
+
+The ready query follows `parent-of` edges from a Devflow root, because
+`workflow/family` belongs to the root rather than each step.
 
 ### Start parameters
 
-Supplied to `start!` and carried in context for the whole run, surviving every
-revision loop.
+Supplied to `strand workflow start … --params` and carried in context for the
+whole run, surviving every revision loop.
 
 | Param | Default | Meaning |
 |---|---|---|
@@ -427,26 +422,23 @@ revision loop.
 | `:review-cwd` | — | Working directory for review subagents |
 
 Each stage declares a `:param-spec` over the whole map, and every checkpoint
-choice that takes input declares its own contract — so `choose!` rejects a bad
-input map before it routes.
+choice that takes input declares its own contract — so generic `workflow choose`
+rejects a bad input map before it routes.
 
 ### Stage definitions
 
-`(devflow/workflows)` returns the fourteen stage definitions by their stable
-routing name: `:intake`, `:proposal`, `:land-proposal`, `:decompose`,
-`:review-cards`, `:spec-plan`, `:route-after-plan`, `:tasks`, `:run-afk-loop`,
-`:run-afk-manual`, `:run-afk-delegated`, `:direct-implementation`,
-`:agent-review`, `:abort`.
+Devflow registers fourteen named workflow definitions: `intake`, `proposal`,
+`land-proposal`, `decompose`, `review-cards`, `spec-plan`, `route-after-plan`,
+`tasks`, `run-afk-loop`, `run-afk-manual`, `run-afk-delegated`,
+`direct-implementation`, `agent-review`, and `abort`.
 
-`agent-review` is a reusable one-step review procedure spliced into the
-proposal, spec-plan, tasks, and direct-implementation stages. `(devflow/describe)`
-walks `devflow-cycle`, the ordered single-run path; describe the cards route's
-stages individually (`describe :land-proposal`, `:decompose`, `:review-cards`).
-
-Inspect any of them once devflow is active:
+`intake` is the sole `:start` definition. `agent-review` is a reusable call-only
+procedure; the remaining stages are continuations that can also be called.
+Inspect them through the live generic registry:
 
 ```sh
 strand workflow list
+strand workflow list --entrypoint continue
 strand workflow show review-cards
 ```
 
@@ -472,11 +464,12 @@ What devflow writes on the graph, if you're building tooling over it.
 | `workflow/instruction` | Freeform guidance surfaced in the step view |
 | `agent-run/harness`, `agent-run/prompt`, `agent-run/cwd` | What a delegated run gets |
 
-A devflow root always carries a known `devflow/stage`; one that doesn't fails
-loudly rather than projecting a view with the stage quietly missing.
+Every Devflow root carries a known `devflow/stage`; use the root attributes when
+building a projection that needs the current stage. The generic step view remains
+engine-owned.
 
 The proposal merge gate is repo-agnostic: any mainline merge process counts, and
-`complete!` records who landed it via `:by`.
+generic `workflow complete` records who landed it via `--by`.
 
 `(devflow/dependency-sentinel)` returns `"devflow-spool"` through this spool's
 declared Maven dependency, so runtime validation can observe that approved spool

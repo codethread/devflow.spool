@@ -3,12 +3,22 @@
 
 (def runtime (current/runtime))
 
+(runtime/module! runtime :skein/spools-batteries
+  {:ns 'skein.spools.batteries
+   :spools ['skein.spools/batteries]
+   :required? true})
 
 ;; Devflow is a module so its named workflow routes are published as one
 ;; owner-complete contribution. Keep workflow first: it declares the route kind.
 (runtime/module! runtime :workflow
   {:ns 'skein.spools.workflow
    :spools ['skein.spools/workflow]
+   :required? true})
+
+(runtime/module! runtime :skein/spools-workflow-cli
+  {:ns 'skein.spools.workflow.cli
+   :spools ['skein.spools/workflow]
+   :after [:workflow]
    :required? true})
 
 (runtime/module! runtime :devflow

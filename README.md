@@ -8,9 +8,10 @@ You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
 implemented code** — and leaves a documentation trail behind in the repo.
 
-```clojure
-(devflow/start! runtime "search-filters")
-;; => next up: create the worktree
+```sh
+strand workflow start search-filters --workflow intake \
+  --params '{"feature":"search-filters"}'
+# => next up: create the worktree
 ```
 
 Everything is keyed by that feature name — it *is* the `workflow/run-id`, so
@@ -114,10 +115,24 @@ From trusted `init.clj` or REPL code:
 
 (def runtime (current/runtime))
 
+;; Provides strand list, ready, and query for Devflow discovery.
+(runtime/module! runtime
+  :skein/spools-batteries
+  {:ns 'skein.spools.batteries
+   :spools ['skein.spools/batteries]
+   :required? true})
+
 (runtime/module! runtime
   :workflow
   {:ns 'skein.spools.workflow
    :spools ['skein.spools/workflow]
+   :required? true})
+
+(runtime/module! runtime
+  :skein/spools-workflow-cli
+  {:ns 'skein.spools.workflow.cli
+   :spools ['skein.spools/workflow]
+   :after [:workflow]
    :required? true})
 
 (runtime/module! runtime
@@ -129,30 +144,40 @@ From trusted `init.clj` or REPL code:
 ```
 
 Devflow needs `:workflow` declared first, and `:after [:workflow]` keeps a failed
-prerequisite explicit. Its stage definitions register as the namespace loads —
-there is no `spool`, `contribute`, or `reconcile` Var to call.
+prerequisite explicit. The batteries module provides the `strand list`, `ready`,
+and `query` commands used for discovery; the workflow CLI provides lifecycle
+commands. Devflow's stage definitions and queries register as the namespace
+loads — there is no `spool`, `contribute`, or `reconcile` Var to call.
 
 ### Check it worked
 
-All fourteen stages should be listed, with their routes, defaults, parameter
-specs, and checkpoint contracts:
+The generic workflow CLI discovers and drives Devflow. `intake` is its sole
+startable definition; the other stages are routed or callable components:
 
 ```sh
 strand workflow list
-strand workflow show proposal
+strand workflow list --entrypoint continue
+strand workflow show intake
 ```
 
 ## Using it
 
-Runtime-dependent functions take the runtime first:
+Devflow is a set of ordinary Skein workflows. Start and drive the `intake`
+workflow through the generic surface:
 
-```clojure
-(devflow/start! runtime "search-filters" {:worktree-check "already-in-worktree-ok"})
-(devflow/ready runtime "search-filters")
-(devflow/choose! runtime "search-filters" :approved-to-cards {})
+```sh
+strand workflow start search-filters --workflow intake \
+  --params '{"feature":"search-filters","worktree-check":"already-in-worktree-ok"}'
+strand workflow ready search-filters
+strand workflow next search-filters --choice already-in-worktree
 ```
 
-Static inspection (`describe`, `guidance`) needs no runtime.
+Resume and find work across sessions with Devflow's named queries:
 
-See [devflow.md](./devflow.md) for the stage flows, the command reference, and
-worked examples.
+```sh
+strand list --query devflow-runs
+strand ready --query devflow-ready
+```
+
+`(devflow/guidance)` remains the static authoring-knowledge API. See
+[devflow.md](./devflow.md) for lifecycle flows and generic workflow commands.

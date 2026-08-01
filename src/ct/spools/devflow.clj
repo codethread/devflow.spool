@@ -9,15 +9,13 @@
 
   Authoring knowledge for the artifacts each stage produces (proposal, specs,
   plan, task queue, ...) lives in `ct.spools.devflow.guidance` and is served
-  by `guidance`; steps advertise their guide key via the `devflow/guide`
-  attribute and ready step views surface it as `:guide`."
+  by `guidance`; artifact-authoring steps advertise the matching guide key via
+  the `devflow/guide` attribute."
   (:require [camel-snake-kebab.core :as csk]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow.guidance :as guidance]
-            [skein.api.current.alpha :as current]
-            [skein.api.spool.alpha :as spool]
-            [skein.api.weaver.alpha :as weaver]
+            [skein.api.skein.alpha :as skein]
             [skein.spools.workflow :as workflow]))
 
 (def artifact-guides
@@ -828,335 +826,35 @@
                    :attributes {"workflow/action-ref" "devflow.abort.record"
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
-(def devflow-cycle
-  "The ordered devflow stage definitions along the single-run path, as data.
+;; Devflow publishes workflow definitions and query declarations only. The generic
+;; `skein.spools.workflow` API owns starting, inspecting, advancing, archiving,
+;; and querying their runs; Devflow adds no parallel runtime facade.
 
-  Pour the first, then let each stage's decision-point outcomes route to the
-  next. Order is the path a single-run feature walks; `agent-review` is spliced
-  into stages by `call` and `abort` is reachable from every checkpoint, so
-  neither appears here. The cards route (`:approved-to-cards` →
-  `land-proposal` → `decompose` → `review-cards`) branches off at proposal sign-off and is not
-  part of this vector: its stages are described individually through
-  `describe` with their `stage-workflows` keys."
-  [intake proposal spec-plan route-after-plan tasks run-afk-loop
-   direct-implementation])
+(skein/defquery devflow-runs-query
+  "Return active Devflow workflow roots that can be resumed."
+  {:usage "strand list --query devflow-runs"}
+  [:and
+   [:= :state "active"]
+   [:= [:attr "workflow/role"] "root"]
+   [:= [:attr "workflow/family"] "devflow"]])
 
-;; The projection specs below own only the fields devflow adds to the engine's
-;; views. Everything else — a step view's `:id`/`:title`/`:role`/`:choices`, a
-;; history molecule's `:events` — is engine-owned passthrough from
-;; `skein.spools.workflow`, specced there or not at all; devflow neither
-;; restates nor re-checks it.
-(s/def ::stage stages)
-(s/def ::guide (set (keys guidance/guides)))
-(s/def ::step-view (s/keys :req-un [::stage] :opt-un [::guide]))
-(s/def ::ready (s/coll-of ::step-view :kind vector?))
-(s/def ::root (s/keys :req-un [::stage]))
-(s/def ::molecule (s/keys :req-un [::root]))
-(s/def ::run-history (s/coll-of ::molecule :kind vector?))
-
-(defn- active-stage
-  "Return the stage devflow poured `feature`'s active root for.
-
-  Fails loudly (TEN-003) when the run has no active root or that root carries no
-  known `stages` member: stage is devflow's own vocabulary and every devflow root
-  records it, so a run with ready work but no stage is unexpected state, not a
-  view that may quietly ship without one. Ask only while work is ready."
-  [runtime feature]
-  (let [root (current/with-runtime runtime (workflow/current-root feature))
-        stage (spool/attr-get root :devflow/stage)]
-    (or (stages stage)
-        (throw (ex-info "Devflow run has no active root carrying a known devflow/stage"
-                        {:feature feature
-                         :strand (:id root)
-                         :stage stage
-                         :attributes (:attributes root)
-                         :stages (vec (sort stages))})))))
-
-(defn- stage-view
-  "Add the devflow stage and artifact guide key to one engine ready step view."
-  [stage step]
-  (let [guide (artifact-guides (:artifact step))]
-    (cond-> (assoc step :stage stage)
-      guide (assoc :guide guide))))
-
-(defn- stage-views
-  "Return engine ready step views as devflow views carrying `feature`'s active
-  stage (shape: `:ct.spools.devflow/ready`)."
-  [runtime feature steps]
-  (if (seq steps)
-    (let [stage (active-stage runtime feature)]
-      (spool/require-valid! ::ready
-                            (mapv (partial stage-view stage) steps)
-                            "Devflow ready step views are invalid"))
-    []))
-
-(defn- stage-result
-  "Add the feature's current stage to every ready step in a mutation result."
-  [runtime feature result]
-  (update result :ready #(stage-views runtime feature %)))
-
-(defn start!
-  "Start the devflow intake workflow for `feature` and return the engine
-  `{:ready [step-view ...] :done boolean}` result shape.
-
-  Each ready step view carries the current devflow `:stage` (shape:
-  `:ct.spools.devflow/ready`)."
-  ([runtime feature]
-   (start! runtime feature {}))
-  ([runtime feature opts]
-   ;; keyword opt values (e.g. :worktree-check :required) are coerced to strings
-   ;; so they survive JSON round-tripping in workflow/context, and because the
-   ;; param specs name the string forms the engine will read back
-   (let [context (reduce-kv (fn [m k v] (assoc m k (if (keyword? v) (name v) v)))
-                            {:feature feature}
-                            opts)]
-     (stage-result
-      runtime
-      feature
-      (current/with-runtime
-        runtime
-        (workflow/start!
-         feature
-         :intake
-         context
-         {:family "devflow"
-          ;; seed start opts into context so they survive intake revision loops
-          ;; rather than resetting to their defaults
-          :context context}))))))
-
-(defn current-root
-  "Return the feature's single active devflow stage root, or nil when the run has
-  none (see `skein.spools.workflow/current-root`). Throws when ambiguous."
-  [runtime feature]
-  (current/with-runtime runtime (workflow/current-root feature)))
-
-(defn ready
-  "Return agent-facing ready devflow steps for `feature`, each carrying `:stage`
-  (shape: `:ct.spools.devflow/ready`)."
-  [runtime feature]
-  (stage-views runtime feature (current/with-runtime runtime (workflow/ready feature))))
-
-(defn ready-step
-  "Return the single agent-facing ready devflow step for `feature` (shape:
-  `:ct.spools.devflow/step-view`), nil when none is ready, or fail if ambiguous."
-  [runtime feature]
-  (first (stage-views runtime feature
-                      (some-> (current/with-runtime runtime (workflow/ready-step feature)) vector))))
-
-(defn choice-details
-  "Return choice explanations for the current devflow checkpoint.
-
-  opts may include `:step` (materialized strand id) to select among multiple
-  ready checkpoints."
-  ([runtime feature]
-   (choice-details runtime feature {}))
-  ([runtime feature opts]
-   (current/with-runtime runtime (workflow/choice-details feature opts))))
-
-(defn choice-detail
-  "Return one choice explanation for the current devflow checkpoint.
-
-  opts may include `:step` (materialized strand id) to select among multiple
-  ready checkpoints."
-  ([runtime feature choice]
-   (choice-detail runtime feature choice {}))
-  ([runtime feature choice opts]
-   (current/with-runtime runtime (workflow/choice-detail feature choice opts))))
-
-(defn complete!
-  "Close the current devflow step for `feature` and return the engine
-  `{:ready [step-view ...] :done boolean}` result shape, its ready views carrying
-  the devflow `:stage` (shape: `:ct.spools.devflow/ready`).
-
-  opts may include `:step` and `:attributes`; see
-  `skein.spools.workflow/complete!`. The engine records no outcome prose, so a
-  stage's own outcome vocabulary rides `:attributes`."
-  ([runtime feature]
-   (complete! runtime feature {}))
-  ([runtime feature opts]
-   (stage-result runtime feature
-                 (current/with-runtime runtime (workflow/complete! feature opts)))))
-
-(defn- keywordize-choice-input
-  "Return choice input with top-level string keys converted to keywords."
-  [input]
-  (if-not (map? input)
-    input
-    (into {}
-          (map (fn [[k v]] [(if (string? k) (keyword k) k) v]))
-          input)))
-
-(defn choose!
-  "Record a devflow checkpoint choice and return the engine
-  `{:ready [step-view ...] :done boolean}` result shape, its ready views carrying
-  the devflow `:stage` (shape: `:ct.spools.devflow/ready`).
-
-  opts may include `:step`; see `skein.spools.workflow/choose!`."
-  ([runtime feature choice]
-   (stage-result runtime feature
-                 (current/with-runtime runtime (workflow/choose! feature choice))))
-  ([runtime feature choice input]
-   (stage-result runtime feature
-                 (current/with-runtime
-                   runtime
-                   (workflow/choose! feature choice (keywordize-choice-input input)))))
-  ([runtime feature choice input opts]
-   (stage-result runtime feature
-                 (current/with-runtime
-                   runtime
-                   (workflow/choose! feature choice (keywordize-choice-input input) opts)))))
-
-(defn advance!
-  "Advance the current devflow step or checkpoint for `feature`.
-
-  Delegates to `skein.spools.workflow/advance!` and adds the active devflow
-  `:stage` to returned ready step views (shape: `:ct.spools.devflow/ready`).
-  opts may include `:choice`, `:input`, `:step`, `:by`, and `:attributes`."
-  ([runtime feature]
-   (advance! runtime feature {}))
-  ([runtime feature opts]
-   (let [opts (cond-> opts
-                (contains? opts :input) (update :input keywordize-choice-input))]
-     (stage-result runtime feature
-                   (current/with-runtime runtime (workflow/advance! feature opts))))))
-
-(def stage-workflows
-  "Devflow's stage definitions by the stable routing name each is registered
-  under. Forward `:next` choices reference these keyword names, and every stage
-  is discoverable through `strand workflow show <name>` once devflow is active.
-
-  `defworkflow` collects the registry entries itself, so this map is the local
-  read of the same set rather than the thing that publishes it."
-  {:intake intake
-   :proposal proposal
-   :land-proposal land-proposal
-   :decompose decompose
-   :review-cards review-cards
-   :spec-plan spec-plan
-   :route-after-plan route-after-plan
-   :tasks tasks
-   :run-afk-loop run-afk-loop
-   :run-afk-manual run-afk-manual
-   :run-afk-delegated run-afk-delegated
-   :direct-implementation direct-implementation
-   :agent-review agent-review
-   :abort abort})
-
-(def ^:private describe-placeholder-params
-  "Placeholder params used to render stage titles when describing devflow workflow
-  shapes. A description reports structure, not a specific run, so these are
-  stand-in values — and they must satisfy each stage's `:param-spec`, which is
-  why the delegated AFK stage's queue and harness appear here too."
-  {:feature "<feature>"
-   :reason "<reason>"
-   :artifact "<artifact>"
-   :feature-card-reviewer "<feature-card-reviewer>"
-   :epic-card-reviewer "<epic-card-reviewer>"
-   :epic-card {:id "epic" :title "<epic>"}
-   :feature-cards [{:id "card" :title "<feature-card>"}]
-   :tasks [{:id "task" :title "<task>"}]
-   :delegate-harness "<harness>"})
-
-(defn describe
-  "Return the compile-time shape of a devflow stage, or of the whole cycle.
-
-  With no argument, returns a vector describing every stage in `devflow-cycle`, in
-  order. With a registered stage key (a key of `stage-workflows`, e.g.
-  `:proposal`), returns that one stage's description. Shapes come from
-  `skein.spools.workflow/describe`; titles render against placeholder params
-  because a description is run-independent. Fails loudly on an unknown stage key."
-  ([]
-   (mapv #(workflow/describe % describe-placeholder-params) devflow-cycle))
-  ([stage]
-   (let [definition (or (get stage-workflows stage)
-                        (throw (ex-info "Unknown devflow stage"
-                                        {:stage stage :stages (vec (keys stage-workflows))})))]
-     (workflow/describe definition describe-placeholder-params))))
+(skein/defquery devflow-ready-query
+  "Return ready work belonging to an active Devflow workflow run."
+  {:usage "strand ready --query devflow-ready"}
+  [:edge/in "parent-of"
+   [:and
+    [:= :state "active"]
+    [:= [:attr "workflow/role"] "root"]
+    [:= [:attr "workflow/family"] "devflow"]]])
 
 (defn guidance
-  "Return devflow authoring guidance as inspectable data.
+  "Return Devflow's static authoring knowledge.
 
-  With no argument, returns the workspace overview: layout, paths, invariants,
-  the document-ID convention, document ownership, and an index of guide keys.
-  With a guide key (keyword or string, e.g. `:proposal`), returns that
-  artifact's guide: purpose, prerequisites, knowledge, procedures, constraints,
-  validation checklist, and templates. Ready step views advertise their guide
-  key as `:guide`; unknown keys fail loudly."
-  ([]
-   (guidance/overview))
-  ([guide]
-   (guidance/guide (if (string? guide) (keyword guide) guide))))
+  With no argument, return the workspace overview. With a keyword or string
+  guide key, return that artifact's authoring procedure, constraints, validation
+  checklist, and templates."
+  ([] (guidance/overview))
+  ([guide] (guidance/guide (if (string? guide) (keyword guide) guide))))
 
-(defn run-history
-  "Return the ordered run history for devflow `feature` (see
-  `skein.spools.workflow/run-history`), each molecule's `:root` carrying the
-  devflow `:stage` it was poured for (shape: `:ct.spools.devflow/run-history`).
-
-  Stage is devflow's own vocabulary, so this projection owns it: the engine's
-  history reports only engine-owned root fields. Every root devflow poured for a
-  run records its stage, so a molecule whose root carries no known `stages`
-  member fails loudly (TEN-003) rather than projecting a stageless root."
-  [runtime feature]
-  (let [rt runtime]
-    (spool/require-valid!
-     ::run-history
-     (mapv (fn [{:keys [root] :as molecule}]
-             (let [strand (weaver/show rt (:id root))
-                   stage (spool/attr-get strand :devflow/stage)]
-               (when-not (stages stage)
-                 (throw (ex-info "Devflow run molecule root carries no known devflow/stage"
-                                 {:feature feature
-                                  :strand (:id root)
-                                  :stage stage
-                                  :attributes (:attributes strand)
-                                  :stages (vec (sort stages))})))
-               (assoc-in molecule [:root :stage] stage)))
-           (current/with-runtime runtime (workflow/run-history feature)))
-     "Devflow run history molecules are invalid")))
-
-(defn squash-run!
-  "Squash a finished devflow `feature`'s run into one closed digest strand (see
-  `skein.spools.workflow/squash-run!`). Fails loudly if the feature still has an
-  active root. opts may include `:title` and `:attributes`.
-
-  This closes out the graph only. The workspace side of finishing a feature —
-  spec promotion, plan status, and moving the feature folder into
-  `devflow/archive/` — is a separate devflow procedure: follow
-  `(guidance :finish-archive)`."
-  ([runtime feature]
-   (current/with-runtime runtime (workflow/squash-run! feature)))
-  ([runtime feature opts]
-   (current/with-runtime runtime (workflow/squash-run! feature opts))))
-
-;; Devflow's contribution is the registry entries its `defworkflow` forms
-;; collect while this namespace loads, so there is no `contribute` fn and no
-;; `spool` entry-point var: a module may not both collect authoring forms and
-;; supply `:contribute` (SPEC-004.C46). A stage disappears from the registry by
-;; the same rule that publishes it — stop evaluating its form and the next
-;; refresh drops the entry by omission. The consumer declaration is unchanged:
-;; `{:ns 'ct.spools.devflow :spools ['codethread/devflow]}`.
-
-(def command-registry
-  "Agent-facing commands exposed by the devflow spool."
-  {:start 'ct.spools.devflow/start!
-   :ready-step 'ct.spools.devflow/ready-step
-   :ready 'ct.spools.devflow/ready
-   :choice-details 'ct.spools.devflow/choice-details
-   :choice-detail 'ct.spools.devflow/choice-detail
-   :choose 'ct.spools.devflow/choose!
-   :complete 'ct.spools.devflow/complete!
-   :advance 'ct.spools.devflow/advance!
-   :describe 'ct.spools.devflow/describe
-   :guidance 'ct.spools.devflow/guidance
-   :run-history 'ct.spools.devflow/run-history
-   :squash-run 'ct.spools.devflow/squash-run!})
-
-(defn workflows
-  "Return devflow's stage definitions by their stable routing name."
-  []
-  stage-workflows)
-
-(defn commands
-  "Return agent-facing devflow commands by stable key."
-  []
-  command-registry)
+;; `defworkflow` and `defquery` collect this module's owner-complete registry
+;; contribution. There is no spool entry point or Devflow runtime facade.
