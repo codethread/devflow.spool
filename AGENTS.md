@@ -1,6 +1,9 @@
 # Agents
 
+This repo ships a skein spool (a spool is a skein library), see ./README.md and ./devflow.md for orientation. The same prime commands below also orient you to write spool code.
+
 <!-- mill:skein-prime -->
+
 ## Skein / strand
 
 This repo uses Skein strands to track work. Orientation ships in the `mill` CLI:
