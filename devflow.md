@@ -67,8 +67,8 @@ their document's full id, so they never clash. You can point an agent at
 `PLAN-Sfl-001.P3` in chat and it lands on exactly one paragraph — and the same
 search still finds it in the archive years later.
 
-The rules for writing each of these ship as data — see
-[authoring guidance](#authoring-guidance).
+The rules for writing each of these ship with the spool as markdown guides —
+see [authoring guidance](#authoring-guidance).
 
 ## The lifecycle
 
@@ -332,36 +332,44 @@ The reason is recorded on the abort step, which then closes the run.
 ## Authoring guidance
 
 Devflow doesn't just tell you to write a proposal — it ships the rules for
-writing one, as data. Any step that authors a document advertises its guide key
-in the `devflow/guide` strand attribute.
+writing one, as markdown guides bundled with the spool. Any step that authors a
+document advertises its guide key in the `devflow/guide` strand attribute; the
+guide itself is resolved live from the loaded spool, never from run state.
 
-```clojure
-(devflow/guidance)           ; workspace overview: layout, paths, invariants, ID scheme
-(devflow/guidance :proposal) ; one artifact's full authoring guide
+```sh
+strand devflow guidance           # workspace overview: layout, paths, invariants, ID scheme
+strand devflow guidance proposal  # one artifact's full authoring guide
 ```
 
-Every guide has the same shape: `:purpose`, `:artifacts`, `:prerequisites`,
-`:knowledge`, `:procedures`, `:constraints`, `:validation`, `:templates`,
-`:see-also`.
+From trusted Clojure the same knowledge is `(devflow/guidance)` /
+`(devflow/guidance :proposal)`. Every guide is one markdown document covering
+the same ground in order: purpose, artifacts, prerequisites, guide-specific
+knowledge, procedures, constraints, a validation checklist, templates, and
+related guides.
 
 | Guide | For |
 |---|---|
-| `:proposal` | Feature-local problem framing; frozen at sign-off as the agreed intent |
-| `:rfc` | Pre-feature decision record: options, tradeoffs, recommendation, outcome |
-| `:spec` | Stable system boundaries — root specs, feature specs, and deltas |
-| `:plan` | The reviewable build strategy between framing and task slicing |
-| `:tasks` | A deterministic AFK queue of tracer-bullet vertical slices |
-| `:afk` | Running that queue unattended until it's exhausted, blocked, or failing |
-| `:decompose` | Turning a merged proposal into cards a cold agent can work |
-| `:finish-archive` | Closing out a shipped or abandoned feature |
+| `proposal` | Feature-local problem framing; frozen at sign-off as the agreed intent |
+| `rfc` | Pre-feature decision record: options, tradeoffs, recommendation, outcome |
+| `spec` | Stable system boundaries — root specs, feature specs, and deltas |
+| `plan` | The reviewable build strategy between framing and task slicing |
+| `tasks` | A deterministic AFK queue of tracer-bullet vertical slices |
+| `afk` | Running that queue unattended until it's exhausted, blocked, or failing |
+| `decompose` | Turning a merged proposal into cards a cold agent can work |
+| `finish-archive` | Closing out a shipped or abandoned feature |
 
-`:rfc` and `:finish-archive` have no stage step of their own. RFCs get written on
+`rfc` and `finish-archive` have no stage step of their own. RFCs get written on
 demand when intake or proposal work exposes real uncertainty; finish/archive is
 the workspace-side procedure you follow after `squash-run!`.
 
-`(devflow/guidance)` also returns the workspace invariants and the ID convention:
+The overview also carries the workspace invariants and the ID convention:
 which document owns what, which are writable when, and how to allocate the next
 id without clashing with the archive.
+
+The guide sources live under `resources/ct/spools/devflow/guidance/` as plain
+markdown — one file per guide plus the document templates — with a small
+placeholder pass (`{{template:...}}`, `{{ownership-table:...}}`, ...) so shared
+rules are stated once.
 
 ## Finishing a run
 
@@ -376,7 +384,7 @@ From trusted Clojure (the generic worker CLI deliberately has no squash verb):
 Squashes a finished run into one closed digest strand. It fails loudly while any
 stage is still active. This closes out the *graph* only — spec promotion, plan
 status, and moving the feature folder into `devflow/archive/` are the workspace
-side, described by `(devflow/guidance :finish-archive)`.
+side, described by `strand devflow guidance finish-archive`.
 
 ---
 
@@ -384,7 +392,8 @@ side, described by `(devflow/guidance :finish-archive)`.
 
 ### Commands
 
-Devflow adds no runtime façade. Use Skein's generic workflow surface:
+Devflow adds no run-driving façade. Use Skein's generic workflow surface;
+devflow's own `devflow` op serves static authoring knowledge only:
 
 | Need | Command |
 |---|---|
@@ -392,10 +401,12 @@ Devflow adds no runtime façade. Use Skein's generic workflow surface:
 | Start the lifecycle | `strand workflow start <feature> --workflow intake --params '<json>'` |
 | Inspect a feature | `strand workflow ready <feature>` or `strand workflow choices <feature>` |
 | Advance it | `strand workflow complete`, `choose`, or `next` |
+| Read authoring guidance | `strand devflow guidance [<guide>]` |
 | Read history / archive | trusted Clojure: `workflow/run-history`, `workflow/squash-run!` |
 
 The generic workflow functions own the equivalent Clojure API. Devflow's one
-static helper is `(devflow/guidance)`.
+static helper is `(devflow/guidance)`, the Clojure twin of
+`strand devflow guidance`.
 
 ### Resume discovery
 

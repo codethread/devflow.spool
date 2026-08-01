@@ -9,8 +9,9 @@
 
   Authoring knowledge for the artifacts each stage produces (proposal, specs,
   plan, task queue, ...) lives in `ct.spools.devflow.guidance` and is served
-  by `guidance`; artifact-authoring steps advertise the matching guide key via
-  the `devflow/guide` attribute."
+  by `guidance` from Clojure and by the `devflow` op (`strand devflow
+  guidance`) for CLI workers; artifact-authoring steps advertise the matching
+  guide key via the `devflow/guide` attribute."
   (:require [camel-snake-kebab.core :as csk]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
@@ -20,9 +21,8 @@
 
 (def artifact-guides
   "Maps each `workflow/artifact` value an authoring step advertises to the
-  guidance key holding its authoring rules (see `guidance` and
-  `ct.spools.devflow.guidance/guides`). The brief has no guide; it is
-  captured conversationally during intake."
+  guidance key holding its authoring rules (see `guidance`). The brief has no
+  guide; it is captured conversationally during intake."
   {"proposal.md" :proposal
    "specs/*.delta.md" :spec
    "<feature>.plan.md" :plan
@@ -47,7 +47,7 @@
                                   {:artifact artifact :artifacts (vec (keys artifact-guides))})))]
     {"workflow/artifact" artifact
      "devflow/guide" (name guide)
-     "workflow/instruction" (str "Call (ct.spools.devflow/guidance " guide ") for the "
+     "workflow/instruction" (str "Run `strand devflow guidance " (name guide) "` for the "
                                  "authoring procedure, constraints, template, and validation "
                                  "checklist before writing " artifact ".")}))
 
@@ -486,8 +486,8 @@
                    :attributes {"workflow/action-ref" "devflow.decompose.cards"
                                 "devflow/guide" "decompose"
                                 "workflow/instruction" (str "Author one epic and self-contained "
-                                                            "feature cards from the merged proposal. Call "
-                                                            "(ct.spools.devflow/guidance :decompose) for "
+                                                            "feature cards from the merged proposal. Run "
+                                                            "`strand devflow guidance decompose` for "
                                                             "the cold-card and review handoff contracts.")})
     (workflow/checkpoint :handoff-card-review
                          (titled "Hand authored cards to review for ")
@@ -694,7 +694,7 @@
                    :self
                    :attributes {"workflow/action-ref" "devflow.tasks.run-afk-loop"
                                 "devflow/guide" "afk"
-                                "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Call (ct.spools.devflow/guidance :afk) for the loop contract and queue checks."})))
+                                "workflow/instruction" "Run or hand off the devflow AFK task loop for this feature after task sign-off. Run `strand devflow guidance afk` for the loop contract and queue checks."})))
 
 (workflow/defworkflow run-afk-delegated
   "Run the approved AFK task queue as sequential subagent gates.
@@ -826,9 +826,10 @@
                    :attributes {"workflow/action-ref" "devflow.abort.record"
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
-;; Devflow publishes workflow definitions and query declarations only. The generic
-;; `skein.spools.workflow` API owns starting, inspecting, advancing, archiving,
-;; and querying their runs; Devflow adds no parallel runtime facade.
+;; Devflow publishes workflow definitions, query declarations, and one static
+;; read op. The generic `skein.spools.workflow` API owns starting, inspecting,
+;; advancing, archiving, and querying their runs; Devflow adds no parallel
+;; run-driving facade — the `devflow` op serves authoring knowledge only.
 
 (skein/defquery devflow-runs-query
   "Return active Devflow workflow roots that can be resumed."
@@ -848,13 +849,92 @@
     [:= [:attr "workflow/family"] "devflow"]]])
 
 (defn guidance
-  "Return Devflow's static authoring knowledge.
+  "Return Devflow's static authoring knowledge as markdown.
 
   With no argument, return the workspace overview. With a keyword or string
-  guide key, return that artifact's authoring procedure, constraints, validation
-  checklist, and templates."
+  guide key, return that artifact's authoring guide: purpose, prerequisites,
+  procedures, constraints, validation checklist, and templates."
   ([] (guidance/overview))
   ([guide] (guidance/guide (if (string? guide) (keyword guide) guide))))
 
-;; `defworkflow` and `defquery` collect this module's owner-complete registry
-;; contribution. There is no spool entry point or Devflow runtime facade.
+(def ^:private devflow-arg-spec
+  "Declared command surface for the `devflow` op."
+  {:op "devflow"
+   :doc "Devflow's static authoring knowledge, served to CLI workers."
+   :subcommands
+   {"guidance"
+    {:doc (str "Show the devflow workspace overview, or one artifact's full "
+               "authoring guide.")
+     :hook-class :read
+     :deadline-class :standard
+     :positionals [{:name :guide
+                    :type :string
+                    :doc (str "Guide key, as advertised by a step's devflow/guide "
+                              "attribute (e.g. proposal). Omit for the workspace "
+                              "overview, which indexes every key.")}]
+     :annotations
+     {:use-when [(str "A ready step carries a devflow/guide attribute and you "
+                      "are about to author its artifact.")
+                 (str "Working outside a run: rfc and finish-archive have no "
+                      "workflow step, and the overview orients any devflow "
+                      "workspace work.")]
+      :notes [(str "The payload is resolved live from the loaded spool on every "
+                   "call, never from run state, so it is always the current "
+                   "guide. The Clojure equivalent is "
+                   "(ct.spools.devflow/guidance <key>).")]}}}})
+
+(def ^:private devflow-returns
+  {:subcommands
+   {"guidance" {:type :map
+                :required {:operation :string
+                           ;; One markdown document, loaded from the spool's
+                           ;; guidance resources by ct.spools.devflow.guidance.
+                           :guidance :string}
+                :optional {:guide :string}}}})
+
+(def ^:private devflow-meta
+  "Cross-verb narrative for `devflow`, projected by the `about`/`prime`
+  meta-verbs."
+  {:about (str "devflow ships the feature-delivery lifecycle as ordinary Skein "
+               "workflow definitions, driven through the generic workflow op; "
+               "this op adds no run verbs. guidance is its one read: the static "
+               "authoring knowledge behind the lifecycle. With no argument it "
+               "returns the workspace overview — layout, paths, invariants, the "
+               "document-ID convention, document ownership, and an index of "
+               "every guide key. With a key it returns that artifact's "
+               "authoring guide as one markdown document: purpose, "
+               "prerequisites, knowledge, procedures, constraints, validation "
+               "checklist, and templates. "
+               "Artifact-authoring steps advertise their key in the "
+               "devflow/guide strand attribute, and the payload resolves live "
+               "from the loaded spool rather than from anything recorded on the "
+               "run.")
+   :prime (str "Run `strand devflow guidance` for the workspace overview and "
+               "the index of guide keys, then "
+               "`strand devflow guidance <key>` (e.g. proposal) before "
+               "authoring that artifact. When driving a workflow run, the "
+               "ready step's devflow/guide attribute names the key to fetch. "
+               "rfc and finish-archive belong to no step: fetch rfc when "
+               "intake or proposal work exposes real uncertainty, and "
+               "finish-archive after squash-run! to close out a feature.")})
+
+(skein/defop devflow
+  "Serve Devflow's static authoring knowledge: the workspace overview or one artifact's authoring guide."
+  (merge {:arg-spec devflow-arg-spec
+          :returns devflow-returns
+          :stream? false}
+         devflow-meta)
+  [{:op/keys [args]}]
+  (case (first (:subcommand args))
+    "guidance" (if-let [guide (:guide args)]
+                 {:operation "devflow guidance"
+                  :guide guide
+                  :guidance (guidance guide)}
+                 {:operation "devflow guidance"
+                  :guidance (guidance)})
+    (throw (ex-info "Unsupported devflow subcommand"
+                    {:subcommand (:subcommand args) :allowed ["guidance"]}))))
+
+;; `defworkflow`, `defquery`, and `defop` collect this module's owner-complete
+;; registry contribution. There is no spool entry point, and no run-driving
+;; Devflow facade.

@@ -48,9 +48,10 @@ devflow/
   point an agent at one exact paragraph in chat, and still find it by the same
   search years later.
 
-The rules for writing each document ship as data: `(devflow/guidance :proposal)`
-returns its purpose, prerequisites, procedure, constraints, checklist, and
-markdown template. No external skill file needed.
+The rules for writing each document ship with the spool as markdown guides:
+`strand devflow guidance proposal` (or `(devflow/guidance :proposal)` from
+Clojure) returns its purpose, prerequisites, procedure, constraints, checklist,
+and markdown template. No external skill file needed.
 
 ## How it gets there
 
@@ -158,6 +159,7 @@ startable definition; the other stages are routed or callable components:
 strand workflow list
 strand workflow list --entrypoint continue
 strand workflow show intake
+strand devflow guidance
 ```
 
 ## Using it
@@ -179,5 +181,6 @@ strand list --query devflow-runs
 strand ready --query devflow-ready
 ```
 
-`(devflow/guidance)` remains the static authoring-knowledge API. See
-[devflow.md](./devflow.md) for lifecycle flows and generic workflow commands.
+`strand devflow guidance [<guide>]` serves the static authoring knowledge
+(`(devflow/guidance)` is its Clojure twin). See [devflow.md](./devflow.md) for
+lifecycle flows and generic workflow commands.

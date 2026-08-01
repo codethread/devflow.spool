@@ -1,9 +1,12 @@
 (ns ct.spools.devflow-test
   "Tests Devflow as a collection of static Skein workflows and named discovery
   queries. Workflow execution itself belongs to skein.spools.workflow."
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.data.json :as json]
+            [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [ct.spools.devflow :as devflow]
+            [skein.api.cli.alpha :as cli-alpha]
             [skein.api.current.alpha :as current]
             [skein.api.graph.alpha :as graph]
             [skein.api.runtime.alpha :as runtime]
@@ -120,16 +123,68 @@
 (deftest guidance-and-artifact-metadata-remain-devflow-owned
   (is (= "devflow-spool" (devflow/dependency-sentinel)))
   (let [overview (devflow/guidance)]
-    (is (contains? (:guides overview) :proposal))
-    (is (seq (get-in overview [:workspace :invariants]))))
+    (is (str/includes? overview "**proposal**"))
+    (is (str/includes? overview "devflow/specs/` is canonical for current contracts")))
   (with-runtime
     (fn [_]
       (workflow/start! "guided" #'devflow/proposal {:feature "guided"})
       (workflow/complete! "guided")
       (let [step (workflow/ready-step "guided")]
         (is (= "proposal.md" (:artifact step)))
-        (is (= "Call (ct.spools.devflow/guidance :proposal) for the authoring procedure, constraints, template, and validation checklist before writing proposal.md."
+        (is (= "Run `strand devflow guidance proposal` for the authoring procedure, constraints, template, and validation checklist before writing proposal.md."
                (:instruction step)))))))
+
+(defn- wire-value
+  [value]
+  (json/read-str (json/write-str value) :key-fn keyword))
+
+(deftest guidance-markdown-expands-every-placeholder
+  (doseq [k [:proposal :rfc :spec :plan :tasks :afk :decompose :finish-archive]]
+    (let [doc (devflow/guidance k)]
+      (is (not (str/includes? doc "{{"))
+          (str k " has no unexpanded placeholders"))))
+  (let [overview (devflow/guidance)]
+    (is (not (str/includes? overview "{{"))))
+  (testing "shared blocks land where their placeholders sit"
+    (let [proposal (devflow/guidance :proposal)]
+      (is (str/includes? proposal "# <Feature name> Proposal")
+          "the proposal template is fenced into the guide")
+      (is (str/includes? proposal "`PROP-Dwr-001.P1`")
+          "the configuration-identification paragraph is rendered for PROP")
+      (is (str/includes? proposal "| Document | Owns | Must not absorb | Lifetime |")
+          "the ownership table is rendered"))))
+
+(deftest the-devflow-op-serves-guidance-to-cli-workers
+  (with-runtime
+    (fn [rt]
+      (let [entry (weaver/resolve-op rt 'devflow)]
+        (is (= "devflow" (:name entry)))
+        (is (= 'ct.spools.devflow (:provenance entry)))
+        (is (= :read (get-in entry [:arg-spec :subcommands "guidance" :hook-class])))
+        (testing "the declared arg-spec routes guidance with an optional guide key"
+          (let [parse (fn [argv] (cli-alpha/parse (:arg-spec entry) argv))]
+            (is (= {:subcommand ["guidance"]} (parse ["guidance"])))
+            (is (= {:subcommand ["guidance"] :guide "proposal"}
+                   (parse ["guidance" "proposal"]))))))
+      (testing "no argument serves the workspace overview"
+        (let [result (devflow/devflow-op {:op/args {:subcommand ["guidance"]}})]
+          (is (= "devflow guidance" (:operation result)))
+          (is (= (devflow/guidance) (:guidance result)))
+          (t/check-op-return! rt 'devflow {:subcommand ["guidance"]}
+                              (wire-value result))))
+      (testing "a guide key serves that artifact's live guide"
+        (let [result (devflow/devflow-op
+                      {:op/args {:subcommand ["guidance"] :guide "proposal"}})]
+          (is (= "proposal" (:guide result)))
+          (is (= (devflow/guidance :proposal) (:guidance result)))
+          (t/check-op-return! rt 'devflow {:subcommand ["guidance"]}
+                              (wire-value result))))
+      (testing "an unknown guide fails loudly with the available keys"
+        (let [data (try (devflow/devflow-op
+                         {:op/args {:subcommand ["guidance"] :guide "nope"}})
+                        (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+          (is (= :nope (:guide data)))
+          (is (some #{:proposal} (:guides data))))))))
 
 (defn -main [& _]
   (let [summary (clojure.test/run-tests 'ct.spools.devflow-test)]

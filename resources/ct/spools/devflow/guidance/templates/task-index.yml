@@ -1,0 +1,6 @@
+tasks:
+  - id: 1
+    description: Terse task title
+    task_file: tasks/001-terse-task-title.md
+    status: pending
+    blocked_by: []
