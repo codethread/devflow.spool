@@ -8,6 +8,56 @@ its `bin/compat-alarm` result against the previous marker, and who authorized
 it. (Older tag messages reference `release-exception.md` / `release-v16.md`;
 those records are folded into this file.)
 
+## v17 — pluggable decomposition over `workflow/defer`; tasks.yml retired
+
+Peeled sha: _unreleased; record when the v17 tag is cut_
+
+**Deliberate break under published names.** The two decomposition points are
+now `workflow/defer` selection points, and the `tasks/index.yml` file format
+is removed outright:
+
+- `tasks` replaces its `write-tasks` step with an `:author-tasks` defer;
+  `decompose` replaces `author-cards` with an `:author-cards` defer. Both are
+  bound to shipped strand-native targets (`author-task-strands`,
+  `author-card-strands`), and the unbound templates (`tasks-open`,
+  `decompose-open`) are published Vars so consumer code can bind its own
+  card/task systems (issue trackers, kanban spools) and re-point the stage
+  names. Devflow deliberately ships no binding to any external system.
+- Tasks are strands, not files: `devflow/task-type` (`afk`|`hitl`),
+  `devflow/feature`, `depends-on` edges, `hitl=true` on HITL tasks, closure as
+  completion. The `tasks/index.yml` schema, its template, and the per-task
+  markdown files are gone from the guidance; the task body contract survives
+  as the `task-strand.md` body template. The pre-Skein YAML queue existed
+  because nothing could manage the graph; Skein can, so keeping a parallel
+  file format would preserve a shape nobody wants maintained.
+- `workflow/artifact` values change accordingly (`"tasks/index.yml"` →
+  `"task strands"`, plus `"implementation cards"`).
+
+Compatibility alarm: `bin/compat-alarm v16` fires — 1 failure
+(`module-publishes-the-complete-devflow-workflow-catalogue` asserts the exact
+v16 registration set, which the two new target names grow) and 3 errors
+(v16's guidance tests; classpath artifact — the alarm classpath predates
+resource-path handling, as already recorded under v16). That is this break
+and the known artifact being caught, not regressions.
+
+Authorization: the user's explicit instruction to make decomposition
+pluggable via `workflow/defer`, drop the tasks.yml format completely, and
+recommend a strands-based default with no coupling to the kanban spool
+(2026-08-01).
+
+Known consumers: skein-src's devflow pin and this repo's own `.skein` world;
+both move deliberately with the pin.
+
+Accretion:
+
+- New call-only definitions `author-task-strands` and `author-card-strands`;
+  new published template Vars `tasks-open` and `decompose-open`.
+- New named query `devflow-tasks`: the open strand queue with `strand list`,
+  the runnable frontier with `strand ready`.
+- Guidance: `tasks` and `afk` rewritten for the strand vocabulary;
+  `decompose`, `overview`, `plan`, and `finish-archive` updated to match;
+  new `task-strand.md` body template.
+
 ## v16 — guidance served as markdown over `strand devflow guidance`
 
 Peeled sha: `1455dce2d65a6f81eea21a5aac2d8cac26e442bd`

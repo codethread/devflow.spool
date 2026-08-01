@@ -17,7 +17,11 @@
 (def ^:private stage-names
   #{:intake :proposal :land-proposal :decompose :review-cards :spec-plan
     :route-after-plan :tasks :run-afk-loop :run-afk-manual :run-afk-delegated
-    :direct-implementation :agent-review :abort})
+    :direct-implementation :agent-review :abort
+    :author-task-strands :author-card-strands})
+
+(def ^:private call-only-names
+  #{:agent-review :author-task-strands :author-card-strands})
 
 (defn- activate! [rt]
   (doseq [[key config] [[:workflow {:ns 'skein.spools.workflow}]
@@ -49,8 +53,11 @@
     (fn [rt]
       (is (= stage-names (set (keys (workflow/workflows)))))
       (is (= #{:start} (:entrypoints (workflow/resolve-workflow :intake))))
-      (is (= #{:call} (:entrypoints (workflow/resolve-workflow :agent-review))))
-      (doseq [stage (disj stage-names :intake :agent-review)]
+      (doseq [callee call-only-names]
+        (is (= #{:call} (:entrypoints (workflow/resolve-workflow callee)))
+            (str callee " is a call-only procedure")))
+      (doseq [stage (disj stage-names :intake :agent-review
+                          :author-task-strands :author-card-strands)]
         (is (= #{:continue :call}
                (:entrypoints (workflow/resolve-workflow stage)))
             (str stage " can route or return")))
@@ -119,6 +126,71 @@
       (workflow/complete! "paused")
       (is (empty? (weaver/list-query rt "devflow-runs" {})))
       (is (empty? (weaver/ready rt (graph/resolve-query rt "devflow-ready") {}))))))
+
+(deftest tasks-stage-defers-queue-authoring-to-a-pluggable-target
+  (with-runtime
+    (fn [_]
+      (workflow/start! "queued" #'devflow/tasks {:feature "queued"})
+      (let [step (workflow/ready-step "queued")]
+        (is (= "author-tasks" (:defer step)))
+        (is (= ["author-task-strands"] (:workflows step))
+            "the shipped binding allows exactly the strand-native target")
+        (is (str/includes? (:instruction step) "strand workflow defer")))
+      (testing "a defer cannot be completed and the target validates its params"
+        (is (thrown? clojure.lang.ExceptionInfo (workflow/complete! "queued")))
+        (is (thrown? clojure.lang.ExceptionInfo
+                     (workflow/defer! "queued" :author-task-strands {}))))
+      (let [filled (workflow/defer! "queued" :author-task-strands {:feature "queued"})]
+        (is (= ["Author strand-native task queue for queued"]
+               (mapv :title (:ready filled)))))
+      (let [step (workflow/ready-step "queued")]
+        (is (= "task strands" (:artifact step)))
+        (is (str/includes? (:instruction step) "strand devflow guidance tasks")))
+      (workflow/complete! "queued")
+      (is (= ["Run agent review for queued task queue"]
+             (mapv :title (workflow/ready "queued")))
+          "the filled target returns into the declaring stage")
+      (workflow/complete! "queued")
+      (is (= "human-signoff-tasks" (:checkpoint (workflow/ready-step "queued")))))))
+
+(deftest decompose-stage-defers-card-authoring-to-a-pluggable-target
+  (with-runtime
+    (fn [_]
+      (workflow/start! "carded" #'devflow/decompose
+                       {:feature "carded"
+                        :feature-card-reviewer "seat-a"
+                        :epic-card-reviewer "seat-b"})
+      (let [step (workflow/ready-step "carded")]
+        (is (= "author-cards" (:defer step)))
+        (is (= ["author-card-strands"] (:workflows step))))
+      (workflow/defer! "carded" :author-card-strands {:feature "carded"})
+      (is (= ["Author strand-native implementation cards for carded"]
+             (mapv :title (workflow/ready "carded"))))
+      (workflow/complete! "carded")
+      (is (= "handoff-card-review" (:checkpoint (workflow/ready-step "carded")))))))
+
+(deftest devflow-tasks-query-serves-the-strand-native-queue
+  (with-runtime
+    (fn [rt]
+      (let [a (weaver/add! rt {:title "Task A"
+                               :attributes {"devflow/task-type" "afk"
+                                            "devflow/feature" "queued"}})]
+        (weaver/add! rt {:title "Task B"
+                         :attributes {"devflow/task-type" "afk"
+                                      "devflow/feature" "queued"}
+                         :edges [{:type "depends-on" :to (:id a)}]})
+        (weaver/add! rt {:title "Task C"
+                         :attributes {"devflow/task-type" "hitl"
+                                      "devflow/feature" "queued"
+                                      "hitl" "true"}})
+        (weaver/add! rt {:title "Not a task"})
+        (testing "list serves the whole open queue"
+          (is (= #{"Task A" "Task B" "Task C"}
+                 (set (map :title (weaver/list-query rt "devflow-tasks" {}))))))
+        (testing "ready serves only the runnable frontier"
+          (is (= #{"Task A" "Task C"}
+                 (set (map :title
+                           (weaver/ready rt (graph/resolve-query rt "devflow-tasks") {}))))))))))
 
 (deftest guidance-and-artifact-metadata-remain-devflow-owned
   (is (= "devflow-spool" (devflow/dependency-sentinel)))

@@ -1,4 +1,4 @@
-# Task <id>: <description>
+# Task: <description>
 
 **Document ID:** `TASK-<name>-<nnn>[@<version>]`
 {{config-id:TASK}}

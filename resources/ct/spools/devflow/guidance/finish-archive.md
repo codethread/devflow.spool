@@ -30,9 +30,9 @@ Close out a shipped or abandoned feature: promote durable spec outcomes, reconci
 ### Finish
 
 1. Identify the feature folder; ask if ambiguous.
-2. Read the proposal, plan, linked RFCs, task index and task files, feature-local specs, and affected root specs.
+2. Read the proposal, plan, linked RFCs, the feature's task strands (`strand list --query devflow-tasks`), feature-local specs, and affected root specs.
 3. Identify the RFCs to archive per the RFC selection rules.
-4. Reconcile task state with implementation reality: confirm shipped-scope tasks are complete and covered by code/tests; classify incomplete tasks as cut scope; record cut, deferred, or abandoned scope in the plan's final Developer Notes.
+4. Reconcile task state with implementation reality: confirm shipped-scope task strands are closed and covered by code/tests; classify still-open tasks as cut scope and close them with a note saying so; record cut, deferred, or abandoned scope in the plan's final Developer Notes.
 5. Decide the outcome: shipped or abandoned.
 6. For shipped work, run the spec guide's promote-feature-specs procedure: merge deltas into root specs, promote new canonical specs, update the `devflow/README.md` index, and mark deltas Merged.
 7. Update the plan: set Status Shipped or Abandoned, update Last Updated, and add a final Developer Notes entry summarizing shipped scope, cut scope, abandonment reason, and archived RFCs.

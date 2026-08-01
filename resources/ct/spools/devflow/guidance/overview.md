@@ -17,24 +17,27 @@ devflow/
 |       |-- specs/
 |       |   |-- <existing-spec>.delta.md
 |       |   `-- <new-spec>.md
-|       |-- <feature>.plan.md
-|       `-- tasks/
-|           |-- index.yml
-|           `-- <zero-padded-id>-<slug>.md
+|       `-- <feature>.plan.md
 `-- archive/
     `-- yy-mm-dd__<feature>/
+        |-- ...everything from feat/<feature>/
         `-- rfcs/
             `-- YYYY-MM-DD-<slug>.md
 ```
 
 `<feature>` is the kebab-case feature name; it is also the workflow run-id.
 
+The AFK/HITL task queue is not a folder: tasks are strands in the Skein graph
+(`strand ready --query devflow-tasks`), carrying the vocabulary the tasks
+guide defines. Workspaces that bind their own decomposition targets keep
+tasks or cards in that system instead.
+
 ## Invariants
 
 - `devflow/specs/` is canonical for current contracts.
 - `devflow/feat/<feature>/specs/` is staging for active feature changes.
 - `devflow/archive/*` is historical context, not current truth.
-- Any feature using `tasks/` must have proposal.md and `<feature>.plan.md`.
+- Any feature with a task queue must have proposal.md and `<feature>.plan.md`; tasks are strands (or the bound target's cards), never files under the feature folder.
 - An approved proposal is frozen: it records the intent agreed at sign-off. Later change belongs in spec deltas, the plan, and code — never in a rewritten proposal.
 - Developer Notes live in the feature plan; never create task-note README files.
 - Do not copy RFC alternatives into specs, plans, or tasks; link to the RFC.

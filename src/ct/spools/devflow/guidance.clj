@@ -45,7 +45,7 @@
                   :lifetime "Archived with the feature"}
    :tasks        {:owns     "Exact AFK/HITL slices, acceptance criteria, dependencies"
                   :not      "Durable design knowledge or ongoing notes"
-                  :lifetime "Archived with the feature"}
+                  :lifetime "Strands in the graph; closed as slices ship or are cut, with outcomes recorded in the plan"}
    :archive      {:owns     "Historical feature context after completion or abandonment, including implemented RFCs"
                   :not      "Active source of truth for current specs"
                   :lifetime "Permanent historical record"}
