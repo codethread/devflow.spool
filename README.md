@@ -81,7 +81,7 @@ and how to drive a run.
   git -C /path/to/skein merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD
   ```
   No release marker contains it yet, so `spool.edn` declares no `:skein/min`
-  floor; see `release-exception.md`.
+  floor; see the v10 entry in `CHANGELOG.md`.
 - **`skein.spools.workflow`** — the engine devflow builds on.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
