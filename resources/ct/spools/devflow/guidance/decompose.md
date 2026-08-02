@@ -10,7 +10,7 @@ Decompose a merged, approved proposal into self-contained implementation cards a
 
 - The approved proposal is merged on the repository mainline; decomposition reads the merged copy, not a working-tree draft.
 - The proposal, its linked RFCs, and the affected root specs have been read.
-- The workspace's card system (kanban board, issue tracker, ...) is known; devflow does not supply or assume one.
+- Where cards live is decided by the stage's `:author-cards` defer: the shipped `author-card-strands` target authors them as strands using the tasks guide's vocabulary, and a workspace may bind targets for external card systems (issue trackers, kanban spools, ...) instead or as well.
 
 ## The cold-card contract
 
@@ -50,20 +50,20 @@ Epic:
 2. Draft one epic/grouping card and the feature-card set: one independently landable outcome per feature card, sliced by outcome rather than by file or layer.
 3. Write each feature-card body per the cold-card contract: current state, target shape, constraints, done-when with validation gates and landing discipline.
 4. Declare dependency edges exactly where landing order is constrained.
-5. At handoff-card-review, choose review with the epic ref and complete feature-card ref vector; each ref carries a token-safe id and title.
+5. At handoff-card-review, choose review with the epic ref and complete feature-card ref vector; each ref carries a token-safe id and title (with strand cards, the strand id is the card id).
 
 ### Reconcile reviews
 
 1. Wait for all focused feature-card review gates and the later epic cohesion gate to close.
 2. Read `agent-run/result` from every review gate; keep focused findings attached to their feature card and epic findings attached to slicing, coverage, or edges.
-3. Apply valid findings in the workspace's card system without editing the merged proposal.
+3. Apply valid findings to the cards where they live — strand bodies and `depends-on` edges for the shipped target, or the bound card system — without editing the merged proposal.
 4. If any material card changed, choose review-again with the current full card set; otherwise choose accepted and let the card loop own implementation.
 
 ## Constraints
 
 - Never edit the merged proposal; divergence discovered while decomposing is recorded on the affected cards.
 - Do not start implementation from this run; implementation belongs to the card loop that works the authored cards.
-- Cards are not filesystem artifacts: author them in the workspace's card system, not as `devflow/` documents.
+- Cards are never `devflow/` filesystem documents: the shipped target authors them as strands in the graph, and bound targets author them in their own card system.
 
 ## Validation
 

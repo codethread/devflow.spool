@@ -28,10 +28,13 @@ devflow/
 |-- feat/<feature>/
 |   |-- proposal.md                   <- why, agreed before any code
 |   |-- specs/<spec-name>.delta.md    <- how this feature changes the above
-|   |-- <feature>.plan.md
-|   `-- tasks/index.yml + <id>-<slug>.md
+|   `-- <feature>.plan.md
 `-- archive/yy-mm-dd__<feature>/      <- every past feature, proposals and deltas
 ```
+
+Tasks and implementation cards are not files: the shipped default authors
+them as **strands in the Skein graph** (`strand ready --query devflow-tasks`),
+and workspaces can plug in their own card system instead.
 
 - **`proposal.md` is plan mode, written down.** It comes before any code and the
   run stops for human sign-off, so there's time to align with the agent while
@@ -61,6 +64,10 @@ and markdown template. No external skill file needed.
 - **Two working models.** Either hand the feature off to a card loop (each card
   worked cold by its own agent), or drive spec/plan/tasks/implementation inside
   the one run.
+- **Pluggable decomposition.** Task and card authoring are `workflow/defer`
+  selection points. The shipped targets author strands; bind your own
+  (GitHub issues, Jira, a kanban spool) against the published `tasks-open` /
+  `decompose-open` templates without touching devflow.
 - **Revision loops that don't waste work.** "Revise" re-runs a stage and skips
   the setup steps it already did.
 - **Delegated review and execution.** Card reviews fan out to subagents

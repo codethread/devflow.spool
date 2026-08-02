@@ -15,7 +15,7 @@ The reviewable bridge between feature framing/spec work and the task queue: how 
 
 ## Why plans exist
 
-Plans earn their keep when a change is too large or risky to jump straight from proposal/spec to tasks: the approach gets critiqued once centrally, specs stay free of implementation mechanics, task files avoid carrying architecture, and the AFK loop has one feature-local home for task context and developer notes. Skip a plan only for small obvious changes that will not use a task queue — and any feature with `tasks/` needs at least a minimal Reviewed plan.
+Plans earn their keep when a change is too large or risky to jump straight from proposal/spec to tasks: the approach gets critiqued once centrally, specs stay free of implementation mechanics, task files avoid carrying architecture, and the AFK loop has one feature-local home for task context and developer notes. Skip a plan only for small obvious changes that will not use a task queue — and any feature with a task queue needs at least a minimal Reviewed plan.
 
 ## Level of detail
 
@@ -70,7 +70,7 @@ Plans earn their keep when a change is too large or risky to jump straight from 
 - One active plan per feature folder; split multi-feature roadmaps into separate feature folders.
 - Never plan against imagined code structure; read affected code first.
 - A Draft plan must not be sliced into AFK tasks; for small obvious queued work, create a minimal plan and mark it Reviewed after a sanity check.
-- Once tasks exist, the task index owns sequencing and detailed acceptance criteria; stop maintaining the phase list as a parallel tracker.
+- Once tasks exist, the task strands own sequencing (`depends-on` edges) and detailed acceptance criteria; stop maintaining the phase list as a parallel tracker.
 - {{id-editing}}
 
 ## Validation

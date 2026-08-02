@@ -26,7 +26,8 @@
   {"proposal.md" :proposal
    "specs/*.delta.md" :spec
    "<feature>.plan.md" :plan
-   "tasks/index.yml" :tasks})
+   "task strands" :tasks
+   "implementation cards" :decompose})
 
 (def stages
   "Every stage name a devflow root may carry in its `devflow/stage` attribute.
@@ -197,6 +198,7 @@
          harnesses-resolve?))
 (s/def ::direct-implementation-params (s/keys :req-un [::feature] :opt-un [::revision]))
 (s/def ::abort-params (s/keys :req-un [::feature ::reason]))
+(s/def ::author-strands-params (s/keys :req-un [::feature]))
 
 ;; Choice input contracts: the whole map `choose!` must accept, resolved live
 ;; at the checkpoint rather than baked in when the stage poured.
@@ -355,6 +357,43 @@
                    :self
                    :attributes {"devflow/review" "agent"})))
 
+(workflow/defworkflow author-task-strands
+  "The shipped strand-native task-authoring target for the tasks stage's defer.
+
+  Tasks are ordinary strands, not files: `devflow/task-type` is `afk` or
+  `hitl`, `devflow/feature` names the feature, dependencies are `depends-on`
+  edges, and the runnable queue is the ready frontier
+  (`strand ready --query devflow-tasks`). HITL tasks also carry `hitl=true`
+  so the batteries convention (stop and ask the user) applies unchanged. The
+  authoring rules and body headings live in `strand devflow guidance tasks`."
+  {:entrypoints #{:call}
+   :param-spec ::author-strands-params
+   :defaults {}}
+  (workflow/workflow
+    (titled "Author task strands for ")
+    (workflow/step :author-task-strands
+                   (titled "Author strand-native task queue for ")
+                   :self
+                   :attributes (guided-artifact "task strands"))))
+
+(workflow/defworkflow author-card-strands
+  "The shipped strand-native card-authoring target for the decompose stage's defer.
+
+  Cards use the same strand vocabulary as tasks (`devflow/task-type`,
+  `devflow/feature`, `depends-on` edges); the difference is body density — a
+  card body carries the full cold-work contract from
+  `strand devflow guidance decompose`. Strand ids are token-safe, so they are
+  the card ids the review handoff expects."
+  {:entrypoints #{:call}
+   :param-spec ::author-strands-params
+   :defaults {}}
+  (workflow/workflow
+    (titled "Author card strands for ")
+    (workflow/step :author-card-strands
+                   (titled "Author strand-native implementation cards for ")
+                   :self
+                   :attributes (guided-artifact "implementation cards"))))
+
 (workflow/defworkflow proposal
   "The proposal gate stage.
 
@@ -466,29 +505,30 @@
                                     :input abort-reason-input}]
                          :attributes {"workflow/decision-point" "proposal-landed"})))
 
-(workflow/defworkflow decompose
-  "Author implementation cards, then hand their refs to the review stage.
+(def decompose-open
+  "The decompose stage as an unbound template.
 
-  Workflow loops expand when a stage pours, before `:author-cards` has created
-  anything. The agent checkpoint after authoring is therefore the explicit data
-  boundary: its `:review` choice supplies the epic and feature card refs that
-  the continuation fans out over. Reviewer seats are caller-selected params,
-  and cards remain in the workspace's own card system."
-  {:entrypoints #{:continue :call}
-   :param-spec ::decompose-params
-   :defaults {}}
+  The `:author-cards` defer is the pluggable seam: the template names where a
+  workspace chooses its card-authoring workflow without naming anyone's
+  implementation. Consumer code that can see both spools binds it with
+  `workflow/bind-defers` — the shipped strand-native target, an issue-tracker
+  target, a kanban spool's target — and registers the result under its own
+  name, or re-points `:decompose` at it."
   (workflow/workflow
     (titled "Devflow decompose: ")
     {:attributes (stage-attributes "decompose")}
-    (workflow/step :author-cards
-                   (titled "Author implementation cards for ")
-                   :self
-                   :attributes {"workflow/action-ref" "devflow.decompose.cards"
-                                "devflow/guide" "decompose"
-                                "workflow/instruction" (str "Author one epic and self-contained "
-                                                            "feature cards from the merged proposal. Run "
-                                                            "`strand devflow guidance decompose` for "
-                                                            "the cold-card and review handoff contracts.")})
+    (workflow/defer :author-cards
+                    (titled "Choose the card-authoring workflow for ")
+                    :attributes {"workflow/action-ref" "devflow.decompose.cards"
+                                 "devflow/guide" "decompose"
+                                 "workflow/instruction" (str "Fill this defer with one of the workflows "
+                                                             "listed in workflow/defer-workflows: "
+                                                             "`strand workflow defer <feature> --workflow "
+                                                             "<target> --params '{\"feature\":\"<feature>\"}'`. "
+                                                             "Targets receive only the params passed at the "
+                                                             "fill, so pass the feature explicitly. Run "
+                                                             "`strand devflow guidance decompose` for the "
+                                                             "cold-card and review handoff contracts.")})
     (workflow/checkpoint :handoff-card-review
                          (titled "Hand authored cards to review for ")
                          :depends-on [:author-cards]
@@ -515,6 +555,21 @@
                                                                   "ref. The review stage uses the configured "
                                                                   "feature-card-reviewer and epic-card-reviewer "
                                                                   "seats.")})))
+
+(workflow/defworkflow decompose
+  "Author implementation cards through a pluggable target, then hand their
+  refs to the review stage.
+
+  `:author-cards` is a defer bound to the shipped strand-native target;
+  workspaces bind their own card systems through `decompose-open`. Workflow
+  loops expand when a stage pours, before any card exists, so the agent
+  checkpoint after authoring remains the explicit data boundary: its `:review`
+  choice supplies the epic and feature card refs that the continuation fans
+  out over. Reviewer seats are caller-selected params."
+  {:entrypoints #{:continue :call}
+   :param-spec ::decompose-params
+   :defaults {}}
+  (workflow/bind-defers decompose-open {:author-cards #{:author-card-strands}}))
 
 (workflow/defworkflow review-cards
   "Review authored implementation cards at focused and whole-epic scopes.
@@ -727,25 +782,33 @@
                                     :input abort-reason-input}]
                          :attributes {"workflow/decision-point" "afk-accepted"})))
 
-(workflow/defworkflow tasks
-  "The reviewed task queue stage.
+(def tasks-open
+  "The task-breakdown stage as an unbound template.
 
-  A revision round (`:revision true`) re-runs the whole task-breakdown stage."
-  {:entrypoints #{:continue :call}
-   :param-spec ::tasks-params
-   :defaults {:revision false}}
+  The `:author-tasks` defer is the pluggable seam: it names where a workspace
+  chooses its task-authoring workflow — the shipped strand-native target, an
+  issue tracker, a kanban spool — without naming anyone's implementation.
+  Consumer code binds it with `workflow/bind-defers` and registers the result
+  under its own name, or re-points `:tasks` at it."
   (workflow/workflow
     (titled "Devflow task breakdown: ")
     {:attributes (stage-attributes "tasks")}
-    (workflow/step :write-tasks
-                   (titled "Write AFK/HITL task queue for ")
-                   :self
-                   :attributes (guided-artifact "tasks/index.yml"))
+    (workflow/defer :author-tasks
+                    (titled "Choose the task-authoring workflow for ")
+                    :attributes {"devflow/guide" "tasks"
+                                 "workflow/instruction" (str "Fill this defer with one of the workflows "
+                                                             "listed in workflow/defer-workflows: "
+                                                             "`strand workflow defer <feature> --workflow "
+                                                             "<target> --params '{\"feature\":\"<feature>\"}'`. "
+                                                             "Targets receive only the params passed at the "
+                                                             "fill, so pass the feature explicitly. Run "
+                                                             "`strand devflow guidance tasks` for the queue "
+                                                             "contract before filling.")})
     (workflow/call :agent-review-tasks
                    :agent-review
                    {:artifact "task queue"}
                    :title (titled "Complete agent review for " " task queue")
-                   :depends-on [:write-tasks])
+                   :depends-on [:author-tasks])
     (workflow/checkpoint :human-signoff-tasks
                          (titled "Human sign-off for " " task queue")
                          :depends-on [:agent-review-tasks]
@@ -766,6 +829,18 @@
                                     :next :abort
                                     :input abort-reason-input}]
                          :attributes {"workflow/decision-point" "tasks-signed-off"})))
+
+(workflow/defworkflow tasks
+  "The reviewed task queue stage.
+
+  `:author-tasks` is a defer bound to the shipped strand-native target;
+  workspaces bind their own queue systems through `tasks-open`. A revision
+  round (`:revision true`) re-runs the whole task-breakdown stage, including
+  the defer."
+  {:entrypoints #{:continue :call}
+   :param-spec ::tasks-params
+   :defaults {:revision false}}
+  (workflow/bind-defers tasks-open {:author-tasks #{:author-task-strands}}))
 
 (workflow/defworkflow direct-implementation
   "The post-plan direct implementation stage for small, settled changes.
@@ -847,6 +922,18 @@
     [:= :state "active"]
     [:= [:attr "workflow/role"] "root"]
     [:= [:attr "workflow/family"] "devflow"]]])
+
+(skein/defquery devflow-tasks-query
+  "Return active strand-native devflow tasks and cards (devflow/task-type).
+
+  With `strand list` this is the whole open queue; with `strand ready` it is
+  the runnable frontier — active tasks whose depends-on prerequisites are all
+  closed. HITL tasks additionally carry hitl=true, which the batteries agent
+  convention treats as stop-and-ask."
+  {:usage "strand ready --query devflow-tasks"}
+  [:and
+   [:= :state "active"]
+   [:exists [:attr "devflow/task-type"]]])
 
 (defn guidance
   "Return Devflow's static authoring knowledge as markdown.

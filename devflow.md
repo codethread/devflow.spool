@@ -37,10 +37,15 @@ devflow/
 |-- feat/<feature>/
 |   |-- proposal.md                   <- why, agreed before any code
 |   |-- specs/<spec-name>.delta.md    <- how this feature changes the above
-|   |-- <feature>.plan.md
-|   `-- tasks/index.yml + <id>-<slug>.md
+|   `-- <feature>.plan.md
 `-- archive/yy-mm-dd__<feature>/      <- every past feature, proposals and deltas
 ```
+
+The task queue is deliberately absent from the tree: tasks and implementation
+cards live wherever the workspace's decomposition target puts them. The
+shipped default authors them as **strands in the Skein graph**
+(`strand ready --query devflow-tasks`), and a workspace may bind its own
+target instead — see [Plugging in your own decomposition](#plugging-in-your-own-decomposition).
 
 **`proposal.md` — plan mode, written down.** It comes before any code, and the
 stage stops for human sign-off. That gap is the point: time to consider the
@@ -104,11 +109,11 @@ chain of small, inspectable stages rather than one giant graph.
 | `intake` | Confirm you're in a feature worktree, capture the user's brief, agree the scope is clear enough to propose | you, then the agent |
 | `proposal` | Read the surrounding RFCs/specs/code, write `proposal.md`, run an agent review | **you** |
 | `land-proposal` | Wait for the approved proposal to be merged to mainline, then confirm it landed | whoever merges, then the agent |
-| `decompose` | Author one epic card and self-contained feature cards from the merged proposal | the agent |
+| `decompose` | Author one epic card and self-contained feature cards from the merged proposal, through the pluggable card-authoring defer | the agent |
 | `review-cards` | Review every feature card in parallel, then the epic as a whole, then reconcile findings | the agent |
 | `spec-plan` | Write spec deltas and the implementation plan, run an agent review | **you** |
 | `route-after-plan` | Decide: task queue, or implement directly | the agent |
-| `tasks` | Write the AFK/HITL task queue, run an agent review | **you** |
+| `tasks` | Author the AFK/HITL task queue through the pluggable task-authoring defer, run an agent review | **you** |
 | `run-afk-loop` | Decide: run the queue yourself, or delegate it to subagents | **you** |
 | `run-afk-manual` | Run or hand off the AFK loop in this worker | — (closes the run) |
 | `run-afk-delegated` | One sequential subagent per approved task, then accept the result | **you** |
@@ -265,6 +270,60 @@ prompt verbatim; devflow adds no policy of its own.
 Choosing `:manual` needs no task data at all — it's a single step for running or
 handing off the loop yourself.
 
+## Plugging in your own decomposition
+
+Both decomposition points — the tasks stage's queue authoring and the
+decompose stage's card authoring — are `workflow/defer` steps: named selection
+points whose target a worker picks at run time from a bound allowlist. The
+ready step advertises its allowlist in `workflow/defer-workflows`, and you
+fill it with the generic verb:
+
+```sh
+strand workflow defer search-filters --workflow author-task-strands \
+  --params '{"feature":"search-filters"}'
+```
+
+Defer targets receive **only** the params passed at the fill — run context
+never crosses the boundary — so the feature name is passed explicitly.
+
+Devflow binds exactly one target per point, and both author **strands**:
+
+| Defer | Stage | Shipped target |
+|---|---|---|
+| `:author-tasks` | `tasks` | `author-task-strands` — tasks as strands (`devflow/task-type`, `devflow/feature`, `depends-on` edges; see `strand devflow guidance tasks`) |
+| `:author-cards` | `decompose` | `author-card-strands` — cards as strands whose bodies carry the cold-card contract (see `strand devflow guidance decompose`) |
+
+Devflow deliberately ships no binding to any external system. To decompose
+into GitHub issues, Jira tickets, a kanban spool, or anything else, bind the
+published **unbound templates** (`tasks-open`, `decompose-open`) yourself from
+trusted Clojure that can see both spools:
+
+```clojure
+(require '[skein.spools.workflow :as workflow]
+         '[ct.spools.devflow :as devflow])
+
+;; 1. Register your own :call-entrypoint authoring workflow.
+(workflow/register-workflow! :jira-tasks 'my.spool/jira-tasks)
+
+;; 2. Bind the template with your target beside (or instead of) the default.
+(workflow/defworkflow my-tasks
+  "Task breakdown offering the strand-native default and Jira."
+  {:entrypoints #{:continue :call}
+   :param-spec :my.spool/tasks-params
+   :defaults {:revision false}}
+  (workflow/bind-defers devflow/tasks-open
+                        {:author-tasks #{:author-task-strands :jira-tasks}}))
+
+;; 3. Re-point the routed stage name at your definition.
+(workflow/register-workflow! :tasks 'my.ns/my-tasks)
+```
+
+Registered-name routes resolve at `choose!` time, so re-pointing `:tasks` (or
+`:decompose`) redirects even in-flight runs at their next transition. A target
+must declare the `:call` entrypoint — it pours beneath the current stage root
+and returns into it, so review and human sign-off stay in devflow whatever
+system authored the breakdown.
+
 ## Revising
 
 Every human sign-off offers `:revise`, intake's scope discussion offers
@@ -401,6 +460,8 @@ devflow's own `devflow` op serves static authoring knowledge only:
 | Start the lifecycle | `strand workflow start <feature> --workflow intake --params '<json>'` |
 | Inspect a feature | `strand workflow ready <feature>` or `strand workflow choices <feature>` |
 | Advance it | `strand workflow complete`, `choose`, or `next` |
+| Fill a decomposition defer | `strand workflow defer <feature> --workflow <target> --params '<json>'` |
+| Work the strand-native queue | `strand ready --query devflow-tasks` |
 | Read authoring guidance | `strand devflow guidance [<guide>]` |
 | Read history / archive | trusted Clojure: `workflow/run-history`, `workflow/squash-run!` |
 
@@ -416,6 +477,7 @@ Devflow publishes two named queries with the module:
 |---|---|---|
 | `devflow-runs` | `strand list --query devflow-runs` | Active lifecycle roots that can be resumed. |
 | `devflow-ready` | `strand ready --query devflow-ready` | Ready work beneath active Devflow roots. |
+| `devflow-tasks` | `strand ready --query devflow-tasks` | Runnable strand-native tasks and cards (`list` serves the whole open queue). |
 
 The ready query follows `parent-of` edges from a Devflow root, because
 `workflow/family` belongs to the root rather than each step.
@@ -438,13 +500,17 @@ rejects a bad input map before it routes.
 
 ### Stage definitions
 
-Devflow registers fourteen named workflow definitions: `intake`, `proposal`,
+Devflow registers sixteen named workflow definitions: `intake`, `proposal`,
 `land-proposal`, `decompose`, `review-cards`, `spec-plan`, `route-after-plan`,
 `tasks`, `run-afk-loop`, `run-afk-manual`, `run-afk-delegated`,
-`direct-implementation`, `agent-review`, and `abort`.
+`direct-implementation`, `agent-review`, `author-task-strands`,
+`author-card-strands`, and `abort`.
 
-`intake` is the sole `:start` definition. `agent-review` is a reusable call-only
-procedure; the remaining stages are continuations that can also be called.
+`intake` is the sole `:start` definition. `agent-review`,
+`author-task-strands`, and `author-card-strands` are call-only procedures —
+the last two are the shipped defer targets; the remaining stages are
+continuations that can also be called. The unbound templates `tasks-open` and
+`decompose-open` are published Vars, not registered definitions.
 Inspect them through the live generic registry:
 
 ```sh
@@ -464,11 +530,13 @@ What devflow writes on the graph, if you're building tooling over it.
 | `devflow/feature` | The feature name; the roster spool reads its presence to report `roster/engine "devflow"` |
 | `devflow/guide` | The authoring guide key for this step |
 | `devflow/task` | The approved AFK task id a delegated gate is running |
+| `devflow/task-type` | `"afk"` or `"hitl"` on a strand-native task or card; written by agents following the tasks guide, and what the `devflow-tasks` query matches |
+| `devflow/tasks-root` | `"true"` on the optional per-feature task-root strand |
 | `devflow/review` | `"agent"` on agent review work |
 | `devflow/review-scope` | `"feature-card"` or `"epic"` on card-review gates |
 | `devflow/card` | The card id a review gate judges |
 | `devflow/worktree-check` | On the intake root, from `:worktree-check` |
-| `workflow/artifact` | What a step produces: `"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"tasks/index.yml"` |
+| `workflow/artifact` | What a step produces: `"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"task strands"`, `"implementation cards"` |
 | `workflow/decision-point` | What a checkpoint decides, e.g. `"proposal-signed-off"` |
 | `workflow/action-ref` | The action/skill an agent should invoke, e.g. `"devflow.proposal.orient"` |
 | `workflow/gate` | `"subagent"` on delegated AFK and card-review gates; `"human"` on the proposal merge gate |
