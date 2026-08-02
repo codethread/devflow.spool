@@ -471,7 +471,7 @@ static helper is `(devflow/guidance)`, the Clojure twin of
 
 ### Resume discovery
 
-Devflow publishes two named queries with the module:
+Devflow publishes three named queries with the module:
 
 | Query | Command | Result |
 |---|---|---|
@@ -531,6 +531,7 @@ What devflow writes on the graph, if you're building tooling over it.
 | `devflow/guide` | The authoring guide key for this step |
 | `devflow/task` | The approved AFK task id a delegated gate is running |
 | `devflow/task-type` | `"afk"` or `"hitl"` on a strand-native task or card; written by agents following the tasks guide, and what the `devflow-tasks` query matches |
+| `hitl` | `"true"` on a HITL task strand; the batteries convention treats a ready strand carrying it as stop-and-ask |
 | `devflow/tasks-root` | `"true"` on the optional per-feature task-root strand |
 | `devflow/review` | `"agent"` on agent review work |
 | `devflow/review-scope` | `"feature-card"` or `"epic"` on card-review gates |

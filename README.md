@@ -186,6 +186,7 @@ Resume and find work across sessions with Devflow's named queries:
 ```sh
 strand list --query devflow-runs
 strand ready --query devflow-ready
+strand ready --query devflow-tasks
 ```
 
 `strand devflow guidance [<guide>]` serves the static authoring knowledge
