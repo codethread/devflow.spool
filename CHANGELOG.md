@@ -10,7 +10,7 @@ those records are folded into this file.)
 
 ## v17 — pluggable decomposition over `workflow/defer`; tasks.yml retired
 
-Peeled sha: _unreleased; record when the v17 tag is cut_
+Peeled sha: `6810b5259dff23e291a2bf46071c0680cf9731b4`
 
 **Deliberate break under published names.** The two decomposition points are
 now `workflow/defer` selection points, and the `tasks/index.yml` file format
