@@ -8,6 +8,58 @@ its `bin/compat-alarm` result against the previous marker, and who authorized
 it. (Older tag messages reference `release-exception.md` / `release-v16.md`;
 those records are folded into this file.)
 
+## v18 — structure-agnostic card review; kanban adapter root
+
+Peeled sha: _pending — recorded when the marker is cut._
+
+**Deliberate break under published names.** The cards route drops the
+epic/feature card taxonomy — an external card-system shape that had leaked
+into the core contract. Card-set structure now belongs to the caller:
+
+- `review-cards` (and `::card-set-input`, the `:review` / `:review-again`
+  choice input) takes one flat `:cards` vector of distinct refs. How a
+  workspace groups cards (an epic, a parent strand, nothing) is its own
+  convention, and the set-level cohesion review judges the supplied set
+  rather than a designated epic card.
+- Reviewer seats rename: `:feature-card-reviewer` → `:card-reviewer` and
+  `:epic-card-reviewer` → `:card-set-reviewer` (required by `land-proposal`
+  and `decompose`, optional at intake).
+- Review gates rename: `feature-card-review` → `card-review` and
+  `epic-card-review` → `card-set-review`; `devflow/review-scope` values are
+  now `"card"` / `"card-set"`.
+- Guidance and docs speak the card/card-set vocabulary throughout; no
+  external card system's shape or name appears in the main root.
+
+Compatibility alarm: `bin/compat-alarm v17` fires — 1 error
+(`decompose-stage-defers-card-authoring-to-a-pluggable-target` starts the
+stage with the old seat params, which the new `::decompose-params` rejects;
+that is this break being caught) and 3 errors ("Missing devflow guidance
+resource": the alarm classpath predates resource-path handling, the same
+artifact recorded under v16 and v17).
+
+Authorization: the user's instruction that the published devflow root must
+not reference the kanban spool and that `review-cards` must not assume
+epic/feature structure — the caller decides grouping — with the
+kanban-specific shape moving to a shipped adapter root (2026-08-02).
+
+Accretion:
+
+- New root `codethread/devflow-kanban-adapter` (`kanban-adapter/`): the
+  devflow↔kanban binding, so consumers of both stop re-inventing the same
+  glue — the `author-kanban-cards` defer target (epic + feature cards on the
+  board), the `decompose-kanban` bound variant, the `devflow-projection` /
+  `bind-devflow-tracker!` tracker glue, and `repoint-decompose!`. Floors:
+  `codethread/kanban` ≥ `v20`. Consumers of the main root are untouched;
+  opt in by mapping the root and declaring the floor.
+
+Fixes:
+
+- `spool.edn` uses the validated map `:roots` form under the
+  `codethread/devflow` coordinate every consumer actually approves (the
+  bare-string form under `ct.spools/devflow` failed `strand spool add`).
+- README's engine-pinning tip replaces the retired `:deps/root` key with a
+  `:roots` mapping.
+
 ## v17 — pluggable decomposition over `workflow/defer`; tasks.yml retired
 
 Peeled sha: `6810b5259dff23e291a2bf46071c0680cf9731b4`
@@ -21,7 +73,7 @@ is removed outright:
   bound to shipped strand-native targets (`author-task-strands`,
   `author-card-strands`), and the unbound templates (`tasks-open`,
   `decompose-open`) are published Vars so consumer code can bind its own
-  card/task systems (issue trackers, kanban spools) and re-point the stage
+  card/task systems (issue trackers, ...) and re-point the stage
   names. Devflow deliberately ships no binding to any external system.
 - Tasks are strands, not files: `devflow/task-type` (`afk`|`hitl`),
   `devflow/feature`, `depends-on` edges, `hitl=true` on HITL tasks, closure as
@@ -42,7 +94,7 @@ and the known artifact being caught, not regressions.
 
 Authorization: the user's explicit instruction to make decomposition
 pluggable via `workflow/defer`, drop the tasks.yml format completely, and
-recommend a strands-based default with no coupling to the kanban spool
+recommend a strands-based default with no coupling to any external card spool
 (2026-08-01).
 
 Known consumers: skein-src's devflow pin and this repo's own `.skein` world;

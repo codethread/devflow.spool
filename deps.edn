@@ -1,13 +1,18 @@
 {:paths ["src" "resources"]
  :deps {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}}
  :aliases
- {:test {:extra-paths ["test"]
+ {:test {:extra-paths ["test" "kanban-adapter/src" "kanban-adapter/test"]
          ;; Point these at the Skein checkout you want to test against.
          ;; This repo is developed beside skein-src, so the defaults work for
          ;; local owner checkouts and CI layouts that place the repos as siblings.
          ;; skein.spools.workflow lives in a spool root off Skein's main
          ;; classpath, so its root joins the test JVM explicitly.
+         ;; The kanban pin is the adapter root's declared floor (peeled v20
+         ;; sha), so the suite proves the floor rather than a newer release.
          :extra-deps {io.skein/skein {:local/root "../skein-src"}
-                      io.skein/workflow-spool {:local/root "../skein-src/spools/workflow"}}
+                      io.skein/workflow-spool {:local/root "../skein-src/spools/workflow"}
+                      io.github.codethread/kanban.spool
+                      {:git/url "https://github.com/codethread/kanban.spool.git"
+                       :git/sha "398a1610d094c85ad9c6691dafd213aaa35d73de"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}}}

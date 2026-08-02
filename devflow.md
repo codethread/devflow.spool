@@ -83,7 +83,7 @@ flowchart TD
   intake -->|proposal-ready| prop["proposal<br/>orient, write, agent review"]
 
   prop -->|approved-to-cards| land["land-proposal<br/>merge to mainline"]
-  land -->|landed| dec["decompose<br/>author epic + feature cards"]
+  land -->|landed| dec["decompose<br/>author implementation cards"]
   dec -->|review| rev["review-cards<br/>focused reviews, then cohesion review"]
   rev -->|accepted| doneCards(["done<br/>cards ready for the card loop"])
 
@@ -109,8 +109,8 @@ chain of small, inspectable stages rather than one giant graph.
 | `intake` | Confirm you're in a feature worktree, capture the user's brief, agree the scope is clear enough to propose | you, then the agent |
 | `proposal` | Read the surrounding RFCs/specs/code, write `proposal.md`, run an agent review | **you** |
 | `land-proposal` | Wait for the approved proposal to be merged to mainline, then confirm it landed | whoever merges, then the agent |
-| `decompose` | Author one epic card and self-contained feature cards from the merged proposal, through the pluggable card-authoring defer | the agent |
-| `review-cards` | Review every feature card in parallel, then the epic as a whole, then reconcile findings | the agent |
+| `decompose` | Author self-contained implementation cards from the merged proposal, through the pluggable card-authoring defer | the agent |
+| `review-cards` | Review every card in parallel, then the set as a whole, then reconcile findings | the agent |
 | `spec-plan` | Write spec deltas and the implementation plan, run an agent review | **you** |
 | `route-after-plan` | Decide: task queue, or implement directly | the agent |
 | `tasks` | Author the AFK/HITL task queue through the pluggable task-authoring defer, run an agent review | **you** |
@@ -163,12 +163,12 @@ sequenceDiagram
   Agent->>Run: choose! :landed
 
   Note over Agent,Run: decompose stage
-  Agent->>Run: complete! (epic + feature cards authored)
-  Agent->>Run: choose! :review {epic-card, feature-cards}
+  Agent->>Run: complete! (implementation cards authored)
+  Agent->>Run: choose! :review {cards}
 
-  Run->>Subs: focused review of each feature card (in parallel)
+  Run->>Subs: focused review of each card (in parallel)
   Subs-->>Run: verdicts
-  Run->>Subs: epic cohesion review (after fan-in)
+  Run->>Subs: set-level cohesion review (after fan-in)
   Subs-->>Run: verdict
   Agent->>Run: complete! (findings reconciled)
   Agent->>Run: choose! :accepted
@@ -180,9 +180,13 @@ Two things to know about the reviews:
 - **Focused reviews judge one card each** — its cold-work contract: evidence of
   current state, target outcome, constraints, proposal traceability, done-when,
   validation gates, and whether it can land independently.
-- **The epic review judges only the connections** — coverage, gaps and overlaps,
-  slicing, dependency edges, integration seams. It starts only after every
-  focused review closes, and deliberately does not repeat their work.
+- **The set-level review judges only the connections** — coverage, gaps and
+  overlaps, slicing, dependency edges, integration seams. It starts only after
+  every focused review closes, and deliberately does not repeat their work.
+
+How cards are grouped is your workspace's own convention, not devflow's: if a
+grouping card (an epic, a parent strand) should be reviewed, include its ref in
+the set like any other card.
 
 If reconciling findings changed a card materially, choose `:review-again` with
 the *current* full card set and the next round fans out over that.
@@ -192,24 +196,23 @@ workspace config picks the harnesses:
 
 ```sh
 strand workflow start search-filters --workflow intake --params \
-  '{"feature":"search-filters","feature-card-reviewer":"pi-low-ro",\
-    "epic-card-reviewer":"opus-strong-ro","review-cwd":"/path/to/worktree"}'
+  '{"feature":"search-filters","card-reviewer":"pi-low-ro",\
+    "card-set-reviewer":"opus-strong-ro","review-cwd":"/path/to/worktree"}'
 
 ;; ... approve to cards, land the proposal, author the cards ...
 
 strand workflow choose search-filters review --input \
-  '{"epic-card":{"id":"epic-42","title":"Search filters"},\
-    "feature-cards":[{"id":"card-43","title":"Filter query contract"},\
-                     {"id":"card-44","title":"Filter result UI"}]}'
-;; => {:ready [{:gate "subagent" :title "Focused review of feature card card-43: ..."}
-;;             {:gate "subagent" :title "Focused review of feature card card-44: ..."}]
+  '{"cards":[{"id":"card-43","title":"Filter query contract"},\
+             {"id":"card-44","title":"Filter result UI"}]}'
+;; => {:ready [{:gate "subagent" :title "Focused review of card card-43: ..."}
+;;             {:gate "subagent" :title "Focused review of card card-44: ..."}]
 ;;     :done false}
 ```
 
 Both seats are validated at `:approved-to-cards`, *before* the merge gate opens —
 missing review policy can't surface only after you've merged something. Card ids
 must be distinct and token-safe (`[A-Za-z0-9][A-Za-z0-9._-]*`) because they
-become step ids, and the epic id must differ from every feature id.
+become step ids.
 
 ### The single-run route
 
@@ -293,10 +296,12 @@ Devflow binds exactly one target per point, and both author **strands**:
 | `:author-tasks` | `tasks` | `author-task-strands` — tasks as strands (`devflow/task-type`, `devflow/feature`, `depends-on` edges; see `strand devflow guidance tasks`) |
 | `:author-cards` | `decompose` | `author-card-strands` — cards as strands whose bodies carry the cold-card contract (see `strand devflow guidance decompose`) |
 
-Devflow deliberately ships no binding to any external system. To decompose
-into GitHub issues, Jira tickets, a kanban spool, or anything else, bind the
-published **unbound templates** (`tasks-open`, `decompose-open`) yourself from
-trusted Clojure that can see both spools:
+Devflow deliberately ships no binding to any external system. This repository
+does ship one worked binding as its own separate root — `codethread/devflow-kanban-adapter`
+(see `kanban-adapter/README.md`), which carries the dependency devflow itself
+refuses to take. To decompose into GitHub issues, Jira tickets, or anything
+else, bind the published **unbound templates** (`tasks-open`, `decompose-open`)
+yourself from trusted Clojure that can see both spools:
 
 ```clojure
 (require '[skein.spools.workflow :as workflow]
@@ -350,9 +355,9 @@ matters:
 - **proposal** skips orientation — you already read the surrounding context, so
   the round is ready at "write proposal".
 
-The other stages re-run in full. `:review-again` requires the current epic and
-feature-card refs, so a reconciliation that added or removed cards replaces the
-next round's fan-out.
+The other stages re-run in full. `:review-again` requires the current card
+refs, so a reconciliation that added or removed cards replaces the next
+round's fan-out.
 
 **Revision is stage-local.** Approving after a revise never leaks "this is a
 revision" into the next stage.
@@ -490,8 +495,8 @@ whole run, surviving every revision loop.
 | Param | Default | Meaning |
 |---|---|---|
 | `:worktree-check` | `"required"` | `"already-in-worktree-ok"` when the agent is already running inside the feature worktree |
-| `:feature-card-reviewer` | — | Harness alias for focused card reviews (required by the cards route) |
-| `:epic-card-reviewer` | — | Harness alias for the epic cohesion review (required by the cards route) |
+| `:card-reviewer` | — | Harness alias for focused card reviews (required by the cards route) |
+| `:card-set-reviewer` | — | Harness alias for the set-level cohesion review (required by the cards route) |
 | `:review-cwd` | — | Working directory for review subagents |
 
 Each stage declares a `:param-spec` over the whole map, and every checkpoint
@@ -534,7 +539,7 @@ What devflow writes on the graph, if you're building tooling over it.
 | `hitl` | `"true"` on a HITL task strand; the batteries convention treats a ready strand carrying it as stop-and-ask |
 | `devflow/tasks-root` | `"true"` on the optional per-feature task-root strand |
 | `devflow/review` | `"agent"` on agent review work |
-| `devflow/review-scope` | `"feature-card"` or `"epic"` on card-review gates |
+| `devflow/review-scope` | `"card"` or `"card-set"` on card-review gates |
 | `devflow/card` | The card id a review gate judges |
 | `devflow/worktree-check` | On the intake root, from `:worktree-check` |
 | `workflow/artifact` | What a step produces: `"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"task strands"`, `"implementation cards"` |

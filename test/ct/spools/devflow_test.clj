@@ -158,8 +158,8 @@
     (fn [_]
       (workflow/start! "carded" #'devflow/decompose
                        {:feature "carded"
-                        :feature-card-reviewer "seat-a"
-                        :epic-card-reviewer "seat-b"})
+                        :card-reviewer "seat-a"
+                        :card-set-reviewer "seat-b"})
       (let [step (workflow/ready-step "carded")]
         (is (= "author-cards" (:defer step)))
         (is (= ["author-card-strands"] (:workflows step))))
@@ -167,7 +167,20 @@
       (is (= ["Author strand-native implementation cards for carded"]
              (mapv :title (workflow/ready "carded"))))
       (workflow/complete! "carded")
-      (is (= "handoff-card-review" (:checkpoint (workflow/ready-step "carded")))))))
+      (is (= "handoff-card-review" (:checkpoint (workflow/ready-step "carded"))))
+      (testing "the review handoff takes one flat card-ref vector"
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"Value does not satisfy the named spec"
+                              (workflow/choose! "carded" :review
+                                                {:epic-card {:id "e1" :title "Epic"}
+                                                 :feature-cards [{:id "c1" :title "One"}]})))
+        (let [result (workflow/choose! "carded" :review
+                                       {:cards [{:id "c1" :title "One"}
+                                                {:id "c2" :title "Two"}]})]
+          (is (= #{"Focused review of card c1: One"
+                   "Focused review of card c2: Two"}
+                 (set (map :title (:ready result))))
+              "focused reviews fan out over exactly the supplied refs"))))))
 
 (deftest devflow-tasks-query-serves-the-strand-native-queue
   (with-runtime
@@ -259,5 +272,7 @@
           (is (some #{:proposal} (:guides data))))))))
 
 (defn -main [& _]
-  (let [summary (clojure.test/run-tests 'ct.spools.devflow-test)]
+  (require 'ct.spools.devflow-kanban-adapter-test)
+  (let [summary (clojure.test/run-tests 'ct.spools.devflow-test
+                                        'ct.spools.devflow-kanban-adapter-test)]
     (System/exit (if (pos? (+ (:fail summary) (:error summary))) 1 0))))

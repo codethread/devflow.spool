@@ -27,9 +27,16 @@
    :after [:workflow]
    :required? true})
 
-;; kanban board for this repo's own coordination cards. The approved v10
-;; candidate exports `spool`; publish its v10 marker before using this config.
+;; kanban board for this repo's own coordination cards: local tracking choice,
+;; deliberately absent from the published devflow root.
 (runtime/module! runtime :skein/spools-kanban
   {:ns 'ct.spools.kanban
    :spools ['codethread/kanban]
+   :required? true})
+
+;; the kanban adapter root, dogfooded from this checkout.
+(runtime/module! runtime :devflow/kanban-adapter
+  {:ns 'ct.spools.devflow-kanban-adapter
+   :spools ['codethread/devflow-kanban-adapter 'codethread/devflow 'codethread/kanban]
+   :after [:devflow :skein/spools-kanban]
    :required? true})

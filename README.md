@@ -66,12 +66,12 @@ and markdown template. No external skill file needed.
   the one run.
 - **Pluggable decomposition.** Task and card authoring are `workflow/defer`
   selection points. The shipped targets author strands; bind your own
-  (GitHub issues, Jira, a kanban spool) against the published `tasks-open` /
+  (GitHub issues, Jira, ...) against the published `tasks-open` /
   `decompose-open` templates without touching devflow.
 - **Revision loops that don't waste work.** "Revise" re-runs a stage and skips
   the setup steps it already did.
 - **Delegated review and execution.** Card reviews fan out to subagents
-  (focused per-card reviews, then one whole-epic cohesion review); approved task
+  (focused per-card reviews, then one set-level cohesion review); approved task
   queues can run as sequential subagent gates.
 - **An abort path from every human decision point**, with a required reason.
 
@@ -99,8 +99,15 @@ In the **consumer's** `spools.edn`:
 ```clojure
 {:spools {skein.spools/workflow {:local/root "/path/to/your/skein/spools/workflow"}
           codethread/devflow {:git/url "git@github.com:codethread/devflow.spool.git"
-                              :git/sha "<40-hex-sha-for-the-approved-commit>"}}}
+                              :git/sha "<40-hex-sha-for-the-approved-commit>"
+                              :roots {codethread/devflow "."}}}}
 ```
+
+This repository also ships a second, optional root: `codethread/devflow-kanban-adapter`
+(`kanban-adapter/`), the adapter binding devflow's pluggable seams to the
+kanban spool. It carries its own dependency floor and consumer entry shape —
+see [kanban-adapter/README.md](./kanban-adapter/README.md); the main
+`codethread/devflow` root has no card-system dependency.
 
 For local development, overlay in `spools.local.edn` (usually gitignored):
 
@@ -111,7 +118,7 @@ For local development, overlay in `spools.local.edn` (usually gitignored):
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
 To pin the engine independently of your Skein checkout, `skein.spools/workflow`
-also takes `:git/url` + `:git/sha` + `:deps/root "spools/workflow"`.
+also takes `:git/url` + `:git/sha` + `:roots {skein.spools/workflow "spools/workflow"}`.
 
 ### Activate the modules
 

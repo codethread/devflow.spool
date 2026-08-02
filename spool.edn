@@ -1,4 +1,8 @@
 ;; Advisory manifest for tooling that materializes consumer spool entries.
 ;; The Skein core loader does not read this file.
+;; The kanban floor belongs only to the devflow-kanban-adapter root: devflow-only
+;; consumers drop that root mapping and the :requires entry together.
 {:spool/format 1
- :roots {ct.spools/devflow "."}}
+ :roots {codethread/devflow {:root "."}
+         codethread/devflow-kanban-adapter {:root "kanban-adapter"}}
+ :requires {codethread/kanban "v20"}}
