@@ -10,7 +10,7 @@ those records are folded into this file.)
 
 ## v18 — structure-agnostic card review; kanban adapter root
 
-Peeled sha: _pending — recorded when the marker is cut._
+Peeled sha: `031bc04c288c0ac1e614d5a4f9442a8c87b5bd1d`
 
 **Deliberate break under published names.** The cards route drops the
 epic/feature card taxonomy — an external card-system shape that had leaked
