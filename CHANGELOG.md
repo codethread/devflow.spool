@@ -8,6 +8,34 @@ its `bin/compat-alarm` result against the previous marker, and who authorized
 it. (Older tag messages reference `release-exception.md` / `release-v16.md`;
 those records are folded into this file.)
 
+## v19 — adapter drops kanban's removed tracker seam
+
+Peeled sha: _pending — recorded when the marker is cut._
+
+**Deliberate break under published names, adapter root only.** Kanban `v22`
+removed its run-tracker seam (`kanban/set-tracker!` and the card-view tracker
+join): the board keeps `kanban/run-id` as an opaque pointer and workflow
+systems own run state. The adapter's write side of that seam goes with it:
+
+- `devflow-projection` and `bind-devflow-tracker!` are removed. The `v18`
+  adapter cannot compile beside kanban `v22` (it references the removed
+  `set-tracker!` var), so there is no compatible pairing to preserve.
+- Consumers drop the tracker lifecycle seed along with the bump; the
+  `repoint-decompose!` seed and the rest of the adapter surface are untouched.
+- The adapter root's `codethread/kanban` floor rises `v20` → `v22`
+  (`spool.edn`, adapter README, and the test pin move together).
+
+Compatibility alarm: `bin/compat-alarm v18` fires — the archived v18 adapter
+suite fails to compile against the candidate (`No such var:
+adapter/bind-devflow-tracker!`); that is this break being caught. The current
+suite (13 tests, 105 assertions) is green against the kanban `v22` pin.
+
+Authorization: the user's instruction to resolve the blocked kanban `v22`
+adoption by shipping the devflow half of the tracker-seam removal (2026-08-03);
+the kanban half landed as kanban.spool#14.
+
+Consumers of the main `codethread/devflow` root are untouched.
+
 ## v18 — structure-agnostic card review; kanban adapter root
 
 Peeled sha: `031bc04c288c0ac1e614d5a4f9442a8c87b5bd1d`

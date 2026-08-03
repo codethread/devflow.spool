@@ -13,7 +13,7 @@ Unlike the main devflow root, this root **requires the kanban spool**:
 | Root | Floor |
 |---|---|
 | `codethread/devflow` | same repository, same marker |
-| `codethread/kanban` | `v20` |
+| `codethread/kanban` | `v22` |
 
 ## What it ships
 
@@ -29,10 +29,6 @@ Unlike the main devflow root, this root **requires the kanban spool**:
 - **`decompose-kanban`** — devflow's published `decompose-open` template bound
   with `#{author-card-strands author-kanban-cards}`, so the defer's worker
   chooses between the strand-native default and the board per feature.
-- **`devflow-projection`** / **`bind-devflow-tracker!`** — devflow bound as
-  kanban's card tracker: `kanban card <id>` on a card stamped via
-  `kanban claim <id> --run-id <feature>` shows the run's stage and ready
-  frontier.
 - **`repoint-decompose!`** — re-points the routed `:decompose` stage name at
   `decompose-kanban` in the registry's direct layer, so `land-proposal`'s
   landed choice routes into the kanban-bound variant.
@@ -47,13 +43,13 @@ existing `codethread/devflow` entry and declaring the kanban floor:
 {:spools
  {codethread/devflow
   {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "v18" :git/sha "<peeled sha of v18>"
+   :git/tag "v19" :git/sha "<peeled sha of v19>"
    :roots {codethread/devflow "."
            codethread/devflow-kanban-adapter "kanban-adapter"}
-   :requires {codethread/kanban "v20"}}
+   :requires {codethread/kanban "v22"}}
   codethread/kanban
   {:git/url "https://github.com/codethread/kanban.spool.git"
-   :git/tag "v20" :git/sha "398a1610d094c85ad9c6691dafd213aaa35d73de"
+   :git/tag "v22" :git/sha "d6b0cbe2b9650d261305f63334686a181f06de9e"
    :roots {codethread/kanban "."}}}}
 ```
 
@@ -68,19 +64,15 @@ Activate it after both providers:
    :required? true})
 ```
 
-The two re-bindings live in the registry's direct layer and in runtime state,
-so they are lifecycle seeds, not module declarations — take either or both:
+The `:decompose` re-point lives in the registry's direct layer, so it is a
+lifecycle seed, not a module declaration:
 
 ```clojure
-(lifecycle/defseed devflow-kanban-adapter-tracker
-  "Bind devflow as this world's kanban card tracker."
-  {:apply 'ct.spools.devflow-kanban-adapter/bind-devflow-tracker!})
-
 (lifecycle/defseed devflow-kanban-adapter-decompose
   "Route the :decompose stage name at the kanban-bound variant."
   {:apply 'ct.spools.devflow-kanban-adapter/repoint-decompose!})
 ```
 
-Without the second seed, `decompose-kanban` stays reachable by its own name
+Without the seed, `decompose-kanban` stays reachable by its own name
 (`strand workflow show decompose-kanban`) while the routed `:decompose` keeps
 devflow's strand-native default.
