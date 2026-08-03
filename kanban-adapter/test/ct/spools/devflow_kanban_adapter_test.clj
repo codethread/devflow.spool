@@ -1,10 +1,14 @@
 (ns ct.spools.devflow-kanban-adapter-test
-  "Tests the kanban adapter root: its registered catalogue additions, the
-  kanban-bound decompose variant, and the tracker projection. Kanban itself
-  and devflow each own their behavior; this suite covers only the binding."
+  "Tests the kanban adapter root: its registered catalogue additions and the
+  kanban-bound decompose variant. Kanban itself and devflow each own their
+  behavior; this suite covers only the binding."
   (:require [clojure.string :as str]
-            [clojure.test :refer [deftest is testing]]
+            [clojure.test :refer [deftest is]]
             [ct.spools.devflow-kanban-adapter :as adapter]
+            ;; The adapter no longer requires the kanban namespace itself, so
+            ;; the test world loads it for the :kanban module activation below
+            ;; (a real world gets it as an approved spool root).
+            [ct.spools.kanban]
             [skein.api.current.alpha :as current]
             [skein.api.runtime.alpha :as runtime]
             [skein.spools.workflow :as workflow]
@@ -61,21 +65,6 @@
       (workflow/complete! "kb")
       (is (= "handoff-card-review" (:checkpoint (workflow/ready-step "kb")))
           "the filled target returns into the declaring stage"))))
-
-(deftest devflow-projection-serves-the-tracker-seam
-  (with-runtime
-    (fn [rt]
-      (is (= {:bound :kanban-tracker} (adapter/bind-devflow-tracker! {:runtime rt})))
-      (testing "no active run projects an empty frontier"
-        (is (= {:status nil :ready []} (adapter/devflow-projection rt "absent"))))
-      (testing "a run id must be a non-blank string"
-        (is (thrown? clojure.lang.ExceptionInfo (adapter/devflow-projection rt " "))))
-      (workflow/start! "tracked" :intake {:feature "tracked"
-                                          :worktree-check "already-in-worktree-ok"})
-      (let [{:keys [status ready]} (adapter/devflow-projection rt "tracked")]
-        (is (= "intake" status))
-        (is (= ["Create or confirm feature worktree for tracked"]
-               (mapv :title ready)))))))
 
 (defn -main [& _]
   (let [summary (clojure.test/run-tests 'ct.spools.devflow-kanban-adapter-test)]

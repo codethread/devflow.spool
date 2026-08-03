@@ -7,12 +7,12 @@
          ;; local owner checkouts and CI layouts that place the repos as siblings.
          ;; skein.spools.workflow lives in a spool root off Skein's main
          ;; classpath, so its root joins the test JVM explicitly.
-         ;; The kanban pin is the adapter root's declared floor (peeled v20
+         ;; The kanban pin is the adapter root's declared floor (peeled v22
          ;; sha), so the suite proves the floor rather than a newer release.
          :extra-deps {io.skein/skein {:local/root "../skein-src"}
                       io.skein/workflow-spool {:local/root "../skein-src/spools/workflow"}
                       io.github.codethread/kanban.spool
                       {:git/url "https://github.com/codethread/kanban.spool.git"
-                       :git/sha "398a1610d094c85ad9c6691dafd213aaa35d73de"}}
+                       :git/sha "d6b0cbe2b9650d261305f63334686a181f06de9e"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}}}

@@ -2,7 +2,7 @@
   "The kanban binding for devflow's pluggable seams.
 
   Devflow deliberately ships no coupling to any card system; the kanban spool
-  deliberately ships no coupling to any tracker. This root is the one place
+  deliberately ships no run tracking of its own. This root is the one place
   that knows both vocabularies, so consumers stop re-inventing the same glue:
 
   - `author-kanban-cards` — a card-authoring target for devflow's decompose
@@ -10,9 +10,6 @@
     feature cards.
   - `decompose-kanban` — devflow's `decompose-open` template bound with that
     target beside the shipped strand-native default.
-  - `devflow-projection` / `bind-devflow-tracker!` — the read direction:
-    devflow bound as kanban's card tracker, so `kanban card <id>` on a card
-    stamped with a run id shows the run's stage and ready frontier.
   - `repoint-decompose!` — a lifecycle-seed callable for workspaces that want
     the routed `:decompose` stage name to resolve to the kanban-bound variant.
 
@@ -21,7 +18,6 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow :as devflow]
-            [ct.spools.kanban :as kanban]
             [skein.api.current.alpha :as current]
             [skein.spools.workflow :as workflow]))
 
@@ -83,32 +79,6 @@
    :defaults {}}
   (workflow/bind-defers devflow/decompose-open
                         {:author-cards #{:author-card-strands :author-kanban-cards}}))
-
-(defn devflow-projection
-  "Project a devflow run for kanban's tracker seam.
-
-  Returns the shape `kanban/set-tracker!`'s `:project` contract expects: the
-  active devflow root's stage as `:status` and its ready frontier, or a nil
-  status and empty frontier when no root is active for `run-id`."
-  [runtime run-id]
-  (when-not (non-blank-string? run-id)
-    (throw (ex-info "Devflow tracker run id must be a non-blank string"
-                    {:run-id run-id})))
-  (current/with-runtime runtime
-    (let [stage (get-in (workflow/current-root run-id) [:attributes :devflow/stage])]
-      {:status stage
-       :ready (if stage (workflow/ready run-id) [])})))
-
-(defn bind-devflow-tracker!
-  "Bind devflow as the runtime's kanban card tracker.
-
-  A lifecycle-seed callable: reference it from a workspace seed so the binding
-  is re-established on every weaver generation."
-  [{:keys [runtime]}]
-  (kanban/set-tracker! runtime
-                       {:name "devflow"
-                        :project 'ct.spools.devflow-kanban-adapter/devflow-projection})
-  {:bound :kanban-tracker})
 
 (defn repoint-decompose!
   "Re-point the routed `:decompose` stage name at `decompose-kanban`.
