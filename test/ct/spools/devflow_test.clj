@@ -239,6 +239,19 @@
       (is (str/includes? proposal "| Document | Owns | Must not absorb | Lifetime |")
           "the ownership table is rendered"))))
 
+(deftest the-proposal-guide-asks-the-author-to-show-the-change
+  (let [proposal (devflow/guidance :proposal)]
+    (testing "the template carries examples ahead of open questions"
+      (is (str/includes? proposal "## PROP-<name>-<nnn>.P5 Examples"))
+      (is (str/includes? proposal "## PROP-<name>-<nnn>.P6 Open questions")))
+    (testing "the guide names the mediums an example can take"
+      (doseq [medium ["invocations" "payloads" "mockup" "mermaid"]]
+        (is (str/includes? proposal medium)
+            (str "the examples guidance covers " medium))))
+    (testing "examples are checked as part of validation"
+      (is (str/includes? proposal
+                         "- Problem, goals, non-goals, proposed scope, examples, and open questions are present")))))
+
 (deftest the-devflow-op-serves-guidance-to-cli-workers
   (with-runtime
     (fn [rt]
