@@ -8,6 +8,41 @@ its `bin/compat-alarm` result against the previous marker, and who authorized
 it. (Older tag messages reference `release-exception.md` / `release-v16.md`;
 those records are folded into this file.)
 
+## v20 — proposal guidance asks the author to show the change
+
+Peeled sha: _pending — recorded when the marker is cut._
+
+Accretion under published names, guidance content only: no Var, stage, query,
+attribute, or dependency changes, and consumers pick it up with the sha bump.
+
+- The `proposal` guide gains an Examples section. It asks for the surface
+  under sign-off in whatever medium carries it — command-line invocations
+  with their output, request and response payloads, a UI usage snippet plus a
+  mockup or wireframe, a mermaid diagram for a flow or state machine — and
+  frames those examples as contract illustrations that freeze with the rest
+  of the document at approval, not as implementation strategy. Exact flags,
+  validation rules, and field-level API detail stay in the scope clauses and
+  the spec deltas.
+- The proposal template gains `PROP-<name>-<nnn>.P5 Examples`, moving Open
+  questions to `.P6`. The template numbers the sections a new document starts
+  from; documents already written keep their IDs.
+- The guide's Write procedure, constraints, and validation checklist name the
+  section, so agent review and sign-off can check it.
+
+The `rfc`, `spec`, and `plan` guides and their templates are untouched, as is
+the shared document-ownership table.
+
+Compatibility alarm: `bin/compat-alarm v19` cannot run as written — its
+`-Sdeps` omits `resources` and the adapter root's kanban pin, so the archived
+suite fails to load `ct.spools.devflow-kanban-adapter-test`; that is the known
+classpath artifact already recorded under v16 and v17, not this change. Run
+with both restored, v19's suite is green against this candidate (13 tests, 105
+assertions). The current suite is green at 14 tests, 112 assertions.
+
+Authorization: kanban card `cczly` (task `6iqw3`) — add generic rich-examples
+guidance to the proposal guide, deliberately scoped to that one guide
+(2026-08-03).
+
 ## v19 — adapter drops kanban's removed tracker seam
 
 Peeled sha: `053d3b9a37bdedc1ea4e605b8df17410fa014486`
