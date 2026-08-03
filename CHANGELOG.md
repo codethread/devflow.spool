@@ -10,7 +10,7 @@ those records are folded into this file.)
 
 ## v19 — adapter drops kanban's removed tracker seam
 
-Peeled sha: _pending — recorded when the marker is cut._
+Peeled sha: `053d3b9a37bdedc1ea4e605b8df17410fa014486`
 
 **Deliberate break under published names, adapter root only.** Kanban `v22`
 removed its run-tracker seam (`kanban/set-tracker!` and the card-view tracker
