@@ -890,7 +890,7 @@
 ;; advancing, archiving, and querying their runs; Devflow adds no parallel
 ;; run-driving facade — the `devflow` op serves authoring knowledge only.
 
-(skein/defquery devflow-runs-query
+(skein/defquery devflow-runs
   "Return active Devflow workflow roots that can be resumed."
   {:usage "strand list --query devflow-runs"}
   [:and
@@ -898,7 +898,7 @@
    [:= [:attr "workflow/role"] "root"]
    [:= [:attr "workflow/family"] "devflow"]])
 
-(skein/defquery devflow-ready-query
+(skein/defquery devflow-ready
   "Return ready work belonging to an active Devflow workflow run."
   {:usage "strand ready --query devflow-ready"}
   [:edge/in "parent-of"
@@ -907,7 +907,7 @@
     [:= [:attr "workflow/role"] "root"]
     [:= [:attr "workflow/family"] "devflow"]]])
 
-(skein/defquery devflow-tasks-query
+(skein/defquery devflow-tasks
   "Return active strand-native devflow tasks and cards (devflow/task-type).
 
   With `strand list` this is the whole open queue; with `strand ready` it is
