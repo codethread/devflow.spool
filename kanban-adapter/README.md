@@ -13,7 +13,7 @@ Unlike the main devflow root, this root **requires the kanban spool**:
 | Root | Floor |
 |---|---|
 | `codethread/devflow` | same repository, same marker |
-| `codethread/kanban` | `v22` |
+| `codethread/kanban` | `v23` |
 
 ## What it ships
 
@@ -43,13 +43,13 @@ existing `codethread/devflow` entry and declaring the kanban floor:
 {:spools
  {codethread/devflow
   {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "v19" :git/sha "<peeled sha of v19>"
+   :git/tag "v20" :git/sha "<peeled sha of v20>"
    :roots {codethread/devflow "."
            codethread/devflow-kanban-adapter "kanban-adapter"}
-   :requires {codethread/kanban "v22"}}
+   :requires {codethread/kanban "v23"}}
   codethread/kanban
   {:git/url "https://github.com/codethread/kanban.spool.git"
-   :git/tag "v22" :git/sha "d6b0cbe2b9650d261305f63334686a181f06de9e"
+   :git/tag "v23" :git/sha "2947590e7965feb95a239189af3bd55f008d1209"
    :roots {codethread/kanban "."}}}}
 ```
 

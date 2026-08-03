@@ -8,12 +8,14 @@ its `bin/compat-alarm` result against the previous marker, and who authorized
 it. (Older tag messages reference `release-exception.md` / `release-v16.md`;
 those records are folded into this file.)
 
-## v20 — proposal guidance asks the author to show the change
+## v20 — proposal guidance shows the change; query Vars match their registered names
 
 Peeled sha: _pending — recorded when the marker is cut._
 
-Accretion under published names, guidance content only: no Var, stage, query,
-attribute, or dependency changes, and consumers pick it up with the sha bump.
+Accretion under published names: no stage, query, attribute, or behavior
+changes. Three source Var renames match Vars to the names they already
+register, and the adapter root's kanban floor rises with kanban's own rename
+release.
 
 - The `proposal` guide gains an Examples section. It asks for the surface
   under sign-off in whatever medium carries it — command-line invocations
@@ -32,6 +34,17 @@ attribute, or dependency changes, and consumers pick it up with the sha bump.
 The `rfc`, `spec`, and `plan` guides and their templates are untouched, as is
 the shared document-ownership table.
 
+- The three `skein/defquery` Vars drop their `-query` suffix (`devflow-runs`,
+  `devflow-ready`, `devflow-tasks`). Skein strips that suffix at registration
+  today and PROP-Rgs-001.S6 removes the stripping, so the source name now
+  matches the registered name; the public query names are byte-identical
+  before and after, under both current and post-change Skein.
+- The adapter root's `codethread/kanban` floor rises `v22` → `v23`, kanban's
+  release of the same estate-wide rename (`spool.edn`, the adapter README,
+  and the deps.edn test pin move together). Nothing in the adapter needs
+  `v23`; the raise keeps the proven pairing on the release the estate ships
+  together.
+
 Compatibility alarm: `bin/compat-alarm v19` cannot run as written — its
 `-Sdeps` omits `resources` and the adapter root's kanban pin, so the archived
 suite fails to load `ct.spools.devflow-kanban-adapter-test`; that is the known
@@ -41,7 +54,9 @@ assertions). The current suite is green at 14 tests, 112 assertions.
 
 Authorization: kanban card `cczly` (task `6iqw3`) — add generic rich-examples
 guidance to the proposal guide, deliberately scoped to that one guide
-(2026-08-03).
+(2026-08-03) — and the approved defquery-unsuffix estate release plan
+(PROP-Rgs-001.S6, human approval recorded 2026-08-03) for the renames and
+the floor raise.
 
 ## v19 — adapter drops kanban's removed tracker seam
 
