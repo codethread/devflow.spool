@@ -10,7 +10,7 @@ those records are folded into this file.)
 
 ## v20 — proposal guidance shows the change; query Vars match their registered names
 
-Peeled sha: _pending — recorded when the marker is cut._
+Peeled sha: `b18b326fca39a513abdaa91a132c9c64fa4c4b2e`
 
 Accretion under published names: no stage, query, attribute, or behavior
 changes. Three source Var renames match Vars to the names they already
