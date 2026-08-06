@@ -16,8 +16,8 @@
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow.guidance :as guidance]
-            [skein.api.skein.alpha :as skein]
-            [skein.spools.workflow :as workflow]))
+            [millstrand.api.millstrand.alpha :as millstrand]
+            [millstrand.spools.workflow :as workflow]))
 
 (def artifact-guides
   "Maps each `workflow/artifact` value an authoring step advertises to the
@@ -886,11 +886,11 @@
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
 ;; Devflow publishes workflow definitions, query declarations, and one static
-;; read op. The generic `skein.spools.workflow` API owns starting, inspecting,
+;; read op. The generic `millstrand.spools.workflow` API owns starting, inspecting,
 ;; advancing, archiving, and querying their runs; Devflow adds no parallel
 ;; run-driving facade — the `devflow` op serves authoring knowledge only.
 
-(skein/defquery devflow-runs
+(millstrand/defquery devflow-runs
   "Return active Devflow workflow roots that can be resumed."
   {:usage "strand list --query devflow-runs"}
   [:and
@@ -898,7 +898,7 @@
    [:= [:attr "workflow/role"] "root"]
    [:= [:attr "workflow/family"] "devflow"]])
 
-(skein/defquery devflow-ready
+(millstrand/defquery devflow-ready
   "Return ready work belonging to an active Devflow workflow run."
   {:usage "strand ready --query devflow-ready"}
   [:edge/in "parent-of"
@@ -907,7 +907,7 @@
     [:= [:attr "workflow/role"] "root"]
     [:= [:attr "workflow/family"] "devflow"]]])
 
-(skein/defquery devflow-tasks
+(millstrand/defquery devflow-tasks
   "Return active strand-native devflow tasks and cards (devflow/task-type).
 
   With `strand list` this is the whole open queue; with `strand ready` it is
@@ -966,7 +966,7 @@
 (def ^:private devflow-meta
   "Cross-verb narrative for `devflow`, projected by the `about`/`prime`
   meta-verbs."
-  {:about (str "devflow ships the feature-delivery lifecycle as ordinary Skein "
+  {:about (str "devflow ships the feature-delivery lifecycle as ordinary Millstrand "
                "workflow definitions, driven through the generic workflow op; "
                "this op adds no run verbs. guidance is its one read: the static "
                "authoring knowledge behind the lifecycle. With no argument it "
@@ -989,7 +989,7 @@
                "intake or proposal work exposes real uncertainty, and "
                "finish-archive after squash-run! to close out a feature.")})
 
-(skein/defop devflow
+(millstrand/defop devflow
   "Serve Devflow's static authoring knowledge: the workspace overview or one artifact's authoring guide."
   (merge {:arg-spec devflow-arg-spec
           :returns devflow-returns

@@ -9,13 +9,13 @@
             ;; the test world loads it for the :kanban module activation below
             ;; (a real world gets it as an approved spool root).
             [ct.spools.kanban]
-            [skein.api.current.alpha :as current]
-            [skein.api.runtime.alpha :as runtime]
-            [skein.spools.workflow :as workflow]
-            [skein.test.alpha :as t]))
+            [millstrand.api.current.alpha :as current]
+            [millstrand.api.runtime.alpha :as runtime]
+            [millstrand.spools.workflow :as workflow]
+            [millstrand.test.alpha :as t]))
 
 (defn- activate! [rt]
-  (doseq [[key config] [[:workflow {:ns 'skein.spools.workflow}]
+  (doseq [[key config] [[:workflow {:ns 'millstrand.spools.workflow}]
                         [:devflow {:ns 'ct.spools.devflow
                                    :after [:workflow]}]
                         [:kanban {:ns 'ct.spools.kanban}]

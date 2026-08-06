@@ -1,7 +1,7 @@
 # Devflow
 
 A feature-delivery lifecycle, built as
-[Skein workflows](https://github.com/codethread/skein/blob/main/spools/workflow.md).
+[Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md).
 You name a feature; each stage hands you the next step or the next decision.
 
 ```sh
@@ -13,7 +13,7 @@ strand workflow start search-filters --workflow intake \
 ```
 
 **The feature name is the handle.** It *is* the `workflow/run-id`, so there is no
-separate run handle to keep. Devflow owns static workflow definitions; Skein's
+separate run handle to keep. Devflow owns static workflow definitions; Millstrand's
 generic workflow API owns execution.
 
 | You have | You call |
@@ -43,7 +43,7 @@ devflow/
 
 The task queue is deliberately absent from the tree: tasks and implementation
 cards live wherever the workspace's decomposition target puts them. The
-shipped default authors them as **strands in the Skein graph**
+shipped default authors them as **strands in the Millstrand graph**
 (`strand ready --query devflow-tasks`), and a workspace may bind its own
 target instead — see [Plugging in your own decomposition](#plugging-in-your-own-decomposition).
 
@@ -304,7 +304,7 @@ else, bind the published **unbound templates** (`tasks-open`, `decompose-open`)
 yourself from trusted Clojure that can see both spools:
 
 ```clojure
-(require '[skein.spools.workflow :as workflow]
+(require '[millstrand.spools.workflow :as workflow]
          '[ct.spools.devflow :as devflow])
 
 ;; 1. Register your own :call-entrypoint authoring workflow.
@@ -440,7 +440,7 @@ rules are stated once.
 From trusted Clojure (the generic worker CLI deliberately has no squash verb):
 
 ```clojure
-(require '[skein.spools.workflow :as workflow])
+(require '[millstrand.spools.workflow :as workflow])
 
 (workflow/squash-run! "search-filters")
 ```
@@ -456,7 +456,7 @@ side, described by `strand devflow guidance finish-archive`.
 
 ### Commands
 
-Devflow adds no run-driving façade. Use Skein's generic workflow surface;
+Devflow adds no run-driving façade. Use Millstrand's generic workflow surface;
 devflow's own `devflow` op serves static authoring knowledge only:
 
 | Need | Command |
@@ -563,9 +563,9 @@ dependencies resolved.
 ### See also
 
 - [README.md](./README.md) — installation, source approval, and activation.
-- [Skein workflow.md](https://github.com/codethread/skein/blob/main/spools/workflow.md)
+- [Millstrand workflow.md](https://github.com/codethread/millstrand/blob/main/spools/workflow.md)
   — the engine underneath: run lifecycle, checkpoints and routing, gates,
   molecule ops, and the full `workflow/*` vocabulary.
-- `(skein.spools.workflow/explain topic)` — machine-readable builder contracts.
-- [Skein's writing-shared-spools guide](https://github.com/codethread/skein/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
+- `(millstrand.spools.workflow/explain topic)` — machine-readable builder contracts.
+- [Millstrand's writing-shared-spools guide](https://github.com/codethread/millstrand/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
   — how git-distributed spools like this one are published and pinned.

@@ -1,8 +1,8 @@
 # devflow.spool
 
 An opinionated **feature-delivery lifecycle**, built on
-[Skein workflows](https://github.com/codethread/skein/blob/main/spools/workflow.md)
-and shipped as a git-distributed spool for [Skein](https://github.com/codethread/skein).
+[Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md)
+and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -33,7 +33,7 @@ devflow/
 ```
 
 Tasks and implementation cards are not files: the shipped default authors
-them as **strands in the Skein graph** (`strand ready --query devflow-tasks`),
+them as **strands in the Millstrand graph** (`strand ready --query devflow-tasks`),
 and workspaces can plug in their own card system instead.
 
 - **`proposal.md` is plan mode, written down.** It comes before any code and the
@@ -82,14 +82,14 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Skein at `70a3c50e27ca0190f363d80d0b0cac72948dbacb` or later**, and a live
+- **Millstrand at `70a3c50e27ca0190f363d80d0b0cac72948dbacb` or later**, and a live
   weaver:
   ```sh
-  git -C /path/to/skein merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD
+  git -C /path/to/millstrand merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD
   ```
-  No release marker contains it yet, so `spool.edn` declares no `:skein/min`
+  No release marker contains it yet, so `spool.edn` declares no `:millstrand/min`
   floor; see the v10 entry in `CHANGELOG.md`.
-- **`skein.spools.workflow`** — the engine devflow builds on.
+- **`millstrand.spools.workflow`** — the engine devflow builds on.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -97,7 +97,7 @@ and how to drive a run.
 In the **consumer's** `spools.edn`:
 
 ```clojure
-{:spools {skein.spools/workflow {:local/root "/path/to/your/skein/spools/workflow"}
+{:spools {millstrand.spools/workflow {:local/root "/path/to/your/millstrand/spools/workflow"}
           codethread/devflow {:git/url "git@github.com:codethread/devflow.spool.git"
                               :git/sha "<40-hex-sha-for-the-approved-commit>"
                               :roots {codethread/devflow "."}}}}
@@ -117,36 +117,36 @@ For local development, overlay in `spools.local.edn` (usually gitignored):
 
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
-To pin the engine independently of your Skein checkout, `skein.spools/workflow`
-also takes `:git/url` + `:git/sha` + `:roots {skein.spools/workflow "spools/workflow"}`.
+To pin the engine independently of your Millstrand checkout, `millstrand.spools/workflow`
+also takes `:git/url` + `:git/sha` + `:roots {millstrand.spools/workflow "spools/workflow"}`.
 
 ### Activate the modules
 
 From trusted `init.clj` or REPL code:
 
 ```clojure
-(require '[skein.api.current.alpha :as current]
-         '[skein.api.runtime.alpha :as runtime])
+(require '[millstrand.api.current.alpha :as current]
+         '[millstrand.api.runtime.alpha :as runtime])
 
 (def runtime (current/runtime))
 
 ;; Provides strand list, ready, and query for Devflow discovery.
 (runtime/module! runtime
-  :skein/spools-batteries
-  {:ns 'skein.spools.batteries
-   :spools ['skein.spools/batteries]
+  :millstrand/spools-batteries
+  {:ns 'millstrand.spools.batteries
+   :spools ['millstrand.spools/batteries]
    :required? true})
 
 (runtime/module! runtime
   :workflow
-  {:ns 'skein.spools.workflow
-   :spools ['skein.spools/workflow]
+  {:ns 'millstrand.spools.workflow
+   :spools ['millstrand.spools/workflow]
    :required? true})
 
 (runtime/module! runtime
-  :skein/spools-workflow-cli
-  {:ns 'skein.spools.workflow.cli
-   :spools ['skein.spools/workflow]
+  :millstrand/spools-workflow-cli
+  {:ns 'millstrand.spools.workflow.cli
+   :spools ['millstrand.spools/workflow]
    :after [:workflow]
    :required? true})
 
@@ -178,7 +178,7 @@ strand devflow guidance
 
 ## Using it
 
-Devflow is a set of ordinary Skein workflows. Start and drive the `intake`
+Devflow is a set of ordinary Millstrand workflows. Start and drive the `intake`
 workflow through the generic surface:
 
 ```sh

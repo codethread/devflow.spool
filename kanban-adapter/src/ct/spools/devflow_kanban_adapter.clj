@@ -18,8 +18,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow :as devflow]
-            [skein.api.current.alpha :as current]
-            [skein.spools.workflow :as workflow]))
+            [millstrand.api.current.alpha :as current]
+            [millstrand.spools.workflow :as workflow]))
 
 (defn- titled [prefix]
   (fn [{:keys [feature]}]
