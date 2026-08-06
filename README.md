@@ -1,8 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on
-[Skein workflows](https://github.com/codethread/skein/blob/main/spools/workflow.md)
-and shipped as a git-distributed spool for [Skein](https://github.com/codethread/skein).
+An opinionated **feature-delivery lifecycle**, built on [Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -32,9 +30,7 @@ devflow/
 `-- archive/yy-mm-dd__<feature>/      <- every past feature, proposals and deltas
 ```
 
-Tasks and implementation cards are not files: the shipped default authors
-them as **strands in the Skein graph** (`strand ready --query devflow-tasks`),
-and workspaces can plug in their own card system instead.
+Tasks and implementation cards are not files: the shipped default authors them as **strands in the Millstrand graph** (`strand ready --query devflow-tasks`), and workspaces can plug in their own card system instead.
 
 - **`proposal.md` is plan mode, written down.** It comes before any code and the
   run stops for human sign-off, so there's time to align with the agent while
@@ -82,14 +78,8 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Skein at `70a3c50e27ca0190f363d80d0b0cac72948dbacb` or later**, and a live
-  weaver:
-  ```sh
-  git -C /path/to/skein merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD
-  ```
-  No release marker contains it yet, so `spool.edn` declares no `:skein/min`
-  floor; see the v10 entry in `CHANGELOG.md`.
-- **`skein.spools.workflow`** — the engine devflow builds on.
+- **Millstrand at immutable SHA `5790c459e9bb692b5e975f9715df7d5b403feff2`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
+- **`millstrand.spools.workflow`** — the engine devflow builds on.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -97,9 +87,12 @@ and how to drive a run.
 In the **consumer's** `spools.edn`:
 
 ```clojure
-{:spools {skein.spools/workflow {:local/root "/path/to/your/skein/spools/workflow"}
-          codethread/devflow {:git/url "git@github.com:codethread/devflow.spool.git"
-                              :git/sha "<40-hex-sha-for-the-approved-commit>"
+{:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
+                                    :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"
+                                    :roots {millstrand.spools/workflow "spools/workflow"
+                                            millstrand.spools/batteries "spools/batteries"}}
+          codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
+                              :git/sha "e81c860fcb23d491c7e8c6f4c0c94fdf71ac65fb"
                               :roots {codethread/devflow "."}}}}
 ```
 
@@ -109,44 +102,46 @@ kanban spool. It carries its own dependency floor and consumer entry shape —
 see [kanban-adapter/README.md](./kanban-adapter/README.md); the main
 `codethread/devflow` root has no card-system dependency.
 
-For local development, overlay in `spools.local.edn` (usually gitignored):
+For local development only, overlay the approved family in `spools.local.edn` (usually gitignored):
 
 ```clojure
-{:spools {codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
+{:spools {io.millstrand/millstrand {:local/root "/Users/you/dev/millstrand"
+                                    :roots {millstrand.spools/workflow "spools/workflow"
+                                            millstrand.spools/batteries "spools/batteries"}}
+          codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
 ```
 
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
-To pin the engine independently of your Skein checkout, `skein.spools/workflow`
-also takes `:git/url` + `:git/sha` + `:roots {skein.spools/workflow "spools/workflow"}`.
+The published example uses one SHA-pinned Millstrand family and maps its workflow and Batteries roots with `:roots`; the local overlay replaces that same family's coordinate and inherits both roots. Do not use `:local/root` in a published approval file.
 
 ### Activate the modules
 
 From trusted `init.clj` or REPL code:
 
 ```clojure
-(require '[skein.api.current.alpha :as current]
-         '[skein.api.runtime.alpha :as runtime])
+(require '[millstrand.api.current.alpha :as current]
+         '[millstrand.api.runtime.alpha :as runtime])
 
 (def runtime (current/runtime))
 
 ;; Provides strand list, ready, and query for Devflow discovery.
 (runtime/module! runtime
-  :skein/spools-batteries
-  {:ns 'skein.spools.batteries
-   :spools ['skein.spools/batteries]
+  :millstrand/spools-batteries
+  {:ns 'millstrand.spools.batteries
+   :spools ['millstrand.spools/batteries]
    :required? true})
 
 (runtime/module! runtime
   :workflow
-  {:ns 'skein.spools.workflow
-   :spools ['skein.spools/workflow]
+  {:ns 'millstrand.spools.workflow
+   :spools ['millstrand.spools/workflow]
    :required? true})
 
 (runtime/module! runtime
-  :skein/spools-workflow-cli
-  {:ns 'skein.spools.workflow.cli
-   :spools ['skein.spools/workflow]
+  :millstrand/spools-workflow-cli
+  {:ns 'millstrand.spools.workflow.cli
+   :spools ['millstrand.spools/workflow]
    :after [:workflow]
    :required? true})
 
@@ -178,8 +173,7 @@ strand devflow guidance
 
 ## Using it
 
-Devflow is a set of ordinary Skein workflows. Start and drive the `intake`
-workflow through the generic surface:
+Devflow is a set of ordinary Millstrand workflows. Start and drive the `intake` workflow through the generic surface:
 
 ```sh
 strand workflow start search-filters --workflow intake \

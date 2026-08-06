@@ -1,18 +1,19 @@
 (ns ct.spools.devflow-test
-  "Tests Devflow as a collection of static Skein workflows and named discovery
-  queries. Workflow execution itself belongs to skein.spools.workflow."
+  "Tests Devflow as a collection of static Millstrand workflows and named discovery
+  queries. Workflow execution itself belongs to millstrand.spools.workflow."
   (:require [clojure.data.json :as json]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [ct.spools.devflow :as devflow]
-            [skein.api.cli.alpha :as cli-alpha]
-            [skein.api.current.alpha :as current]
-            [skein.api.graph.alpha :as graph]
-            [skein.api.runtime.alpha :as runtime]
-            [skein.api.weaver.alpha :as weaver]
-            [skein.spools.workflow :as workflow]
-            [skein.test.alpha :as t]))
+            [ct.spools.devflow-equivalence :as equivalence]
+            [millstrand.api.cli.alpha :as cli-alpha]
+            [millstrand.api.current.alpha :as current]
+            [millstrand.api.graph.alpha :as graph]
+            [millstrand.api.runtime.alpha :as runtime]
+            [millstrand.api.weaver.alpha :as weaver]
+            [millstrand.spools.workflow :as workflow]
+            [millstrand.test.alpha :as t]))
 
 (def ^:private stage-names
   #{:intake :proposal :land-proposal :decompose :review-cards :spec-plan
@@ -24,7 +25,7 @@
   #{:agent-review :author-task-strands :author-card-strands})
 
 (defn- activate! [rt]
-  (doseq [[key config] [[:workflow {:ns 'skein.spools.workflow}]
+  (doseq [[key config] [[:workflow {:ns 'millstrand.spools.workflow}]
                         [:devflow {:ns 'ct.spools.devflow
                                    :after [:workflow]}]]]
     (let [result (runtime/module! rt key config)
@@ -38,6 +39,10 @@
     (let [rt (activate! (:runtime ctx))]
       (current/with-runtime rt
         (f rt)))))
+
+(deftest card-authoring-equivalence-rejects-target-divergence
+  (testing "the executable verifier covers artifact, title, instruction, and binding regressions"
+    (is (nil? (equivalence/-main)))))
 
 (deftest devflow-contributes-static-definitions-not-a-runtime-facade
   (is (nil? (resolve 'ct.spools.devflow/spool)))

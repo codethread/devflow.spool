@@ -18,8 +18,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow :as devflow]
-            [skein.api.current.alpha :as current]
-            [skein.spools.workflow :as workflow]))
+            [millstrand.api.current.alpha :as current]
+            [millstrand.spools.workflow :as workflow]))
 
 (defn- titled [prefix]
   (fn [{:keys [feature]}]
@@ -30,6 +30,49 @@
 
 (s/def ::feature non-blank-string?)
 (s/def ::author-cards-params (s/keys :req-un [::feature]))
+(s/def ::runtime some?)
+(s/def ::repoint-input (s/keys :req-un [::runtime]))
+(s/def ::seed-metadata-key (s/and keyword? #(not= :runtime %)))
+(s/def ::seed-metadata (s/map-of ::seed-metadata-key any?))
+(s/def ::repoint-seed-context
+  (s/and
+    (s/keys :req-un [::runtime])
+    #(s/valid? ::seed-metadata (dissoc % :runtime))))
+(s/def ::repointed #{:decompose})
+(s/def ::repoint-result (s/keys :req-un [::repointed]))
+
+(def ^:private repoint-input-keys #{:runtime})
+(def ^:private repoint-seed-context-shape
+  {:required-keys [:runtime]
+   :metadata {:keys :keyword :values :any}})
+
+(defn- sorted-keys [m]
+  (vec (sort-by pr-str (keys m))))
+
+(defn- require-valid!
+  [spec value label]
+  (if (s/valid? spec value)
+    value
+    (throw (ex-info label {:spec spec
+                           :value value
+                           :explain (s/explain-data spec value)}))))
+
+(defn- require-seed-context!
+  [context]
+  (if (s/valid? ::repoint-seed-context context)
+    context
+    (let [received (if (map? context)
+                     (sorted-keys context)
+                     context)]
+      (throw (ex-info
+               (str "Invalid repoint-decompose-seed! context: allowed shape "
+                    (pr-str repoint-seed-context-shape)
+                    "; received " (pr-str received))
+               {:spec ::repoint-seed-context
+                :value context
+                :allowed repoint-seed-context-shape
+                :received received
+                :explain (s/explain-data ::repoint-seed-context context)})))))
 
 (workflow/defworkflow author-kanban-cards
   "The kanban card-authoring target for devflow's decompose defer.
@@ -83,10 +126,44 @@
 (defn repoint-decompose!
   "Re-point the routed `:decompose` stage name at `decompose-kanban`.
 
-  A lifecycle-seed callable: the re-point lives in the registry's direct layer,
-  so it must be re-established on every weaver generation. `land-proposal`'s
-  landed choice then routes into the kanban-bound variant."
-  [{:keys [runtime]}]
-  (current/with-runtime runtime
-    (workflow/register-workflow! :decompose 'ct.spools.devflow-kanban-adapter/decompose-kanban))
-  {:repointed :decompose})
+  This is the strict runtime operation used by the lifecycle adapter below. The
+  re-point lives in the registry's direct layer, so it must be re-established on
+  every weaver generation. `land-proposal`'s landed choice then routes into the
+  kanban-bound variant.
+
+  Accepts `{:runtime runtime}` satisfying `::repoint-input` and returns
+  `{:repointed :decompose}` satisfying `::repoint-result`. The runtime is the
+  lifecycle context's active Millstrand runtime. The input map is closed: any
+  extra or missing key fails with the allowed and received key sets."
+  [params]
+  (let [params (if (map? params)
+                 (let [received (set (keys params))]
+                   (when-not (= repoint-input-keys received)
+                     (throw (ex-info
+                              (str "Invalid repoint-decompose! input: expected exact keys; "
+                                   "allowed keys " (pr-str (vec (sort repoint-input-keys)))
+                                   "; received keys " (pr-str (sorted-keys params)))
+                              {:allowed (vec (sort repoint-input-keys))
+                               :received (sorted-keys params)
+                               :value params})))
+                   params)
+                 params)
+        {:keys [runtime]} (require-valid! ::repoint-input params
+                                           "Invalid repoint-decompose! input")]
+    (current/with-runtime runtime
+      (workflow/register-workflow! :decompose
+                                   'ct.spools.devflow-kanban-adapter/decompose-kanban))
+    (require-valid! ::repoint-result {:repointed :decompose}
+                    "Invalid repoint-decompose! result")))
+
+(defn repoint-decompose-seed!
+  "Apply `repoint-decompose!` from a Millstrand lifecycle seed context.
+
+  Lifecycle callables receive coordinator metadata in addition to `:runtime`;
+  this adapter validates the `::repoint-seed-context` spec, whose metadata
+  policy allows any additional keyword keys with arbitrary values, then
+  projects the context to the strict public operation contract.
+  The seed runner consumes the returned `{:repointed :decompose}` data result."
+  [context]
+  (let [{:keys [runtime]} (require-seed-context! context)]
+    (repoint-decompose! {:runtime runtime})))

@@ -1,18 +1,33 @@
 {:paths ["src" "resources"]
  :deps {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}}
  :aliases
- {:test {:extra-paths ["test" "kanban-adapter/src" "kanban-adapter/test"]
-         ;; Point these at the Skein checkout you want to test against.
-         ;; This repo is developed beside skein-src, so the defaults work for
+ {:test {:extra-paths ["test" "scripts" "kanban-adapter/src" "kanban-adapter/test"
+                       "../millstrand/spools/workflow/src"]
+         ;; Point these at the Millstrand checkout you want to test against.
+         ;; This repo is developed beside millstrand, so the defaults work for
          ;; local owner checkouts and CI layouts that place the repos as siblings.
-         ;; skein.spools.workflow lives in a spool root off Skein's main
+         ;; millstrand.spools.workflow lives in a spool root off Millstrand's main
          ;; classpath, so its root joins the test JVM explicitly.
-         ;; The kanban pin is the adapter root's declared floor (peeled v23
+         ;; The kanban pin is the adapter root's declared floor (peeled v24
          ;; sha), so the suite proves the floor rather than a newer release.
-         :extra-deps {io.skein/skein {:local/root "../skein-src"}
-                      io.skein/workflow-spool {:local/root "../skein-src/spools/workflow"}
+         :extra-deps {io.millstrand/millstrand {:local/root "../millstrand"}
                       io.github.codethread/kanban.spool
                       {:git/url "https://github.com/codethread/kanban.spool.git"
-                       :git/sha "2947590e7965feb95a239189af3bd55f008d1209"}}
+                       :git/tag "v24"
+                       :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
-         :main-opts ["-m" "ct.spools.devflow-test"]}}}
+         :main-opts ["-m" "ct.spools.devflow-test"]}
+  :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
+                          :extra-deps {io.millstrand/millstrand
+                                       {:git/url "https://github.com/codethread/millstrand.git"
+                                        :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"}
+                                       io.millstrand/workflow-spool
+                                       {:git/url "https://github.com/codethread/millstrand.git"
+                                        :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"
+                                        :deps/root "spools/workflow"}
+                                       io.github.codethread/kanban.spool
+                                       {:git/url "https://github.com/codethread/kanban.spool.git"
+                                        :git/tag "v24"
+                                        :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"}}
+                          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
+                          :main-opts ["-m" "ct.spools.devflow-equivalence"]}}}

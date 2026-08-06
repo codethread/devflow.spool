@@ -16,8 +16,9 @@
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow.guidance :as guidance]
-            [skein.api.skein.alpha :as skein]
-            [skein.spools.workflow :as workflow]))
+            [millstrand.api.format.alpha :as format-alpha]
+            [millstrand.api.millstrand.alpha :as millstrand]
+            [millstrand.spools.workflow :as workflow]))
 
 (def artifact-guides
   "Maps each `workflow/artifact` value an authoring step advertises to the
@@ -886,11 +887,11 @@
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
 ;; Devflow publishes workflow definitions, query declarations, and one static
-;; read op. The generic `skein.spools.workflow` API owns starting, inspecting,
+;; read op. The generic `millstrand.spools.workflow` API owns starting, inspecting,
 ;; advancing, archiving, and querying their runs; Devflow adds no parallel
 ;; run-driving facade — the `devflow` op serves authoring knowledge only.
 
-(skein/defquery devflow-runs
+(millstrand/defquery devflow-runs
   "Return active Devflow workflow roots that can be resumed."
   {:usage "strand list --query devflow-runs"}
   [:and
@@ -898,7 +899,7 @@
    [:= [:attr "workflow/role"] "root"]
    [:= [:attr "workflow/family"] "devflow"]])
 
-(skein/defquery devflow-ready
+(millstrand/defquery devflow-ready
   "Return ready work belonging to an active Devflow workflow run."
   {:usage "strand ready --query devflow-ready"}
   [:edge/in "parent-of"
@@ -907,7 +908,7 @@
     [:= [:attr "workflow/role"] "root"]
     [:= [:attr "workflow/family"] "devflow"]]])
 
-(skein/defquery devflow-tasks
+(millstrand/defquery devflow-tasks
   "Return active strand-native devflow tasks and cards (devflow/task-type).
 
   With `strand list` this is the whole open queue; with `strand ready` it is
@@ -966,30 +967,28 @@
 (def ^:private devflow-meta
   "Cross-verb narrative for `devflow`, projected by the `about`/`prime`
   meta-verbs."
-  {:about (str "devflow ships the feature-delivery lifecycle as ordinary Skein "
-               "workflow definitions, driven through the generic workflow op; "
-               "this op adds no run verbs. guidance is its one read: the static "
-               "authoring knowledge behind the lifecycle. With no argument it "
-               "returns the workspace overview — layout, paths, invariants, the "
-               "document-ID convention, document ownership, and an index of "
-               "every guide key. With a key it returns that artifact's "
-               "authoring guide as one markdown document: purpose, "
-               "prerequisites, knowledge, procedures, constraints, validation "
-               "checklist, and templates. "
-               "Artifact-authoring steps advertise their key in the "
-               "devflow/guide strand attribute, and the payload resolves live "
-               "from the loaded spool rather than from anything recorded on the "
-               "run.")
-   :prime (str "Run `strand devflow guidance` for the workspace overview and "
-               "the index of guide keys, then "
-               "`strand devflow guidance <key>` (e.g. proposal) before "
-               "authoring that artifact. When driving a workflow run, the "
-               "ready step's devflow/guide attribute names the key to fetch. "
-               "rfc and finish-archive belong to no step: fetch rfc when "
-               "intake or proposal work exposes real uncertainty, and "
-               "finish-archive after squash-run! to close out a feature.")})
+  {:about (format-alpha/reflow
+           "|devflow ships the feature-delivery lifecycle as ordinary Millstrand
+            |workflow definitions, driven through the generic workflow op; this
+            |op adds no run verbs. guidance is its one read: the static authoring
+            |knowledge behind the lifecycle. With no argument it returns the
+            |workspace overview — layout, paths, invariants, the document-ID
+            |convention, document ownership, and an index of every guide key. With
+            |a key it returns that artifact's authoring guide as one markdown
+            |document: purpose, prerequisites, knowledge, procedures, constraints,
+            |validation checklist, and templates. Artifact-authoring steps advertise
+            |their key in the devflow/guide strand attribute, and the payload resolves
+            |live from the loaded spool rather than from anything recorded on the run.")
+   :prime (format-alpha/reflow
+           "|Run `strand devflow guidance` for the workspace overview and the index
+            |of guide keys, then `strand devflow guidance <key>` (e.g. proposal)
+            |before authoring that artifact. When driving a workflow run, the ready
+            |step's devflow/guide attribute names the key to fetch. rfc and
+            |finish-archive belong to no step: fetch rfc when intake or proposal work
+            |exposes real uncertainty, and finish-archive after squash-run! to close
+            |out a feature.")})
 
-(skein/defop devflow
+(millstrand/defop devflow
   "Serve Devflow's static authoring knowledge: the workspace overview or one artifact's authoring guide."
   (merge {:arg-spec devflow-arg-spec
           :returns devflow-returns

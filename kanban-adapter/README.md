@@ -13,7 +13,7 @@ Unlike the main devflow root, this root **requires the kanban spool**:
 | Root | Floor |
 |---|---|
 | `codethread/devflow` | same repository, same marker |
-| `codethread/kanban` | `v23` |
+| `codethread/kanban` | `v24` |
 
 ## What it ships
 
@@ -26,12 +26,8 @@ Unlike the main devflow root, this root **requires the kanban spool**:
   for card-to-card dependencies). The feature cards' strand ids are the card
   ids the review handoff expects; the grouping-only epic stays out of the
   review set.
-- **`decompose-kanban`** — devflow's published `decompose-open` template bound
-  with `#{author-card-strands author-kanban-cards}`, so the defer's worker
-  chooses between the strand-native default and the board per feature.
-- **`repoint-decompose!`** — re-points the routed `:decompose` stage name at
-  `decompose-kanban` in the registry's direct layer, so `land-proposal`'s
-  landed choice routes into the kanban-bound variant.
+- **`decompose-kanban`** — devflow's published `decompose-open` template bound with `#{author-card-strands author-kanban-cards}`, so the defer's worker chooses between the strand-native default and the board per feature.
+- **`repoint-decompose!`** — re-points the routed `:decompose` stage name at `decompose-kanban` in the registry's direct layer, so `land-proposal`'s landed choice routes into the kanban-bound variant. Its exact public input is `{:runtime <active Millstrand runtime>}` and its exact result is `{:repointed :decompose}`; extra or missing keys fail with allowed/received diagnostics. The lifecycle-context adapter is `repoint-decompose-seed!`, which validates the owning `::repoint-seed-context` spec: `:runtime` is required, and any additional keyword metadata keys with arbitrary values are accepted.
 
 ## Consuming it
 
@@ -39,28 +35,28 @@ One repository is one family entry; opt into this root by mapping it in your
 existing `codethread/devflow` entry and declaring the kanban floor:
 
 ```clojure
-;; .skein/spools.edn
+;; .millstrand/spools.edn
 {:spools
  {codethread/devflow
   {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "v20" :git/sha "<peeled sha of v20>"
+   :git/tag "v21" :git/sha "<peeled sha of v21>"
    :roots {codethread/devflow "."
            codethread/devflow-kanban-adapter "kanban-adapter"}
-   :requires {codethread/kanban "v23"}}
+   :requires {codethread/kanban "v24"}}
   codethread/kanban
   {:git/url "https://github.com/codethread/kanban.spool.git"
-   :git/tag "v23" :git/sha "2947590e7965feb95a239189af3bd55f008d1209"
+   :git/tag "v24" :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"
    :roots {codethread/kanban "."}}}}
 ```
 
 Activate it after both providers:
 
 ```clojure
-;; .skein/init.clj
+;; .millstrand/init.clj
 (runtime/module! runtime :devflow/kanban-adapter
   {:ns 'ct.spools.devflow-kanban-adapter
    :spools ['codethread/devflow-kanban-adapter 'codethread/devflow 'codethread/kanban]
-   :after [:devflow :skein/spools-kanban]
+   :after [:devflow :millstrand/spools-kanban]
    :required? true})
 ```
 
@@ -70,9 +66,7 @@ lifecycle seed, not a module declaration:
 ```clojure
 (lifecycle/defseed devflow-kanban-adapter-decompose
   "Route the :decompose stage name at the kanban-bound variant."
-  {:apply 'ct.spools.devflow-kanban-adapter/repoint-decompose!})
+  {:apply 'ct.spools.devflow-kanban-adapter/repoint-decompose-seed!})
 ```
 
-Without the seed, `decompose-kanban` stays reachable by its own name
-(`strand workflow show decompose-kanban`) while the routed `:decompose` keeps
-devflow's strand-native default.
+`defseed` is an idempotent process-lifetime lifecycle effect. The coordinator invokes its `:apply` callable once for each weaver generation, passing a context map whose `:runtime` is the active runtime plus lifecycle metadata. The adapter validates that context against `::repoint-seed-context`, whose open metadata policy accepts additional keyword keys with arbitrary values, then projects it into `repoint-decompose!`; the direct registry entry is therefore re-established after every refresh. The lifecycle result is data, `{:repointed :decompose}`, which the seed runner records as the effect result; it is not a module declaration or a workflow step handle. Without the seed, `decompose-kanban` stays reachable by its own name (`strand workflow show decompose-kanban`) while the routed `:decompose` keeps devflow's strand-native default.
