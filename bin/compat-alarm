@@ -38,10 +38,15 @@ done
 # candidate rather than failing before either namespace loads.
 millstrand_root="../millstrand"
 workflow_root="$millstrand_root/spools/workflow"
+kanban_sha="87f61bc2750e7026f3650235907db25f19b1536e"
 
 exec clojure -Sdeps "{:paths [${src_paths}${test_paths}]
                       :deps {io.millstrand/millstrand {:local/root \"$millstrand_root\"}
-                             io.millstrand/workflow-spool {:local/root \"$workflow_root\"}}}" -M -e "
+                             io.millstrand/workflow-spool {:local/root \"$workflow_root\"}
+                             io.github.codethread/kanban.spool
+                             {:git/url \"https://github.com/codethread/kanban.spool.git\"
+                              :git/tag \"v24\"
+                              :git/sha \"$kanban_sha\"}}}" -M -e "
 (require 'clojure.test ${requires})
 (let [result (apply clojure.test/run-tests [${syms}])]
   (System/exit (if (zero? (+ (:fail result) (:error result))) 0 1)))"

@@ -20,11 +20,29 @@ run ./bin/verify-card-authoring-equivalence
 # the previous v20 suite; a green alarm would mean the breaking boundary was
 # not actually exercised.
 printf '\n[land-quality] expected compatibility break: timeout 30 ./bin/compat-alarm v20\n'
-if timeout 30 ./bin/compat-alarm v20; then
-  echo "compat-alarm v20 unexpectedly passed across the Millstrand break" >&2
-  exit 1
-else
+compat_output=$(mktemp)
+set +e
+timeout 30 ./bin/compat-alarm v20 >"$compat_output" 2>&1
+compat_status=$?
+set -e
+cat "$compat_output"
+
+# The archived v20 suite must stop at the intentional old-identity import
+# failure. A timeout, missing tool/dependency, setup error, or any other test
+# failure is a land failure and must remain visible to the caller.
+expected_signature='Could not locate skein/api/current/alpha__init.class, skein/api/current/alpha.clj or skein/api/current/alpha.cljc on classpath.'
+expected_execution='^Execution error \(FileNotFoundException\) at ct\.spools\.devflow-kanban-adapter-test/'
+unexpected_output=$(grep -Ev "^(WARNING:.*|$|${expected_execution}.*|${expected_signature}|Full report at:|/.*/clojure-[^ ]+\\.edn)$" "$compat_output" || true)
+if [[ "$compat_status" -eq 1 ]] \
+  && [[ "$(grep -Fc "$expected_signature" "$compat_output")" -eq 1 ]] \
+  && [[ "$(grep -Ec "$expected_execution" "$compat_output")" -eq 1 ]] \
+  && [[ -z "$unexpected_output" ]]; then
+  rm -f "$compat_output"
   echo "compat-alarm v20: expected break observed"
+else
+  rm -f "$compat_output"
+  echo "compat-alarm v20: unexpected status or failure signature (status $compat_status)" >&2
+  exit 1
 fi
 
 printf '\n[land-quality] identity and release gates: clean\n'

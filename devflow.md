@@ -1,8 +1,6 @@
 # Devflow
 
-A feature-delivery lifecycle, built as
-[Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md).
-You name a feature; each stage hands you the next step or the next decision.
+A feature-delivery lifecycle, built as [Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md). You name a feature; each stage hands you the next step or the next decision.
 
 ```sh
 strand workflow start search-filters --workflow intake \
@@ -12,9 +10,7 @@ strand workflow start search-filters --workflow intake \
 #     "done":false}
 ```
 
-**The feature name is the handle.** It *is* the `workflow/run-id`, so there is no
-separate run handle to keep. Devflow owns static workflow definitions; Millstrand's
-generic workflow API owns execution.
+**The feature name is the handle.** It *is* the `workflow/run-id`, so there is no separate run handle to keep. Devflow owns static workflow definitions; Millstrand's generic workflow API owns execution.
 
 | You have | You call |
 |---|---|
@@ -41,11 +37,7 @@ devflow/
 `-- archive/yy-mm-dd__<feature>/      <- every past feature, proposals and deltas
 ```
 
-The task queue is deliberately absent from the tree: tasks and implementation
-cards live wherever the workspace's decomposition target puts them. The
-shipped default authors them as **strands in the Millstrand graph**
-(`strand ready --query devflow-tasks`), and a workspace may bind its own
-target instead — see [Plugging in your own decomposition](#plugging-in-your-own-decomposition).
+The task queue is deliberately absent from the tree: tasks and implementation cards live wherever the workspace's decomposition target puts them. The shipped default authors them as **strands in the Millstrand graph** (`strand ready --query devflow-tasks`), and a workspace may bind its own target instead — see [Plugging in your own decomposition](#plugging-in-your-own-decomposition).
 
 **`proposal.md` — plan mode, written down.** It comes before any code, and the
 stage stops for human sign-off. That gap is the point: time to consider the
@@ -456,8 +448,7 @@ side, described by `strand devflow guidance finish-archive`.
 
 ### Commands
 
-Devflow adds no run-driving façade. Use Millstrand's generic workflow surface;
-devflow's own `devflow` op serves static authoring knowledge only:
+Devflow adds no run-driving façade. Use Millstrand's generic workflow surface; devflow's own `devflow` op serves static authoring knowledge only:
 
 | Need | Command |
 |---|---|
@@ -563,9 +554,6 @@ dependencies resolved.
 ### See also
 
 - [README.md](./README.md) — installation, source approval, and activation.
-- [Millstrand workflow.md](https://github.com/codethread/millstrand/blob/main/spools/workflow.md)
-  — the engine underneath: run lifecycle, checkpoints and routing, gates,
-  molecule ops, and the full `workflow/*` vocabulary.
+- [Millstrand workflow.md](https://github.com/codethread/millstrand/blob/main/spools/workflow.md) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
 - `(millstrand.spools.workflow/explain topic)` — machine-readable builder contracts.
-- [Millstrand's writing-shared-spools guide](https://github.com/codethread/millstrand/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution)
-  — how git-distributed spools like this one are published and pinned.
+- [Millstrand's writing-shared-spools guide](https://github.com/codethread/millstrand/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution) — how git-distributed spools like this one are published and pinned.

@@ -41,16 +41,22 @@
         (f rt)))))
 
 (deftest card-authoring-equivalence-rejects-target-divergence
-  (let [report {:cards [{:title "Card"
-                         :task-type "afk"
-                         :feature "feature"
-                         :body-hash "body"
-                         :depends-on []}]
+  (let [report {:target :author-card-strands
+                :binding ["author-card-strands"]
+                :target-behavior {:artifact "implementation cards"}
+                :handoff "handoff-card-review"
                 :review-ref-count 1}
-        divergent (update-in report [:cards 0 :body-hash] str "-different")]
-    (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                          #"card-authoring semantic mismatch"
-                          (equivalence/assert-equivalent! report divergent)))))
+        divergent (update-in report [:target-behavior :artifact]
+                             (constantly "different cards"))
+        unbound (assoc report :binding [])]
+    (testing "target behavior divergence"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"card-authoring semantic mismatch"
+                            (equivalence/assert-equivalent! report divergent))))
+    (testing "target binding divergence"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"target is not in its defer binding"
+                            (equivalence/assert-equivalent! report unbound))))))
 
 (deftest devflow-contributes-static-definitions-not-a-runtime-facade
   (is (nil? (resolve 'ct.spools.devflow/spool)))

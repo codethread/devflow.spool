@@ -1,8 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on
-[Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md)
-and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -32,9 +30,7 @@ devflow/
 `-- archive/yy-mm-dd__<feature>/      <- every past feature, proposals and deltas
 ```
 
-Tasks and implementation cards are not files: the shipped default authors
-them as **strands in the Millstrand graph** (`strand ready --query devflow-tasks`),
-and workspaces can plug in their own card system instead.
+Tasks and implementation cards are not files: the shipped default authors them as **strands in the Millstrand graph** (`strand ready --query devflow-tasks`), and workspaces can plug in their own card system instead.
 
 - **`proposal.md` is plan mode, written down.** It comes before any code and the
   run stops for human sign-off, so there's time to align with the agent while
@@ -82,13 +78,7 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Millstrand at `70a3c50e27ca0190f363d80d0b0cac72948dbacb` or later**, and a live
-  weaver:
-  ```sh
-  git -C /path/to/millstrand merge-base --is-ancestor 70a3c50e27ca0190f363d80d0b0cac72948dbacb HEAD
-  ```
-  No release marker contains it yet, so `spool.edn` declares no `:millstrand/min`
-  floor; see the v10 entry in `CHANGELOG.md`.
+- **Millstrand at immutable SHA `5790c459e9bb692b5e975f9715df7d5b403feff2`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
 - **`millstrand.spools.workflow`** — the engine devflow builds on.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
@@ -117,8 +107,7 @@ For local development, overlay in `spools.local.edn` (usually gitignored):
 
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
-To pin the engine independently of your Millstrand checkout, `millstrand.spools/workflow`
-also takes `:git/url` + `:git/sha` + `:roots {millstrand.spools/workflow "spools/workflow"}`.
+To pin the engine independently of your Millstrand checkout, `millstrand.spools/workflow` also takes `:git/url` + `:git/sha` + `:roots {millstrand.spools/workflow "spools/workflow"}`.
 
 ### Activate the modules
 
@@ -178,8 +167,7 @@ strand devflow guidance
 
 ## Using it
 
-Devflow is a set of ordinary Millstrand workflows. Start and drive the `intake`
-workflow through the generic surface:
+Devflow is a set of ordinary Millstrand workflows. Start and drive the `intake` workflow through the generic surface:
 
 ```sh
 strand workflow start search-filters --workflow intake \

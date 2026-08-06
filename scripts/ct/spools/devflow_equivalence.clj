@@ -1,23 +1,19 @@
 (ns ct.spools.devflow-equivalence
   "Executable semantic check for the two published card-authoring targets."
-  (:require [millstrand.api.current.alpha :as current]
-            [millstrand.api.graph.alpha :as graph]
+  (:require [clojure.spec.alpha :as s]
+            [ct.spools.devflow :as devflow]
+            [ct.spools.devflow-kanban-adapter :as adapter]
+            [millstrand.api.current.alpha :as current]
             [millstrand.api.runtime.alpha :as runtime]
-            [millstrand.api.weaver.alpha :as weaver]
             [millstrand.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
 
 (def ^:private fixture
-  [{:title "Merged proposal implementation"
-    :task-type "afk"
-    :feature "millstrand-rename"
-    :body "Implement the approved merged proposal."
-    :depends-on []}
-   {:title "Release verification evidence"
-    :task-type "hitl"
-    :feature "millstrand-rename"
-    :body "Record immutable release evidence."
-    :depends-on ["Merged proposal implementation"]}])
+  {:feature "millstrand-rename"
+   :cards [{:id "merged-proposal"
+            :title "Merged proposal implementation"}
+           {:id "release-verification"
+            :title "Release verification evidence"}]})
 
 (defn- activate! [rt]
   (doseq [namespace '[millstrand.spools.workflow
@@ -35,111 +31,121 @@
     (runtime/module! rt key config))
   rt)
 
-(defn- attr [strand key]
-  (let [attributes (:attributes strand)]
-    (or (get attributes key)
-        (get attributes (keyword key)))))
+(defn- execution-params []
+  {:feature (:feature fixture)
+   :card-reviewer "equivalence-card-reviewer"
+   :card-set-reviewer "equivalence-card-set-reviewer"})
 
-(defn- sha256 [value]
-  (let [digest (java.security.MessageDigest/getInstance "SHA-256")
-        bytes (.digest digest (.getBytes (str value) "UTF-8"))]
-    (format "%064x" (java.math.BigInteger. 1 bytes))))
+(defn- target-behavior [step]
+  ;; These are the stable authoring obligations shared by both targets. Their
+  ;; titles and instructions are intentionally target-specific, so retain
+  ;; those separately for diagnostics without pretending they are identical.
+  {:artifact (:artifact step)
+   :title (:title step)
+   :instruction (:instruction step)})
 
-(defn- dependency-titles [rt id->title id]
-  (->> (graph/outgoing-edges rt [id] "depends-on")
-       (map :to_strand_id)
-       (keep id->title)
-       sort
-       vec))
-
-(defn- normalize-cards [rt card-ids review-refs]
-  (let [cards (mapv #(weaver/show rt %) card-ids)
-        id->title (into {} (map (juxt :id :title) cards))]
-    {:cards (mapv (fn [card]
-                    {:title (:title card)
-                     :task-type (attr card "devflow/task-type")
-                     :feature (attr card "devflow/feature")
-                     :body-hash (sha256 (attr card "body"))
-                     :depends-on (dependency-titles rt id->title (:id card))})
-                  cards)
-     :review-ref-count (count review-refs)}))
-
-(defn- author-strand-cards! [rt]
-  (let [ids (reduce (fn [ids {:keys [title task-type feature body depends-on]}]
-                      (let [id-by-title (zipmap (map :title fixture) ids)
-                            strand (weaver/add!
-                                    rt
-                                    {:title title
-                                     :attributes {"devflow/task-type" task-type
-                                                  "devflow/feature" feature
-                                                  "body" body}
-                                     :edges (mapv (fn [dependency]
-                                                    {:type "depends-on"
-                                                     :to (get id-by-title dependency)})
-                                                  depends-on)})]
-                        (conj ids (:id strand))))
-                    []
-                    fixture)]
-    (normalize-cards rt ids ids)))
-
-(defn- author-kanban-cards! [rt]
-  (let [kanban (find-ns 'ct.spools.kanban)
-        add! (ns-resolve kanban 'add!)
-        epic-id (get-in (add! rt "Merged proposal cards" {"--type" "epic"}) [:card :id])
-        ids (mapv (fn [{:keys [title body]}]
-                    (get-in (add! rt title {"--epic" epic-id "--body" body})
-                            [:card :id]))
-                  fixture)
-        id-by-title (zipmap (map :title fixture) ids)]
-    (doseq [[id {:keys [task-type feature depends-on]}] (map vector ids fixture)]
-      (weaver/update! rt id
-                      {:attributes {"devflow/task-type" task-type
-                                    "devflow/feature" feature}
-                       :edges (mapv (fn [dependency]
-                                      {:type "depends-on"
-                                       :to (get id-by-title dependency)})
-                                    depends-on)}))
-    (normalize-cards rt ids ids)))
-
-(defn- execute-target! [target author!]
+(defn- execute-target!
+  "Run one published target through the stage's real defer consumer path."
+  [stage target & [configure!]]
   (t/with-weaver-world [ctx {:storage :sqlite-memory}]
     (let [rt (activate! (:runtime ctx))]
       (current/with-runtime rt
-        (let [resolved (workflow/resolve-workflow target)]
-          ;; Materialize the actual call-only authoring target before applying
-          ;; the fixed fixture. This keeps both executions on their published
-          ;; workflow path while the card records remain the comparison seam.
-          (workflow/pour! (:value resolved) {:feature "millstrand-rename"})
-          (author! rt))))))
+        (when configure!
+          (configure! rt))
+        (let [run-id (str "equivalence-" (name target))
+              started (workflow/start! run-id stage (execution-params))
+              defer (workflow/ready-step run-id)
+              filled (workflow/defer! run-id target {:feature (:feature fixture)})
+              authored-step (workflow/ready-step run-id)
+              after-authoring (workflow/complete! run-id)
+              handoff (workflow/ready-step run-id)]
+          {:target target
+           :binding (:workflows defer)
+           :target-behavior (target-behavior authored-step)
+           :handoff (:checkpoint handoff)
+           :review-ref-count (count (:cards fixture))
+           :started-ready (mapv :role (:ready started))
+           :filled-ready (mapv :role (:ready filled))
+           :after-authoring-ready (mapv :role (:ready after-authoring))})))))
+
+(defn- fail-mismatch! [message strand kanban]
+  (throw (ex-info message {:strand strand :kanban kanban})))
 
 (defn assert-equivalent!
-  "Throw when two target reports differ at the review handoff boundary."
+  "Throw when target behavior or its selected defer binding diverges."
   [strand kanban]
-  (when-not (= strand kanban)
-    (throw (ex-info "card-authoring semantic mismatch"
-                    {:strand strand :kanban kanban})))
+  (doseq [report [strand kanban]]
+    (when-not (some #{(name (:target report))} (:binding report))
+      (fail-mismatch! "card-authoring target is not in its defer binding"
+                      strand kanban)))
+  (let [shared (juxt #(select-keys (:target-behavior %) [:artifact])
+                     :handoff
+                     :review-ref-count)]
+    (when-not (= (shared strand) (shared kanban))
+      (fail-mismatch! "card-authoring semantic mismatch" strand kanban)))
   true)
 
-(defn- divergence-regression! [report]
-  (let [divergent (update-in report [:cards 0 :body-hash]
-                             #(str % "-divergent"))]
+(s/def ::divergent-params (s/keys :req-un [::devflow/feature]))
+
+;; This definition exists only to prove that the verifier notices a published
+;; target's behavior changing behind the same registered name. It is never one
+;; of the authoring targets used by the equivalence gate itself.
+(workflow/defworkflow divergent-author-card-strands
+  "A deliberately divergent card-authoring target used by the regression."
+  {:entrypoints #{:call}
+   :param-spec ::divergent-params
+   :defaults {}}
+  (workflow/workflow
+    (fn [{:keys [feature]}]
+      (str "Author divergent implementation cards for " feature))
+    (workflow/step :divergent-authoring
+                   (fn [{:keys [feature]}]
+                     (str "Author divergent implementation cards for " feature))
+                   :self
+                   :attributes {"workflow/artifact" "divergent cards"
+                                "devflow/guide" "decompose"
+                                "workflow/instruction" "The published target behavior diverged."})))
+
+(defn- divergence-regression! [strand]
+  (let [divergent (execute-target!
+                   #'devflow/decompose
+                   :author-card-strands
+                   (fn [_]
+                     (workflow/register-workflow!
+                     :author-card-strands
+                     'ct.spools.devflow-equivalence/divergent-author-card-strands)))]
     (try
-      (assert-equivalent! report divergent)
+      (assert-equivalent! strand divergent)
       (throw (ex-info "card-authoring divergence regression did not fire" {}))
       (catch clojure.lang.ExceptionInfo error
         (when (= "card-authoring divergence regression did not fire"
                  (.getMessage error))
           (throw error))))))
 
+(defn- binding-regression! []
+  (try
+    (execute-target! #'devflow/decompose :author-kanban-cards)
+    (throw (ex-info "card-authoring binding regression did not fire" {}))
+    (catch clojure.lang.ExceptionInfo error
+      (if (= "card-authoring binding regression did not fire"
+             (.getMessage error))
+        (throw error)
+        (when-not (= :workflow/defer-target-not-allowed
+                     (:reason (ex-data error)))
+          (throw error))))))
+
 (defn -main [& _]
-  (let [strand (execute-target! :author-card-strands author-strand-cards!)
-        kanban (execute-target! :author-kanban-cards author-kanban-cards!)]
+  (let [strand (execute-target! #'devflow/decompose
+                                :author-card-strands)
+        kanban (execute-target!
+                #'adapter/decompose-kanban
+                :author-kanban-cards)]
     (assert-equivalent! strand kanban)
     (divergence-regression! strand)
+    (binding-regression!)
     (println "card-authoring equivalence: clean")
     (println "  targets: author-card-strands, author-kanban-cards")
-    (println "  fixture: merged-proposal")
+    (println "  consumer-path: decompose defer -> authoring step -> review handoff")
     (println "  fresh databases: 2")
-    (println "  cards:" (count (:cards strand)))
-    (println "  review-ref-count:" (:review-ref-count strand))
+    (println "  review-refs:" (:review-ref-count strand))
     (println "  core-sha:" (or (System/getenv "MSR04_CORE_SHA") "<not supplied>"))))
