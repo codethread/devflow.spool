@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [ct.spools.devflow :as devflow]
+            [ct.spools.devflow-equivalence :as equivalence]
             [millstrand.api.cli.alpha :as cli-alpha]
             [millstrand.api.current.alpha :as current]
             [millstrand.api.graph.alpha :as graph]
@@ -38,6 +39,18 @@
     (let [rt (activate! (:runtime ctx))]
       (current/with-runtime rt
         (f rt)))))
+
+(deftest card-authoring-equivalence-rejects-target-divergence
+  (let [report {:cards [{:title "Card"
+                         :task-type "afk"
+                         :feature "feature"
+                         :body-hash "body"
+                         :depends-on []}]
+                :review-ref-count 1}
+        divergent (update-in report [:cards 0 :body-hash] str "-different")]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"card-authoring semantic mismatch"
+                          (equivalence/assert-equivalent! report divergent)))))
 
 (deftest devflow-contributes-static-definitions-not-a-runtime-facade
   (is (nil? (resolve 'ct.spools.devflow/spool)))

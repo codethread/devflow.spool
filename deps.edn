@@ -1,7 +1,7 @@
 {:paths ["src" "resources"]
  :deps {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}}
  :aliases
- {:test {:extra-paths ["test" "kanban-adapter/src" "kanban-adapter/test"
+ {:test {:extra-paths ["test" "scripts" "kanban-adapter/src" "kanban-adapter/test"
                        "../millstrand/spools/workflow/src"]
          ;; Point these at the Millstrand checkout you want to test against.
          ;; This repo is developed beside millstrand, so the defaults work for
