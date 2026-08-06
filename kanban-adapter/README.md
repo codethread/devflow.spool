@@ -26,15 +26,8 @@ Unlike the main devflow root, this root **requires the kanban spool**:
   for card-to-card dependencies). The feature cards' strand ids are the card
   ids the review handoff expects; the grouping-only epic stays out of the
   review set.
-- **`decompose-kanban`** — devflow's published `decompose-open` template bound
-  with `#{author-card-strands author-kanban-cards}`, so the defer's worker
-  chooses between the strand-native default and the board per feature.
-- **`repoint-decompose!`** — re-points the routed `:decompose` stage name at
-  `decompose-kanban` in the registry's direct layer, so `land-proposal`'s
-  landed choice routes into the kanban-bound variant. Its exact public input is
-  `{:runtime <active Millstrand runtime>}` and its exact result is
-  `{:repointed :decompose}`; extra or missing keys fail with allowed/received
-  diagnostics. The lifecycle-context adapter is `repoint-decompose-seed!`.
+- **`decompose-kanban`** — devflow's published `decompose-open` template bound with `#{author-card-strands author-kanban-cards}`, so the defer's worker chooses between the strand-native default and the board per feature.
+- **`repoint-decompose!`** — re-points the routed `:decompose` stage name at `decompose-kanban` in the registry's direct layer, so `land-proposal`'s landed choice routes into the kanban-bound variant. Its exact public input is `{:runtime <active Millstrand runtime>}` and its exact result is `{:repointed :decompose}`; extra or missing keys fail with allowed/received diagnostics. The lifecycle-context adapter is `repoint-decompose-seed!`, which validates the owning `::repoint-seed-context` spec: `:runtime` is required, and any additional keyword metadata keys with arbitrary values are accepted.
 
 ## Consuming it
 
@@ -76,13 +69,4 @@ lifecycle seed, not a module declaration:
   {:apply 'ct.spools.devflow-kanban-adapter/repoint-decompose-seed!})
 ```
 
-`defseed` is an idempotent process-lifetime lifecycle effect. The coordinator
-invokes its `:apply` callable once for each weaver generation, passing a context
-map whose `:runtime` is the active runtime plus lifecycle metadata. The adapter
-projects that context into `repoint-decompose!`; the direct registry entry is
-therefore re-established after every refresh. The lifecycle result is data,
-`{:repointed :decompose}`, which the seed runner records as the effect result;
-it is not a module declaration or a workflow step handle. Without the seed,
-`decompose-kanban` stays reachable by its own name (`strand workflow show
-decompose-kanban`) while the routed `:decompose` keeps devflow's strand-native
-default.
+`defseed` is an idempotent process-lifetime lifecycle effect. The coordinator invokes its `:apply` callable once for each weaver generation, passing a context map whose `:runtime` is the active runtime plus lifecycle metadata. The adapter validates that context against `::repoint-seed-context`, whose open metadata policy accepts additional keyword keys with arbitrary values, then projects it into `repoint-decompose!`; the direct registry entry is therefore re-established after every refresh. The lifecycle result is data, `{:repointed :decompose}`, which the seed runner records as the effect result; it is not a module declaration or a workflow step handle. Without the seed, `decompose-kanban` stays reachable by its own name (`strand workflow show decompose-kanban`) while the routed `:decompose` keeps devflow's strand-native default.

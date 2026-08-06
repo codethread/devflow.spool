@@ -6,27 +6,11 @@ Use `:local/root` only in a gitignored `spools.local.edn` overlay for local deve
 
 ## CLI style, vocabulary, and argument contracts
 
-The following bounded rules are copied from Millstrand's pinned
-[CLI-style section](https://github.com/codethread/millstrand/blob/5790c459e9bb692b5e975f9715df7d5b403feff2/docs/spools/writing-shared-spools.md#cli-style)
-and are the applicable contract for this spool:
+The following bounded rules are copied from Millstrand's [pinned CLI-style section](https://github.com/codethread/millstrand/blob/5790c459e9bb692b5e975f9715df7d5b403feff2/docs/spools/writing-shared-spools.md#cli-style) and are the applicable contract for this spool:
 
-- Verbs follow the role already named by the primitive: entity lifecycles use
-  `start`, `finish --outcome`, `abort`, `status <id>`, and `list`; workflow
-  steps use `start`, `next`, `complete`, `choose`, and `status`; processes use
-  `spawn`, `kill`, `retry`, `await`, `logs`, and `ps`. A wrapper keeps the
-  primitive's verb rather than inventing a domain synonym.
-- Use `--by` for attribution. Name attribute flags after the attribute, such
-  as `--owner`, `--branch`, `--worktree`, and `--feature`; use seconds-first
-  duration names such as `--timeout-secs` and `--outcome` for closing state.
-- Prefer `list` for live, filterable entities and a plural noun for a fixed
-  catalog. Prefer one operation with declared subcommands for a cohesive
-  multi-verb domain; keep single-purpose projections flat.
-- Every text-bearing flag or positional argument MUST use the declared
-  arg-spec parser so whole-value `:stdin` and `:payload/<name>` references
-  resolve. Argument maps are boundary contracts: reject unknown keys, validate
-  required/type-constrained values, and fail loudly with the allowed and
-  received/unknown values rather than silently ignoring input.
+- Verbs follow the role already named by the primitive: entity lifecycles use `start`, `finish --outcome`, `abort`, `status <id>`, and `list`; workflow steps use `start`, `next`, `complete`, `choose`, and `status`; processes use `spawn`, `kill`, `retry`, `await`, `logs`, and `ps`. A wrapper keeps the primitive's verb rather than inventing a domain synonym.
+- Use `--by` for attribution. Name attribute flags after the attribute, such as `--owner`, `--branch`, `--worktree`, and `--feature`; use seconds-first duration names such as `--timeout-secs` and `--outcome` for closing state.
+- Prefer `list` for live, filterable entities and a plural noun for a fixed catalog. Prefer one operation with declared subcommands for a cohesive multi-verb domain; keep single-purpose projections flat.
+- Every text-bearing flag or positional argument MUST use the declared arg-spec parser so whole-value `:stdin` and `:payload/<name>` references resolve. Argument maps are boundary contracts: reject unknown keys, validate required/type-constrained values, and fail loudly with the allowed and received/unknown values rather than silently ignoring input.
 
-Devflow's `devflow` op follows this vocabulary. Its `about` and `prime`
-metadata use `|`-margin blocks and
-`millstrand.api.format.alpha/reflow`, as required by the same pinned guide.
+Devflow's `devflow` op follows this vocabulary. Its `about` and `prime` metadata use `|`-margin blocks and `millstrand.api.format.alpha/reflow`, as required by the same pinned guide.

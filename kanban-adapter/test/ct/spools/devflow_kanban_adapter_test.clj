@@ -2,7 +2,8 @@
   "Tests the kanban adapter root: its registered catalogue additions and the
   kanban-bound decompose variant. Kanban itself and devflow each own their
   behavior; this suite covers only the binding."
-  (:require [clojure.string :as str]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow-kanban-adapter :as adapter]
             ;; The adapter no longer requires the kanban namespace itself, so
@@ -86,6 +87,33 @@
       (is (= {:repointed :decompose}
              (adapter/repoint-decompose-seed!
                {:runtime rt :module/key :adapter :effect/id :seed}))))))
+
+(deftest repoint-decompose-seed-validates-the-named-context-boundary
+  (with-runtime
+    (fn [rt]
+      (let [context {:runtime rt
+                     :module/key :adapter
+                     :effect/id :seed
+                     :opaque {:preserved? true}}]
+        (is (s/valid? ::adapter/repoint-seed-context context))
+        (is (= {:repointed :decompose}
+               (adapter/repoint-decompose-seed! context))))
+      (doseq [[context received]
+              [[nil nil]
+               [{} []]
+               [{{:not-a-keyword "metadata"} rt}
+                [{:not-a-keyword "metadata"}]]]]
+        (let [error (try
+                      (adapter/repoint-decompose-seed! context)
+                      nil
+                      (catch clojure.lang.ExceptionInfo ex ex))]
+          (is (instance? clojure.lang.ExceptionInfo error))
+          (is (= {:required-keys [:runtime]
+                  :metadata {:keys :keyword :values :any}}
+                 (:allowed (ex-data error))))
+          (is (= received (:received (ex-data error))))
+          (is (str/includes? (.getMessage error) "allowed shape"))
+          (is (str/includes? (.getMessage error) "received")))))))
 
 (defn -main [& _]
   (let [summary (clojure.test/run-tests 'ct.spools.devflow-kanban-adapter-test)]

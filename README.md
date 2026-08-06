@@ -105,7 +105,9 @@ see [kanban-adapter/README.md](./kanban-adapter/README.md); the main
 For local development only, overlay the approved family in `spools.local.edn` (usually gitignored):
 
 ```clojure
-{:spools {io.millstrand/millstrand {:local/root "/Users/you/dev/millstrand"}
+{:spools {io.millstrand/millstrand {:local/root "/Users/you/dev/millstrand"
+                                    :roots {millstrand.spools/workflow "spools/workflow"
+                                            millstrand.spools/batteries "spools/batteries"}}
           codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
 ```
 

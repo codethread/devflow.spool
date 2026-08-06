@@ -32,10 +32,19 @@
 (s/def ::author-cards-params (s/keys :req-un [::feature]))
 (s/def ::runtime some?)
 (s/def ::repoint-input (s/keys :req-un [::runtime]))
+(s/def ::seed-metadata-key (s/and keyword? #(not= :runtime %)))
+(s/def ::seed-metadata (s/map-of ::seed-metadata-key any?))
+(s/def ::repoint-seed-context
+  (s/and
+    (s/keys :req-un [::runtime])
+    #(s/valid? ::seed-metadata (dissoc % :runtime))))
 (s/def ::repointed #{:decompose})
 (s/def ::repoint-result (s/keys :req-un [::repointed]))
 
 (def ^:private repoint-input-keys #{:runtime})
+(def ^:private repoint-seed-context-shape
+  {:required-keys [:runtime]
+   :metadata {:keys :keyword :values :any}})
 
 (defn- sorted-keys [m]
   (vec (sort-by pr-str (keys m))))
@@ -47,6 +56,23 @@
     (throw (ex-info label {:spec spec
                            :value value
                            :explain (s/explain-data spec value)}))))
+
+(defn- require-seed-context!
+  [context]
+  (if (s/valid? ::repoint-seed-context context)
+    context
+    (let [received (if (map? context)
+                     (sorted-keys context)
+                     context)]
+      (throw (ex-info
+               (str "Invalid repoint-decompose-seed! context: allowed shape "
+                    (pr-str repoint-seed-context-shape)
+                    "; received " (pr-str received))
+               {:spec ::repoint-seed-context
+                :value context
+                :allowed repoint-seed-context-shape
+                :received received
+                :explain (s/explain-data ::repoint-seed-context context)})))))
 
 (workflow/defworkflow author-kanban-cards
   "The kanban card-authoring target for devflow's decompose defer.
@@ -134,7 +160,10 @@
   "Apply `repoint-decompose!` from a Millstrand lifecycle seed context.
 
   Lifecycle callables receive coordinator metadata in addition to `:runtime`;
-  this adapter projects the context to the strict public operation contract.
+  this adapter validates the `::repoint-seed-context` spec, whose metadata
+  policy allows any additional keyword keys with arbitrary values, then
+  projects the context to the strict public operation contract.
   The seed runner consumes the returned `{:repointed :decompose}` data result."
-  [{:keys [runtime]}]
-  (repoint-decompose! {:runtime runtime}))
+  [context]
+  (let [{:keys [runtime]} (require-seed-context! context)]
+    (repoint-decompose! {:runtime runtime})))
