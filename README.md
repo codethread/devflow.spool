@@ -89,7 +89,8 @@ In the **consumer's** `spools.edn`:
 ```clojure
 {:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
                                     :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"
-                                    :roots {millstrand.spools/workflow "spools/workflow"}}
+                                    :roots {millstrand.spools/workflow "spools/workflow"
+                                            millstrand.spools/batteries "spools/batteries"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
                               :git/sha "e81c860fcb23d491c7e8c6f4c0c94fdf71ac65fb"
                               :roots {codethread/devflow "."}}}}
@@ -110,8 +111,7 @@ For local development only, overlay the approved family in `spools.local.edn` (u
 
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
-The published example uses one SHA-pinned Millstrand family and maps its workflow
-root with `:roots`. Do not use `:local/root` in a published approval file.
+The published example uses one SHA-pinned Millstrand family and maps its workflow and Batteries roots with `:roots`; the local overlay replaces that same family's coordinate and inherits both roots. Do not use `:local/root` in a published approval file.
 
 ### Activate the modules
 

@@ -31,7 +31,10 @@ Unlike the main devflow root, this root **requires the kanban spool**:
   chooses between the strand-native default and the board per feature.
 - **`repoint-decompose!`** — re-points the routed `:decompose` stage name at
   `decompose-kanban` in the registry's direct layer, so `land-proposal`'s
-  landed choice routes into the kanban-bound variant.
+  landed choice routes into the kanban-bound variant. Its exact public input is
+  `{:runtime <active Millstrand runtime>}` and its exact result is
+  `{:repointed :decompose}`; extra or missing keys fail with allowed/received
+  diagnostics. The lifecycle-context adapter is `repoint-decompose-seed!`.
 
 ## Consuming it
 
@@ -70,9 +73,16 @@ lifecycle seed, not a module declaration:
 ```clojure
 (lifecycle/defseed devflow-kanban-adapter-decompose
   "Route the :decompose stage name at the kanban-bound variant."
-  {:apply 'ct.spools.devflow-kanban-adapter/repoint-decompose!})
+  {:apply 'ct.spools.devflow-kanban-adapter/repoint-decompose-seed!})
 ```
 
-Without the seed, `decompose-kanban` stays reachable by its own name
-(`strand workflow show decompose-kanban`) while the routed `:decompose` keeps
-devflow's strand-native default.
+`defseed` is an idempotent process-lifetime lifecycle effect. The coordinator
+invokes its `:apply` callable once for each weaver generation, passing a context
+map whose `:runtime` is the active runtime plus lifecycle metadata. The adapter
+projects that context into `repoint-decompose!`; the direct registry entry is
+therefore re-established after every refresh. The lifecycle result is data,
+`{:repointed :decompose}`, which the seed runner records as the effect result;
+it is not a module declaration or a workflow step handle. Without the seed,
+`decompose-kanban` stays reachable by its own name (`strand workflow show
+decompose-kanban`) while the routed `:decompose` keeps devflow's strand-native
+default.

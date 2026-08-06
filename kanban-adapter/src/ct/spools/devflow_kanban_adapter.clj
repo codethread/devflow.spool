@@ -35,6 +35,11 @@
 (s/def ::repointed #{:decompose})
 (s/def ::repoint-result (s/keys :req-un [::repointed]))
 
+(def ^:private repoint-input-keys #{:runtime})
+
+(defn- sorted-keys [m]
+  (vec (sort-by pr-str (keys m))))
+
 (defn- require-valid!
   [spec value label]
   (if (s/valid? spec value)
@@ -95,18 +100,41 @@
 (defn repoint-decompose!
   "Re-point the routed `:decompose` stage name at `decompose-kanban`.
 
-  A lifecycle-seed callable: the re-point lives in the registry's direct layer,
-  so it must be re-established on every weaver generation. `land-proposal`'s
-  landed choice then routes into the kanban-bound variant.
+  This is the strict runtime operation used by the lifecycle adapter below. The
+  re-point lives in the registry's direct layer, so it must be re-established on
+  every weaver generation. `land-proposal`'s landed choice then routes into the
+  kanban-bound variant.
 
   Accepts `{:runtime runtime}` satisfying `::repoint-input` and returns
   `{:repointed :decompose}` satisfying `::repoint-result`. The runtime is the
-  lifecycle context's active Millstrand runtime; extra input keys are ignored."
+  lifecycle context's active Millstrand runtime. The input map is closed: any
+  extra or missing key fails with the allowed and received key sets."
   [params]
-  (let [{:keys [runtime]} (require-valid! ::repoint-input params
+  (let [params (if (map? params)
+                 (let [received (set (keys params))]
+                   (when-not (= repoint-input-keys received)
+                     (throw (ex-info
+                              (str "Invalid repoint-decompose! input: expected exact keys; "
+                                   "allowed keys " (pr-str (vec (sort repoint-input-keys)))
+                                   "; received keys " (pr-str (sorted-keys params)))
+                              {:allowed (vec (sort repoint-input-keys))
+                               :received (sorted-keys params)
+                               :value params})))
+                   params)
+                 params)
+        {:keys [runtime]} (require-valid! ::repoint-input params
                                            "Invalid repoint-decompose! input")]
     (current/with-runtime runtime
       (workflow/register-workflow! :decompose
                                    'ct.spools.devflow-kanban-adapter/decompose-kanban))
     (require-valid! ::repoint-result {:repointed :decompose}
                     "Invalid repoint-decompose! result")))
+
+(defn repoint-decompose-seed!
+  "Apply `repoint-decompose!` from a Millstrand lifecycle seed context.
+
+  Lifecycle callables receive coordinator metadata in addition to `:runtime`;
+  this adapter projects the context to the strict public operation contract.
+  The seed runner consumes the returned `{:repointed :decompose}` data result."
+  [{:keys [runtime]}]
+  (repoint-decompose! {:runtime runtime}))

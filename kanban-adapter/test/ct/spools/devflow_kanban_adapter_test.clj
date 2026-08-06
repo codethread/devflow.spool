@@ -72,8 +72,20 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Invalid repoint-decompose! input"
                             (adapter/repoint-decompose! {})))
+      (let [error (try
+                    (adapter/repoint-decompose! {:runtime rt :unexpected true})
+                    nil
+                    (catch clojure.lang.ExceptionInfo ex ex))]
+        (is (instance? clojure.lang.ExceptionInfo error))
+        (is (= [:runtime] (:allowed (ex-data error))))
+        (is (= [:runtime :unexpected] (:received (ex-data error))))
+        (is (str/includes? (.getMessage error) "allowed keys"))
+        (is (str/includes? (.getMessage error) "received keys")))
       (is (= {:repointed :decompose}
-             (adapter/repoint-decompose! {:runtime rt}))))))
+             (adapter/repoint-decompose! {:runtime rt})))
+      (is (= {:repointed :decompose}
+             (adapter/repoint-decompose-seed!
+               {:runtime rt :module/key :adapter :effect/id :seed}))))))
 
 (defn -main [& _]
   (let [summary (clojure.test/run-tests 'ct.spools.devflow-kanban-adapter-test)]
