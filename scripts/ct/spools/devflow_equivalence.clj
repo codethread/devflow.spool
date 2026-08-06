@@ -1,6 +1,7 @@
 (ns ct.spools.devflow-equivalence
   "Executable semantic check for the two published card-authoring targets."
   (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow-kanban-adapter :as adapter]
             [millstrand.api.current.alpha :as current]
@@ -71,10 +72,33 @@
 (defn- fail-mismatch! [message strand kanban]
   (throw (ex-info message {:strand strand :kanban kanban})))
 
-(defn assert-equivalent!
-  "Throw when target behavior or its selected defer binding diverges."
+(def ^:private contract-fields
+  [:artifact :title :instruction])
+
+(defn- assert-contract!
+  "Validate the published fields carried by one authoring target report."
+  [{:keys [target target-behavior] :as report}]
+  (let [{:keys [title instruction]} target-behavior]
+    (when-not (and (keyword? target)
+                   (map? target-behavior)
+                   (every? #(let [value (get target-behavior %)]
+                              (and (string? value) (not (str/blank? value))))
+                           contract-fields)
+                   (str/includes? title (:feature fixture))
+                   (str/includes? instruction "guidance")
+                   (str/includes? (str/lower-case instruction) "card"))
+      (fail-mismatch! "card-authoring target contract is incomplete" report report))))
+
+(defn- assert-equivalent!
+  "Validate the two published authoring reports.
+
+  Artifact, handoff, and review refs are shared contract fields. Titles and
+  instructions may differ between named targets because each explains its own
+  authoring system; when the target name is unchanged, every contract field
+  must remain equal so same-name behavior changes fail the gate."
   [strand kanban]
   (doseq [report [strand kanban]]
+    (assert-contract! report)
     (when-not (some #{(name (:target report))} (:binding report))
       (fail-mismatch! "card-authoring target is not in its defer binding"
                       strand kanban)))
@@ -83,6 +107,10 @@
                      :review-ref-count)]
     (when-not (= (shared strand) (shared kanban))
       (fail-mismatch! "card-authoring semantic mismatch" strand kanban)))
+  (when (and (= (:target strand) (:target kanban))
+             (not= (mapv #(get-in strand [:target-behavior %]) contract-fields)
+                   (mapv #(get-in kanban [:target-behavior %]) contract-fields)))
+    (fail-mismatch! "card-authoring same-name contract divergence" strand kanban))
   true)
 
 (s/def ::divergent-params (s/keys :req-un [::devflow/feature]))
@@ -107,6 +135,17 @@
                                 "workflow/instruction" "The published target behavior diverged."})))
 
 (defn- divergence-regression! [strand]
+  (doseq [field [:title :instruction]]
+    (let [divergent (update-in strand [:target-behavior field]
+                               #(str % " changed"))]
+      (try
+        (assert-equivalent! strand divergent)
+        (throw (ex-info "card-authoring divergence regression did not fire"
+                        {:field field}))
+        (catch clojure.lang.ExceptionInfo error
+          (when (= "card-authoring divergence regression did not fire"
+                   (.getMessage error))
+            (throw error))))))
   (let [divergent (execute-target!
                    #'devflow/decompose
                    :author-card-strands

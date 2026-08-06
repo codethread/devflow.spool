@@ -556,4 +556,4 @@ dependencies resolved.
 - [README.md](./README.md) — installation, source approval, and activation.
 - [Millstrand workflow.md](https://github.com/codethread/millstrand/blob/main/spools/workflow.md) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
 - `(millstrand.spools.workflow/explain topic)` — machine-readable builder contracts.
-- [Millstrand's writing-shared-spools guide](https://github.com/codethread/millstrand/blob/main/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution) — how git-distributed spools like this one are published and pinned.
+- [Writing shared spools](./docs/spools/writing-shared-spools.md) — the pinned Millstrand contract for publishing and CLI shape.

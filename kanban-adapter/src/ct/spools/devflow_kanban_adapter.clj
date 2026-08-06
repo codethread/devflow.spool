@@ -30,6 +30,18 @@
 
 (s/def ::feature non-blank-string?)
 (s/def ::author-cards-params (s/keys :req-un [::feature]))
+(s/def ::runtime some?)
+(s/def ::repoint-input (s/keys :req-un [::runtime]))
+(s/def ::repointed #{:decompose})
+(s/def ::repoint-result (s/keys :req-un [::repointed]))
+
+(defn- require-valid!
+  [spec value label]
+  (if (s/valid? spec value)
+    value
+    (throw (ex-info label {:spec spec
+                           :value value
+                           :explain (s/explain-data spec value)}))))
 
 (workflow/defworkflow author-kanban-cards
   "The kanban card-authoring target for devflow's decompose defer.
@@ -85,8 +97,16 @@
 
   A lifecycle-seed callable: the re-point lives in the registry's direct layer,
   so it must be re-established on every weaver generation. `land-proposal`'s
-  landed choice then routes into the kanban-bound variant."
-  [{:keys [runtime]}]
-  (current/with-runtime runtime
-    (workflow/register-workflow! :decompose 'ct.spools.devflow-kanban-adapter/decompose-kanban))
-  {:repointed :decompose})
+  landed choice then routes into the kanban-bound variant.
+
+  Accepts `{:runtime runtime}` satisfying `::repoint-input` and returns
+  `{:repointed :decompose}` satisfying `::repoint-result`. The runtime is the
+  lifecycle context's active Millstrand runtime; extra input keys are ignored."
+  [params]
+  (let [{:keys [runtime]} (require-valid! ::repoint-input params
+                                           "Invalid repoint-decompose! input")]
+    (current/with-runtime runtime
+      (workflow/register-workflow! :decompose
+                                   'ct.spools.devflow-kanban-adapter/decompose-kanban))
+    (require-valid! ::repoint-result {:repointed :decompose}
+                    "Invalid repoint-decompose! result")))

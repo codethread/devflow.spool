@@ -4,7 +4,11 @@
 # Usage: bin/compat-alarm <previous-release-tag>
 set -euo pipefail
 
-tag="${1:?usage: compat-alarm <previous-release-tag>}"
+if [[ "$#" -ne 1 ]]; then
+  echo "usage: compat-alarm <previous-release-tag>" >&2
+  exit 2
+fi
+tag="$1"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 git archive "$tag" | tar -x -C "$tmp"

@@ -66,6 +66,15 @@
       (is (= "handoff-card-review" (:checkpoint (workflow/ready-step "kb")))
           "the filled target returns into the declaring stage"))))
 
+(deftest repoint-decompose-validates-its-seed-contract
+  (with-runtime
+    (fn [rt]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Invalid repoint-decompose! input"
+                            (adapter/repoint-decompose! {})))
+      (is (= {:repointed :decompose}
+             (adapter/repoint-decompose! {:runtime rt}))))))
+
 (defn -main [& _]
   (let [summary (clojure.test/run-tests 'ct.spools.devflow-kanban-adapter-test)]
     (System/exit (if (pos? (+ (:fail summary) (:error summary))) 1 0))))

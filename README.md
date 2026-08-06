@@ -87,9 +87,11 @@ and how to drive a run.
 In the **consumer's** `spools.edn`:
 
 ```clojure
-{:spools {millstrand.spools/workflow {:local/root "/path/to/your/millstrand/spools/workflow"}
-          codethread/devflow {:git/url "git@github.com:codethread/devflow.spool.git"
-                              :git/sha "<40-hex-sha-for-the-approved-commit>"
+{:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
+                                    :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"
+                                    :roots {millstrand.spools/workflow "spools/workflow"}}
+          codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
+                              :git/sha "e81c860fcb23d491c7e8c6f4c0c94fdf71ac65fb"
                               :roots {codethread/devflow "."}}}}
 ```
 
@@ -99,15 +101,17 @@ kanban spool. It carries its own dependency floor and consumer entry shape —
 see [kanban-adapter/README.md](./kanban-adapter/README.md); the main
 `codethread/devflow` root has no card-system dependency.
 
-For local development, overlay in `spools.local.edn` (usually gitignored):
+For local development only, overlay the approved family in `spools.local.edn` (usually gitignored):
 
 ```clojure
-{:spools {codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
+{:spools {io.millstrand/millstrand {:local/root "/Users/you/dev/millstrand"}
+          codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
 ```
 
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
-To pin the engine independently of your Millstrand checkout, `millstrand.spools/workflow` also takes `:git/url` + `:git/sha` + `:roots {millstrand.spools/workflow "spools/workflow"}`.
+The published example uses one SHA-pinned Millstrand family and maps its workflow
+root with `:roots`. Do not use `:local/root` in a published approval file.
 
 ### Activate the modules
 
