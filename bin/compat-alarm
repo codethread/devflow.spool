@@ -38,15 +38,18 @@ for ns in $nss; do
 done
 
 # Frozen tests run the working devflow source. Mirror the :test alias's
-# approved Millstrand roots so this alarm proves the archived suite against the
-# candidate rather than failing before either namespace loads.
+# approved Millstrand and Millhouse roots so this alarm proves the archived
+# suite against the candidate rather than failing before either namespace loads.
 millstrand_root="../millstrand"
-workflow_root="$millstrand_root/spools/workflow"
+millhouse_sha="8f386b09fb8e8506a3c38105dce8e8552142dbf8"
 kanban_sha="87f61bc2750e7026f3650235907db25f19b1536e"
 
 exec clojure -Sdeps "{:paths [${src_paths}${test_paths}]
                       :deps {io.millstrand/millstrand {:local/root \"$millstrand_root\"}
-                             io.millstrand/workflow-spool {:local/root \"$workflow_root\"}
+                             millhouse.spools/workflow
+                             {:git/url \"https://github.com/codethread/millhouse.spool.git\"
+                              :git/sha \"$millhouse_sha\"
+                              :deps/root \"spools/workflow\"}
                              io.github.codethread/kanban.spool
                              {:git/url \"https://github.com/codethread/kanban.spool.git\"
                               :git/tag \"v24\"

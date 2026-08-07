@@ -19,7 +19,7 @@
             [clojure.string :as str]
             [ct.spools.devflow :as devflow]
             [millstrand.api.current.alpha :as current]
-            [millstrand.spools.workflow :as workflow]))
+            [millhouse.spools.workflow :as workflow]))
 
 (defn- titled [prefix]
   (fn [{:keys [feature]}]

@@ -1,6 +1,6 @@
 # Devflow
 
-A feature-delivery lifecycle, built as [Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md). You name a feature; each stage hands you the next step or the next decision.
+A feature-delivery lifecycle, built as [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/8f386b09fb8e8506a3c38105dce8e8552142dbf8/spools/workflow). You name a feature; each stage hands you the next step or the next decision.
 
 ```sh
 strand workflow start search-filters --workflow intake \
@@ -296,7 +296,7 @@ else, bind the published **unbound templates** (`tasks-open`, `decompose-open`)
 yourself from trusted Clojure that can see both spools:
 
 ```clojure
-(require '[millstrand.spools.workflow :as workflow]
+(require '[millhouse.spools.workflow :as workflow]
          '[ct.spools.devflow :as devflow])
 
 ;; 1. Register your own :call-entrypoint authoring workflow.
@@ -432,7 +432,7 @@ rules are stated once.
 From trusted Clojure (the generic worker CLI deliberately has no squash verb):
 
 ```clojure
-(require '[millstrand.spools.workflow :as workflow])
+(require '[millhouse.spools.workflow :as workflow])
 
 (workflow/squash-run! "search-filters")
 ```
@@ -554,6 +554,6 @@ dependencies resolved.
 ### See also
 
 - [README.md](./README.md) — installation, source approval, and activation.
-- [Millstrand workflow.md](https://github.com/codethread/millstrand/blob/main/spools/workflow.md) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
-- `(millstrand.spools.workflow/explain topic)` — machine-readable builder contracts.
+- [Millhouse workflow](https://github.com/codethread/millhouse.spool/tree/8f386b09fb8e8506a3c38105dce8e8552142dbf8/spools/workflow) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
+- `(millhouse.spools.workflow/explain topic)` — machine-readable builder contracts.
 - [Writing shared spools](./docs/spools/writing-shared-spools.md) — the pinned Millstrand contract for publishing and CLI shape.

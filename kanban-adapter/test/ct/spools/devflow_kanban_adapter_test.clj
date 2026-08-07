@@ -12,16 +12,16 @@
             [ct.spools.kanban]
             [millstrand.api.current.alpha :as current]
             [millstrand.api.runtime.alpha :as runtime]
-            [millstrand.spools.workflow :as workflow]
+            [millhouse.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
 
 (defn- activate! [rt]
-  (doseq [[key config] [[:workflow {:ns 'millstrand.spools.workflow}]
+  (doseq [[key config] [[:millhouse/spools-workflow {:ns 'millhouse.spools.workflow}]
                         [:devflow {:ns 'ct.spools.devflow
-                                   :after [:workflow]}]
+                                   :after [:millhouse/spools-workflow]}]
                         [:kanban {:ns 'ct.spools.kanban}]
                         [:devflow-kanban-adapter {:ns 'ct.spools.devflow-kanban-adapter
-                                          :after [:workflow :devflow :kanban]}]]]
+                                          :after [:millhouse/spools-workflow :devflow :kanban]}]]]
     (let [result (runtime/module! rt key config)
           status (get-in result [:modules key :status])]
       (when-not (contains? #{:applied :unchanged} status)

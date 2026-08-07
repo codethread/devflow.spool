@@ -1,6 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on [Millstrand workflows](https://github.com/codethread/millstrand/blob/main/spools/workflow.md) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/8f386b09fb8e8506a3c38105dce8e8552142dbf8/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -79,7 +79,8 @@ and how to drive a run.
 ### Prerequisites
 
 - **Millstrand at immutable SHA `5790c459e9bb692b5e975f9715df7d5b403feff2`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
-- **`millstrand.spools.workflow`** — the engine devflow builds on.
+- **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
+  Millhouse commit `8f386b09fb8e8506a3c38105dce8e8552142dbf8`.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -89,8 +90,10 @@ In the **consumer's** `spools.edn`:
 ```clojure
 {:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
                                     :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"
-                                    :roots {millstrand.spools/workflow "spools/workflow"
-                                            millstrand.spools/batteries "spools/batteries"}}
+                                    :roots {millstrand.spools/batteries "spools/batteries"}}
+          millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
+                            :git/sha "8f386b09fb8e8506a3c38105dce8e8552142dbf8"
+                            :roots {millhouse.spools/workflow "spools/workflow"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
                               :git/sha "e81c860fcb23d491c7e8c6f4c0c94fdf71ac65fb"
                               :roots {codethread/devflow "."}}}}
@@ -106,14 +109,15 @@ For local development only, overlay the approved family in `spools.local.edn` (u
 
 ```clojure
 {:spools {io.millstrand/millstrand {:local/root "/Users/you/dev/millstrand"
-                                    :roots {millstrand.spools/workflow "spools/workflow"
-                                            millstrand.spools/batteries "spools/batteries"}}
+                                    :roots {millstrand.spools/batteries "spools/batteries"}}
+          millhouse/spools {:local/root "/Users/you/dev/millhouse.spool"
+                            :roots {millhouse.spools/workflow "spools/workflow"}}
           codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
 ```
 
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
 
-The published example uses one SHA-pinned Millstrand family and maps its workflow and Batteries roots with `:roots`; the local overlay replaces that same family's coordinate and inherits both roots. Do not use `:local/root` in a published approval file.
+The published example uses SHA-pinned Millstrand and Millhouse families and maps their approved roots with `:roots`; the local overlay replaces those families with checkouts. Do not use `:local/root` in a published approval file.
 
 ### Activate the modules
 
@@ -133,27 +137,27 @@ From trusted `init.clj` or REPL code:
    :required? true})
 
 (runtime/module! runtime
-  :workflow
-  {:ns 'millstrand.spools.workflow
-   :spools ['millstrand.spools/workflow]
+  :millhouse/spools-workflow
+  {:ns 'millhouse.spools.workflow
+   :spools ['millhouse.spools/workflow]
    :required? true})
 
 (runtime/module! runtime
-  :millstrand/spools-workflow-cli
-  {:ns 'millstrand.spools.workflow.cli
-   :spools ['millstrand.spools/workflow]
-   :after [:workflow]
+  :millhouse/spools-workflow-cli
+  {:ns 'millhouse.spools.workflow.cli
+   :spools ['millhouse.spools/workflow]
+   :after [:millhouse/spools-workflow]
    :required? true})
 
 (runtime/module! runtime
   :devflow
   {:spools ['codethread/devflow]
    :ns 'ct.spools.devflow
-   :after [:workflow]
+   :after [:millhouse/spools-workflow]
    :required? true})
 ```
 
-Devflow needs `:workflow` declared first, and `:after [:workflow]` keeps a failed
+Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed
 prerequisite explicit. The batteries module provides the `strand list`, `ready`,
 and `query` commands used for discovery; the workflow CLI provides lifecycle
 commands. Devflow's stage definitions and queries register as the namespace

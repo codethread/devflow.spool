@@ -10,21 +10,21 @@
 
 ;; Devflow is a module so its named workflow routes are published as one
 ;; owner-complete contribution. Keep workflow first: it declares the route kind.
-(runtime/module! runtime :workflow
-  {:ns 'millstrand.spools.workflow
-   :spools ['millstrand.spools/workflow]
+(runtime/module! runtime :millhouse/spools-workflow
+  {:ns 'millhouse.spools.workflow
+   :spools ['millhouse.spools/workflow]
    :required? true})
 
-(runtime/module! runtime :millstrand/spools-workflow-cli
-  {:ns 'millstrand.spools.workflow.cli
-   :spools ['millstrand.spools/workflow]
-   :after [:workflow]
+(runtime/module! runtime :millhouse/spools-workflow-cli
+  {:ns 'millhouse.spools.workflow.cli
+   :spools ['millhouse.spools/workflow]
+   :after [:millhouse/spools-workflow]
    :required? true})
 
 (runtime/module! runtime :devflow
   {:ns 'ct.spools.devflow
    :spools ['codethread/devflow]
-   :after [:workflow]
+   :after [:millhouse/spools-workflow]
    :required? true})
 
 ;; kanban board for this repo's own coordination cards: local tracking choice,

@@ -1,6 +1,6 @@
 (ns ct.spools.devflow-test
   "Tests Devflow as a collection of static Millstrand workflows and named discovery
-  queries. Workflow execution itself belongs to millstrand.spools.workflow."
+  queries. Workflow execution itself belongs to millhouse.spools.workflow."
   (:require [clojure.data.json :as json]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
@@ -12,7 +12,7 @@
             [millstrand.api.graph.alpha :as graph]
             [millstrand.api.runtime.alpha :as runtime]
             [millstrand.api.weaver.alpha :as weaver]
-            [millstrand.spools.workflow :as workflow]
+            [millhouse.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
 
 (def ^:private stage-names
@@ -25,9 +25,9 @@
   #{:agent-review :author-task-strands :author-card-strands})
 
 (defn- activate! [rt]
-  (doseq [[key config] [[:workflow {:ns 'millstrand.spools.workflow}]
+  (doseq [[key config] [[:millhouse/spools-workflow {:ns 'millhouse.spools.workflow}]
                         [:devflow {:ns 'ct.spools.devflow
-                                   :after [:workflow]}]]]
+                                   :after [:millhouse/spools-workflow]}]]]
     (let [result (runtime/module! rt key config)
           status (get-in result [:modules key :status])]
       (when-not (contains? #{:applied :unchanged} status)
