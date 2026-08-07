@@ -9,7 +9,7 @@ trap 'rm -f "$findings"' EXIT
 [[ -f "$allowlist" ]] || { echo "identity-check: missing $allowlist" >&2; exit 1; }
 cd "$repo_root"
 
-scan_paths=(src test kanban-adapter README.md CHANGELOG.md devflow.md AGENTS.md deps.edn spool.edn .skein)
+scan_paths=(src test kanban-adapter README.md CHANGELOG.md devflow.md AGENTS.md deps.edn spool.edn .millstrand)
 set +e
 rg -n -i --hidden --max-columns 100000 \
   --glob '!.git/**' \

@@ -27,7 +27,7 @@ bin/verify-card-authoring-equivalence
 timeout 30 bin/compat-alarm v20   # expected non-zero alpha-break alarm
 ```
 
-The repository-local aggregate is `.skein/land-quality.sh`. After landing and tagging, the coordinator reruns the same evidence against the immutable v21 tag and records the exact peeled SHA in the MSR-07 release map. Rollback means stopping consumption of v21 and pinning the previous Devflow release; no compatibility artifact or automatic namespace migration is provided.
+The repository-local aggregate is `.millstrand/land-quality.sh`. After landing and tagging, the coordinator reruns the same evidence against the immutable v21 tag and records the exact peeled SHA in the MSR-07 release map. Rollback means stopping consumption of v21 and pinning the previous Devflow release; no compatibility artifact or automatic namespace migration is provided.
 
 ## Non-goals
 

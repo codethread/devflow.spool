@@ -27,7 +27,7 @@ devflow/
 
 `<feature>` is the kebab-case feature name; it is also the workflow run-id.
 
-The AFK/HITL task queue is not a folder: tasks are strands in the Skein graph
+The AFK/HITL task queue is not a folder: tasks are strands in the Millstrand graph
 (`strand ready --query devflow-tasks`), carrying the vocabulary the tasks
 guide defines. Workspaces that bind their own decomposition targets keep
 tasks or cards in that system instead.

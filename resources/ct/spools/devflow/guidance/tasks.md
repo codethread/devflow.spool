@@ -1,6 +1,6 @@
 # Devflow guide: tasks
 
-A deterministic, feature-local AFK task queue authored as strands in the Skein
+A deterministic, feature-local AFK task queue authored as strands in the Millstrand
 graph: tracer-bullet vertical slices an unattended agent can execute one at a
 time, referencing the proposal/spec/RFC/plan instead of duplicating rationale.
 
