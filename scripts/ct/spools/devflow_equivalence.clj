@@ -6,7 +6,7 @@
             [ct.spools.devflow-kanban-adapter :as adapter]
             [millstrand.api.current.alpha :as current]
             [millstrand.api.runtime.alpha :as runtime]
-            [millstrand.spools.workflow :as workflow]
+            [millhouse.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
 
 (def ^:private fixture
@@ -17,18 +17,18 @@
             :title "Release verification evidence"}]})
 
 (defn- activate! [rt]
-  (doseq [namespace '[millstrand.spools.workflow
+  (doseq [namespace '[millhouse.spools.workflow
                       ct.spools.devflow
                       ct.spools.kanban
                       ct.spools.devflow-kanban-adapter]]
     (require namespace))
-  (doseq [[key config] [[:workflow {:ns 'millstrand.spools.workflow}]
+  (doseq [[key config] [[:millhouse/spools-workflow {:ns 'millhouse.spools.workflow}]
                         [:devflow {:ns 'ct.spools.devflow
-                                   :after [:workflow]}]
+                                   :after [:millhouse/spools-workflow]}]
                         [:kanban {:ns 'ct.spools.kanban}]
                         [:devflow-kanban-adapter
                          {:ns 'ct.spools.devflow-kanban-adapter
-                          :after [:workflow :devflow :kanban]}]]]
+                          :after [:millhouse/spools-workflow :devflow :kanban]}]]]
     (runtime/module! rt key config))
   rt)
 

@@ -18,7 +18,7 @@
             [ct.spools.devflow.guidance :as guidance]
             [millstrand.api.format.alpha :as format-alpha]
             [millstrand.api.millstrand.alpha :as millstrand]
-            [millstrand.spools.workflow :as workflow]))
+            [millhouse.spools.workflow :as workflow]))
 
 (def artifact-guides
   "Maps each `workflow/artifact` value an authoring step advertises to the
@@ -887,7 +887,7 @@
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
 ;; Devflow publishes workflow definitions, query declarations, and one static
-;; read op. The generic `millstrand.spools.workflow` API owns starting, inspecting,
+;; read op. The generic `millhouse.spools.workflow` API owns starting, inspecting,
 ;; advancing, archiving, and querying their runs; Devflow adds no parallel
 ;; run-driving facade — the `devflow` op serves authoring knowledge only.
 
