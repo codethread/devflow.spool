@@ -101,6 +101,15 @@
            :millstrand/spools-delegation]
    :required? true})
 
+(runtime/module! runtime :millstrand/spools-subagent
+  {:ns 'ct.spools.executors.subagent
+   :spools ['ct.spools/agent-run 'millhouse.spools/workflow]
+   :after [:millstrand/spools-agent-run
+           :millhouse/spools-workflow
+           :codethread/agents
+           :devflow/kanban-adapter]
+   :required? true})
+
 (runtime/module! runtime :codethread/spool-bump
   {:ns 'ct.spools.codethread.spool-bump
    :spools ['codethread/spool-bump 'millhouse.spools/workflow]

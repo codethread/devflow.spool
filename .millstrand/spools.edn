@@ -11,8 +11,7 @@
                                      codethread/devflow-setup "spools/devflow-setup"
                                      codethread/ralph "spools/ralph"}}
           ct.spools/agent-run {:git/url "https://github.com/codethread/agent-harness.spool.git"
-                               :git/sha "82f8df466e6caea74a93d994604d94ab6bf78b72"
-                               :git/tag "v26"
+                               :git/sha "911bc4cb3364ce23516963761820ca0a55d01a39"
                                :roots {ct.spools/agent-run "agent-run"
                                        ct.spools/harness-core "harness-core"
                                        ct.spools/claude-harness "claude-harness"
