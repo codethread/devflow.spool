@@ -81,6 +81,11 @@ and how to drive a run.
 - **Millstrand at immutable SHA `5790c459e9bb692b5e975f9715df7d5b403feff2`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
   Millhouse commit `8f386b09fb8e8506a3c38105dce8e8552142dbf8`.
+- **Codethread shared workflow spools** — pinned at
+  `d4c3ead266e1215de325e878b471710896c1e571`.
+- **Agent Harness** — pinned at `v26`, commit
+  `82f8df466e6caea74a93d994604d94ab6bf78b72`, for agent-run, delegation, and
+  provider roots.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -93,10 +98,32 @@ In the **consumer's** `spools.edn`:
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
                             :git/sha "8f386b09fb8e8506a3c38105dce8e8552142dbf8"
-                            :roots {millhouse.spools/workflow "spools/workflow"}}
+                            :roots {millhouse.spools/workflow "spools/workflow"
+                                    millhouse.spools.executors/shell "spools/shell-executor"}}
+          ct.spools/agent-run {:git/url "https://github.com/codethread/agent-harness.spool.git"
+                               :git/tag "v26"
+                               :git/sha "82f8df466e6caea74a93d994604d94ab6bf78b72"
+                               :roots {ct.spools/agent-run "agent-run"
+                                       ct.spools/harness-core "harness-core"
+                                       ct.spools/claude-harness "claude-harness"
+                                       ct.spools/codex-harness "codex-harness"
+                                       ct.spools/pi-harness "pi-harness"
+                                       ct.spools/agent-cli "agent-cli"
+                                       ct.spools/delegation "delegation"}}
+          codethread/spools {:git/url "https://github.com/codethread/codethread.spool.git"
+                             :git/sha "d4c3ead266e1215de325e878b471710896c1e571"
+                             :roots {codethread/agents "spools/agents"
+                                     codethread/spool-bump "spools/spool-bump"
+                                     codethread/devflow-setup "spools/devflow-setup"
+                                     codethread/ralph "spools/ralph"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
-                              :git/sha "e81c860fcb23d491c7e8c6f4c0c94fdf71ac65fb"
-                              :roots {codethread/devflow "."}}}}
+                              :git/sha "528e0ba636e28032985f7f9706c8350e9f785d97"
+                              :roots {codethread/devflow "."
+                                      codethread/devflow-kanban-adapter "kanban-adapter"}}
+          codethread/kanban {:git/url "https://github.com/codethread/kanban.spool.git"
+                             :git/tag "v24"
+                             :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"
+                             :roots {codethread/kanban "."}}}}
 ```
 
 This repository also ships a second, optional root: `codethread/devflow-kanban-adapter`
@@ -111,8 +138,24 @@ For local development only, overlay the approved family in `spools.local.edn` (u
 {:spools {io.millstrand/millstrand {:local/root "/Users/you/dev/millstrand"
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:local/root "/Users/you/dev/millhouse.spool"
-                            :roots {millhouse.spools/workflow "spools/workflow"}}
-          codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
+                            :roots {millhouse.spools/workflow "spools/workflow"
+                                    millhouse.spools.executors/shell "spools/shell-executor"}}
+          ct.spools/agent-run {:local/root "/Users/you/dev/agent-harness.spool"
+                               :roots {ct.spools/agent-run "agent-run"
+                                       ct.spools/harness-core "harness-core"
+                                       ct.spools/claude-harness "claude-harness"
+                                       ct.spools/codex-harness "codex-harness"
+                                       ct.spools/pi-harness "pi-harness"
+                                       ct.spools/agent-cli "agent-cli"
+                                       ct.spools/delegation "delegation"}}
+          codethread/spools {:local/root "/Users/you/dev/codethread.spool"
+                             :roots {codethread/agents "spools/agents"
+                                     codethread/spool-bump "spools/spool-bump"
+                                     codethread/devflow-setup "spools/devflow-setup"
+                                     codethread/ralph "spools/ralph"}}
+          codethread/devflow {:local/root "/Users/you/dev/devflow.spool"
+                              :roots {codethread/devflow "."
+                                      codethread/devflow-kanban-adapter "kanban-adapter"}}}}
 ```
 
 > This repo's `spool.edn` is advisory producer metadata, not consumer approval.
@@ -150,9 +193,113 @@ From trusted `init.clj` or REPL code:
    :required? true})
 
 (runtime/module! runtime
+  :millhouse/spools-shell
+  {:ns 'millhouse.spools.executors.shell
+   :spools ['millhouse.spools.executors/shell
+            'millhouse.spools/workflow]
+   :after [:millhouse/spools-workflow]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-agent-run
+  {:ns 'ct.spools.agent-run
+   :spools ['ct.spools/agent-run]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-delegation
+  {:ns 'ct.spools.delegation
+   :spools ['ct.spools/delegation 'ct.spools/agent-run]
+   :after [:millstrand/spools-agent-run]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-harness-core
+  {:ns 'ct.spools.harness-core
+   :spools ['ct.spools/harness-core]
+   :after [:millstrand/spools-agent-run]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-claude-harness
+  {:ns 'ct.spools.claude-harness
+   :spools ['ct.spools/claude-harness 'ct.spools/harness-core]
+   :after [:millstrand/spools-harness-core]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-codex-harness
+  {:ns 'ct.spools.codex-harness
+   :spools ['ct.spools/codex-harness 'ct.spools/harness-core]
+   :after [:millstrand/spools-harness-core]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-pi-harness
+  {:ns 'ct.spools.pi-harness
+   :spools ['ct.spools/pi-harness 'ct.spools/harness-core]
+   :after [:millstrand/spools-harness-core]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-agent-cli
+  {:ns 'ct.spools.agent-cli
+   :spools ['ct.spools/agent-cli 'ct.spools/harness-core]
+   :after [:millstrand/spools-harness-core
+           :millstrand/spools-claude-harness
+           :millstrand/spools-codex-harness
+           :millstrand/spools-pi-harness]
+   :required? true})
+
+(runtime/module! runtime
   :devflow
-  {:spools ['codethread/devflow]
+  {:spools ['codethread/devflow 'millhouse.spools/workflow]
    :ns 'ct.spools.devflow
+   :after [:millhouse/spools-workflow]
+   :required? true})
+
+(runtime/module! runtime
+  :millstrand/spools-kanban
+  {:ns 'ct.spools.kanban
+   :spools ['codethread/kanban]
+   :required? true})
+
+(runtime/module! runtime
+  :devflow/kanban-adapter
+  {:ns 'ct.spools.devflow-kanban-adapter
+   :spools ['codethread/devflow-kanban-adapter
+            'codethread/devflow 'codethread/kanban
+            'millhouse.spools/workflow]
+   :after [:devflow :millstrand/spools-kanban
+           :millhouse/spools-workflow]
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/agents
+  {:ns 'ct.spools.codethread.agents
+   :spools ['codethread/agents 'ct.spools/agent-run 'ct.spools/delegation]
+   :after [:millstrand/spools-agent-run
+           :millstrand/spools-delegation]
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/spool-bump
+  {:ns 'ct.spools.codethread.spool-bump
+   :spools ['codethread/spool-bump 'millhouse.spools/workflow]
+   :after [:millhouse/spools-workflow]
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/devflow-setup
+  {:ns 'ct.spools.codethread.devflow-setup
+   :spools ['codethread/devflow-setup]
+   :after [:devflow/kanban-adapter]
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/ralph
+  {:ns 'ct.spools.codethread.ralph
+   :spools ['codethread/ralph 'millhouse.spools/workflow]
    :after [:millhouse/spools-workflow]
    :required? true})
 ```
@@ -160,8 +307,11 @@ From trusted `init.clj` or REPL code:
 Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed
 prerequisite explicit. The batteries module provides the `strand list`, `ready`,
 and `query` commands used for discovery; the workflow CLI provides lifecycle
-commands. Devflow's stage definitions and queries register as the namespace
-loads — there is no `spool`, `contribute`, or `reconcile` Var to call.
+commands; the shell and agent-run/delegation modules provide external gate
+execution and direct delegation. The Codethread shared roots are activated
+after their providers, with `devflow-setup` after this checkout's Kanban adapter.
+Devflow's stage definitions and queries register as the namespace loads — there
+is no `spool`, `contribute`, or `reconcile` Var to call.
 
 ### Check it worked
 
