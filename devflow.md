@@ -1,6 +1,6 @@
 # Devflow
 
-A feature-delivery lifecycle, built as [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/8f386b09fb8e8506a3c38105dce8e8552142dbf8/spools/workflow). You name a feature; each stage hands you the next step or the next decision.
+A feature-delivery lifecycle, built as [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/5581f0aef638a1744521fe95282de5a969a999fd/spools/workflow). You name a feature; each stage hands you the next step or the next decision.
 
 ```sh
 strand workflow start search-filters --workflow intake \
@@ -554,6 +554,6 @@ dependencies resolved.
 ### See also
 
 - [README.md](./README.md) — installation, source approval, and activation.
-- [Millhouse workflow](https://github.com/codethread/millhouse.spool/tree/8f386b09fb8e8506a3c38105dce8e8552142dbf8/spools/workflow) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
+- [Millhouse workflow](https://github.com/codethread/millhouse.spool/tree/5581f0aef638a1744521fe95282de5a969a999fd/spools/workflow) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
 - `(millhouse.spools.workflow/explain topic)` — machine-readable builder contracts.
 - [Writing shared spools](./docs/spools/writing-shared-spools.md) — the pinned Millstrand contract for publishing and CLI shape.

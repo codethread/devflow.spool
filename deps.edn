@@ -12,7 +12,7 @@
          :extra-deps {io.millstrand/millstrand {:local/root "../millstrand"}
                       millhouse.spools/workflow
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "8f386b09fb8e8506a3c38105dce8e8552142dbf8"
+                       :git/sha "5581f0aef638a1744521fe95282de5a969a999fd"
                        :deps/root "spools/workflow"}
                       io.github.codethread/kanban.spool
                       {:git/url "https://github.com/codethread/kanban.spool.git"
@@ -26,7 +26,7 @@
                                         :git/sha "fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4"}
                                        millhouse.spools/workflow
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "8f386b09fb8e8506a3c38105dce8e8552142dbf8"
+                                        :git/sha "5581f0aef638a1744521fe95282de5a969a999fd"
                                         :deps/root "spools/workflow"}
                                        io.github.codethread/kanban.spool
                                        {:git/url "https://github.com/codethread/kanban.spool.git"
