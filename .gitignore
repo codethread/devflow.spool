@@ -1,7 +1,8 @@
 # Clojure / tools.deps
 .cpcache/
-.clj-kondo/
-.lsp/.cache/
+.clj-kondo/.cache/
+.lsp/*
+!.lsp/config.edn
 target/
 classes/
 pom.xml.asc
