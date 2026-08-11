@@ -5,7 +5,7 @@
                                     millhouse.spools/millstrand-workflows "spools/millstrand-workflows"
                                     millhouse.spools.executors/shell "spools/shell-executor"}}
           codethread/spools {:git/url "https://github.com/codethread/codethread.spool.git"
-                             :git/sha "90f6c8e04568da5b860bc64a24006931ce88dad1"
+                             :git/sha "26fdf691649e8c92ae6366c627e0a77cd8219549"
                              :roots {codethread/agents "spools/agents"
                                      codethread/devflow-setup "spools/devflow-setup"
                                      codethread/ralph "spools/ralph"}}
