@@ -1,6 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/5581f0aef638a1744521fe95282de5a969a999fd/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/d1affd4065fcf69b81c0191944791475108d7bea/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -80,7 +80,7 @@ and how to drive a run.
 
 - **Millstrand at immutable SHA `fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
-  Millhouse commit `5581f0aef638a1744521fe95282de5a969a999fd`.
+  Millhouse commit `d1affd4065fcf69b81c0191944791475108d7bea`.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -92,7 +92,7 @@ In the **consumer's** `spools.edn`:
                                     :git/sha "fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4"
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
-                            :git/sha "5581f0aef638a1744521fe95282de5a969a999fd"
+                            :git/sha "d1affd4065fcf69b81c0191944791475108d7bea"
                             :roots {millhouse.spools/workflow "spools/workflow"
                                     millhouse.spools/millstrand-workflows "spools/millstrand-workflows"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"

@@ -1,13 +1,12 @@
 {:spools {millstrand.spools/batteries {:millstrand/source-root "spools/batteries"}
           millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
-                            :git/sha "5581f0aef638a1744521fe95282de5a969a999fd"
+                            :git/sha "d1affd4065fcf69b81c0191944791475108d7bea"
                             :roots {millhouse.spools/workflow "spools/workflow"
                                     millhouse.spools/millstrand-workflows "spools/millstrand-workflows"
                                     millhouse.spools.executors/shell "spools/shell-executor"}}
           codethread/spools {:git/url "https://github.com/codethread/codethread.spool.git"
                              :git/sha "90f6c8e04568da5b860bc64a24006931ce88dad1"
                              :roots {codethread/agents "spools/agents"
-                                     codethread/spool-bump "spools/spool-bump"
                                      codethread/devflow-setup "spools/devflow-setup"
                                      codethread/ralph "spools/ralph"}}
           ct.spools/agent-run {:git/url "https://github.com/codethread/agent-harness.spool.git"
