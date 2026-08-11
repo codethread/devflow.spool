@@ -78,7 +78,7 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Millstrand at immutable SHA `5790c459e9bb692b5e975f9715df7d5b403feff2`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
+- **Millstrand at immutable SHA `fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
   Millhouse commit `8f386b09fb8e8506a3c38105dce8e8552142dbf8`.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
@@ -89,7 +89,7 @@ In the **consumer's** `spools.edn`:
 
 ```clojure
 {:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
-                                    :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"
+                                    :git/sha "fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4"
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
                             :git/sha "8f386b09fb8e8506a3c38105dce8e8552142dbf8"
