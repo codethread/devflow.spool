@@ -23,7 +23,7 @@
   :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
                           :extra-deps {io.millstrand/millstrand
                                        {:git/url "https://github.com/codethread/millstrand.git"
-                                        :git/sha "5790c459e9bb692b5e975f9715df7d5b403feff2"}
+                                        :git/sha "fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4"}
                                        millhouse.spools/workflow
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
                                         :git/sha "8f386b09fb8e8506a3c38105dce8e8552142dbf8"
@@ -33,4 +33,6 @@
                                         :git/tag "v24"
                                         :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
-                          :main-opts ["-m" "ct.spools.devflow-equivalence"]}}}
+                          :main-opts ["-m" "ct.spools.devflow-equivalence"]}
+  :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.06.05"}}
+         :main-opts ["-m" "clj-kondo.main"]}}}
