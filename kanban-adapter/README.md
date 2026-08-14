@@ -39,7 +39,7 @@ existing `codethread/devflow` entry and declaring the kanban floor:
 {:spools
  {codethread/devflow
   {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "v21" :git/sha "<peeled sha of v21>"
+   :git/tag "v22" :git/sha "<peeled sha of v22>"
    :roots {codethread/devflow "."
            codethread/devflow-kanban-adapter "kanban-adapter"}
    :requires {codethread/kanban "v24"}}

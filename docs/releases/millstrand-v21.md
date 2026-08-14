@@ -8,7 +8,7 @@ This release is the MSR-07 cut of `codethread/devflow`. It changes the engine-fa
 - Repository: `codethread/devflow.spool`.
 - Coordinate: `codethread/devflow`.
 - Core coordinate: `io.millstrand/millstrand`.
-- Core reference: immutable SHA `5790c459e9bb692b5e975f9715df7d5b403feff2` from MSR-04.
+- Core reference: immutable SHA `3bbe5dc15359975a8e8203ef47b3a7514177e75b` from the selectable-authoring producer commit.
 - Kanban release: `codethread/kanban` `v24`, `87f61bc2750e7026f3650235907db25f19b1536e`.
 - Peeled Devflow SHA: recorded by the coordinator after the annotated tag is cut; it must equal the landed canonical-main commit.
 

@@ -124,7 +124,7 @@
              (meta node))}))
 
 (defn deffn
-  "Analyze a function-backed authoring form as a `defn`."
+  "Analyze a function-backed authoring form as a `defn` at its authored name."
   [context]
   (let [[node children] (hook-children :deffn context 5 false)
         [form-node name-node docstring-node & after-doc] children

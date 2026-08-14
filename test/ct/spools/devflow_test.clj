@@ -2,7 +2,6 @@
   "Tests Devflow as a collection of static Millstrand workflows and named discovery
   queries. Workflow execution itself belongs to millhouse.spools.workflow."
   (:require [clojure.data.json :as json]
-            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [ct.spools.devflow :as devflow]
@@ -75,7 +74,7 @@
 
 (deftest module-publishes-the-complete-devflow-workflow-catalogue
   (with-runtime
-    (fn [rt]
+    (fn [_rt]
       (is (= stage-names (set (keys (workflow/workflows)))))
       (is (= #{:start} (:entrypoints (workflow/resolve-workflow :intake))))
       (doseq [callee call-only-names]
@@ -91,7 +90,7 @@
 
 (deftest generic-workflow-api-starts-and-drives-a-devflow-run
   (with-runtime
-    (fn [rt]
+    (fn [_rt]
       (let [started (workflow/start! "search-filters" :intake
                                      {:feature "search-filters"
                                       :worktree-check "already-in-worktree-ok"})]

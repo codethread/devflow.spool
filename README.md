@@ -96,7 +96,8 @@ In the **consumer's** `spools.edn`:
                             :roots {millhouse.spools/workflow "spools/workflow"
                                     millhouse.spools/millstrand-workflows "spools/millstrand-workflows"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
-                              :git/sha "e81c860fcb23d491c7e8c6f4c0c94fdf71ac65fb"
+                              :git/tag "v22"
+                              :git/sha "<peeled sha of v22>"
                               :roots {codethread/devflow "."}}}}
 ```
 
