@@ -14,14 +14,9 @@ strand workflow start search-filters --workflow intake \
 
 ## Declaration and selection
 
-Devflow's workflow, query, and operation Vars use Millstrand's three-form
-authoring convention. The unbanged form defines an inert declaration, the
-typed `use-<kind>!` form selects an existing declaration for the current module,
-and the bang form defines and selects in one expression.
+Devflow's workflow, query, and operation Vars use Millstrand's three-form authoring convention. The unbanged form defines an inert declaration, the typed `use-<kind>!` form selects an existing declaration for the current module, and the bang form defines and selects in one expression.
 
-The root module uses explicit `use-workflow!`, `use-query!`, and `use-op!` forms
-to publish its complete catalogue. A consumer that requires `ct.spools.devflow`
-from its own module can select only the declarations it needs, for example:
+The root module uses explicit `use-workflow!`, `use-query!`, and `use-op!` forms to publish its complete catalogue. A consumer that requires `ct.spools.devflow` from its own module can select only the declarations it needs, for example:
 
 ```clojure
 (require '[ct.spools.devflow :as devflow]
@@ -33,8 +28,7 @@ from its own module can select only the declarations it needs, for example:
 (millstrand/use-op! devflow/devflow)
 ```
 
-Selection is the publication boundary. Loading the namespace or evaluating a
-definition outside module collection does not publish it.
+Selection is the publication boundary. Loading the namespace or evaluating a definition outside module collection does not publish it.
 
 | You have | You call |
 |---|---|

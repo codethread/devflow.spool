@@ -12,18 +12,12 @@ those records are folded into this file.)
 
 Peeled sha: recorded by the coordinator after the annotated v22 tag is cut.
 
-The release keeps the Devflow domain and repository identity unchanged while
-pinning its published proof to the Millstrand selectable-authoring commit and
-the Millhouse Workflow commit consumed by the test and equivalence gates.
+The release keeps the Devflow domain and repository identity unchanged while pinning its published proof to the Millstrand selectable-authoring commit and the Millhouse Workflow commit consumed by the test and equivalence gates.
 
-- Millstrand: `io.millstrand/millstrand` at
-  `3bbe5dc15359975a8e8203ef47b3a7514177e75b`.
-- Millhouse Workflow: `millhouse.spools/workflow` at
-  `b0ac2268685e53510df01dcd0cc533b8fd40a25d`.
-- Kanban remains at `v24`, peeled SHA
-  `87f61bc2750e7026f3650235907db25f19b1536e`.
-- The vendored Millstrand clj-kondo config and hook match the producer-owned
-  exports at the pinned core commit.
+- Millstrand: `io.millstrand/millstrand` at `3bbe5dc15359975a8e8203ef47b3a7514177e75b`.
+- Millhouse Workflow: `millhouse.spools/workflow` at `b0ac2268685e53510df01dcd0cc533b8fd40a25d`.
+- Kanban remains at `v24`, peeled SHA `87f61bc2750e7026f3650235907db25f19b1536e`.
+- The vendored Millstrand clj-kondo config and hook match the producer-owned exports at the pinned core commit.
 
 ## v20 — proposal guidance shows the change; query Vars match their registered names
 

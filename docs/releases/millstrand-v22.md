@@ -1,7 +1,6 @@
 # Devflow spool v22 (selectable authoring)
 
-This release is the next `codethread/devflow` marker after the Millstrand
-alpha cutover. It keeps the Devflow domain and repository identity unchanged.
+This release is the next `codethread/devflow` marker after the Millstrand alpha cutover. It keeps the Devflow domain and repository identity unchanged.
 
 ## Release identity
 
@@ -16,12 +15,8 @@ alpha cutover. It keeps the Devflow domain and repository identity unchanged.
 
 ## Verification
 
-The release proof covers the test suite, clj-kondo across every maintained
-root, published card-authoring equivalence, identity, diff, and resolved
-coordinate checks. The vendored Millstrand clj-kondo config and hook are
-byte-exact copies of the producer-owned exports at the core reference.
+The release proof covers the test suite, clj-kondo across every maintained root, published card-authoring equivalence, identity, diff, and resolved coordinate checks. The vendored Millstrand clj-kondo config and hook are byte-exact copies of the producer-owned exports at the core reference.
 
 ## Non-goals
 
-This release does not rename `strand`, `mill`, `weaver`, or the Devflow domain
-and repository coordinate. It retains the external Kanban v24 pairing.
+This release does not rename `strand`, `mill`, `weaver`, or the Devflow domain and repository coordinate. It retains the external Kanban v24 pairing.

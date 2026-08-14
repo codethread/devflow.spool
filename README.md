@@ -168,14 +168,7 @@ From trusted `init.clj` or REPL code:
    :required? true})
 ```
 
-Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed
-prerequisite explicit. The batteries module provides the `strand list`, `ready`,
-and `query` commands used for discovery; the workflow CLI provides lifecycle
-commands. Devflow's namespace defines inert declarations and explicitly selects
-its full catalogue when the `:devflow` module loads. Consumers that require the
-library outside module collection can select individual declarations with the
-matching typed use form. There is no `spool`, `contribute`, or `reconcile` Var
-to call.
+Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed prerequisite explicit. The batteries module provides the `strand list`, `ready`, and `query` commands used for discovery; the workflow CLI provides lifecycle commands. Devflow's namespace defines inert declarations and explicitly selects its full catalogue when the `:devflow` module loads. Consumers that require the library outside module collection can select individual declarations with the matching typed use form. There is no `spool`, `contribute`, or `reconcile` Var to call.
 
 ### Check it worked
 
