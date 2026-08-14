@@ -1,6 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/d1affd4065fcf69b81c0191944791475108d7bea/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/b0ac2268685e53510df01dcd0cc533b8fd40a25d/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -78,9 +78,9 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Millstrand at immutable SHA `fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4`**, the tested SHA-only alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
+- **Millstrand at immutable SHA `3bbe5dc15359975a8e8203ef47b3a7514177e75b`**, the selectable-authoring alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
-  Millhouse commit `d1affd4065fcf69b81c0191944791475108d7bea`.
+  Millhouse commit `b0ac2268685e53510df01dcd0cc533b8fd40a25d`.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -89,14 +89,15 @@ In the **consumer's** `spools.edn`:
 
 ```clojure
 {:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
-                                    :git/sha "fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4"
+                                    :git/sha "3bbe5dc15359975a8e8203ef47b3a7514177e75b"
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
-                            :git/sha "d1affd4065fcf69b81c0191944791475108d7bea"
+                            :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
                             :roots {millhouse.spools/workflow "spools/workflow"
                                     millhouse.spools/millstrand-workflows "spools/millstrand-workflows"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
-                              :git/sha "e81c860fcb23d491c7e8c6f4c0c94fdf71ac65fb"
+                              :git/tag "v22"
+                              :git/sha "<peeled sha of v22>"
                               :roots {codethread/devflow "."}}}}
 ```
 
@@ -167,11 +168,7 @@ From trusted `init.clj` or REPL code:
    :required? true})
 ```
 
-Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed
-prerequisite explicit. The batteries module provides the `strand list`, `ready`,
-and `query` commands used for discovery; the workflow CLI provides lifecycle
-commands. Devflow's stage definitions and queries register as the namespace
-loads — there is no `spool`, `contribute`, or `reconcile` Var to call.
+Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed prerequisite explicit. The batteries module provides the `strand list`, `ready`, and `query` commands used for discovery; the workflow CLI provides lifecycle commands. Devflow's namespace defines inert declarations and explicitly selects its full catalogue when the `:devflow` module loads. Consumers that require the library outside module collection can select individual declarations with the matching typed use form. There is no `spool`, `contribute`, or `reconcile` Var to call.
 
 ### Check it worked
 

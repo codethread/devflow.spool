@@ -10,6 +10,7 @@
             ;; the test world loads it for the :kanban module activation below
             ;; (a real world gets it as an approved spool root).
             [ct.spools.kanban]
+            [millstrand.api.authoring.alpha :as authoring]
             [millstrand.api.current.alpha :as current]
             [millstrand.api.runtime.alpha :as runtime]
             [millhouse.spools.workflow :as workflow]
@@ -33,6 +34,17 @@
     (let [rt (activate! (:runtime ctx))]
       (current/with-runtime rt
         (f rt)))))
+
+(deftest adapter-declarations-carry-typed-selection-metadata
+  (doseq [[sym key] [['author-kanban-cards :author-kanban-cards]
+                     ['decompose-kanban :decompose-kanban]]]
+    (let [var (ns-resolve 'ct.spools.devflow-kanban-adapter sym)
+          declaration (::authoring/declaration (meta var))]
+      (is (var? var) (str sym " is a declaration Var"))
+      (is (= :registry (:channel declaration)))
+      (is (= (symbol "ct.spools.devflow-kanban-adapter" (name sym))
+             (:var declaration)))
+      (is (= key (:key declaration))))))
 
 (deftest adapter-accretes-its-definitions-beside-devflow
   (with-runtime

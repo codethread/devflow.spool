@@ -40,12 +40,14 @@ done
 # Frozen tests run the working devflow source. Mirror the :test alias's
 # approved Millstrand and Millhouse roots so this alarm proves the archived
 # suite against the candidate rather than failing before either namespace loads.
-millstrand_root="../millstrand"
-millhouse_sha="d1affd4065fcf69b81c0191944791475108d7bea"
+millstrand_sha="3bbe5dc15359975a8e8203ef47b3a7514177e75b"
+millhouse_sha="b0ac2268685e53510df01dcd0cc533b8fd40a25d"
 kanban_sha="87f61bc2750e7026f3650235907db25f19b1536e"
 
 exec clojure -Sdeps "{:paths [${src_paths}${test_paths}]
-                      :deps {io.millstrand/millstrand {:local/root \"$millstrand_root\"}
+                      :deps {io.millstrand/millstrand
+                             {:git/url \"https://github.com/codethread/millstrand.git\"
+                              :git/sha \"$millstrand_sha\"}
                              millhouse.spools/workflow
                              {:git/url \"https://github.com/codethread/millhouse.spool.git\"
                               :git/sha \"$millhouse_sha\"

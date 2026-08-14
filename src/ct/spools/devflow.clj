@@ -886,10 +886,32 @@
                    :attributes {"workflow/action-ref" "devflow.abort.record"
                                 "workflow/instruction" "Record the abort reason in the feature plan or conversation summary, then stop the active workflow."})))
 
-;; Devflow publishes workflow definitions, query declarations, and one static
-;; read op. The generic `millhouse.spools.workflow` API owns starting, inspecting,
-;; advancing, archiving, and querying their runs; Devflow adds no parallel
-;; run-driving facade — the `devflow` op serves authoring knowledge only.
+;; Devflow defines reusable workflow, query, and op declarations, then selects
+;; the complete catalogue for this root's publishing module. A consumer that
+;; requires this namespace outside module collection can select only the Vars
+;; it wants with the matching typed use form.
+;;
+;; The generic `millhouse.spools.workflow` API owns starting, inspecting,
+;; advancing, archiving, and querying workflow runs. Devflow adds no parallel
+;; run-driving facade; the `devflow` op serves authoring knowledge only.
+
+(workflow/use-workflow!
+ intake
+ agent-review
+ author-task-strands
+ author-card-strands
+ proposal
+ land-proposal
+ decompose
+ review-cards
+ route-after-plan
+ spec-plan
+ run-afk-loop
+ run-afk-manual
+ run-afk-delegated
+ tasks
+ direct-implementation
+ abort)
 
 (millstrand/defquery devflow-runs
   "Return active Devflow workflow roots that can be resumed."
@@ -919,6 +941,10 @@
   [:and
    [:= :state "active"]
    [:exists [:attr "devflow/task-type"]]])
+
+(millstrand/use-query! devflow-runs
+                       devflow-ready
+                       devflow-tasks)
 
 (defn guidance
   "Return Devflow's static authoring knowledge as markdown.
@@ -1005,6 +1031,8 @@
     (throw (ex-info "Unsupported devflow subcommand"
                     {:subcommand (:subcommand args) :allowed ["guidance"]}))))
 
-;; `defworkflow`, `defquery`, and `defop` collect this module's owner-complete
-;; registry contribution. There is no spool entry point, and no run-driving
-;; Devflow facade.
+(millstrand/use-op! devflow)
+
+;; The unbanged forms above define declarations without publishing them. The
+;; explicit use forms are the root module's owner-complete contribution. There
+;; is no spool entry point and no run-driving Devflow facade.

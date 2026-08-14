@@ -2,11 +2,11 @@
   "Tests Devflow as a collection of static Millstrand workflows and named discovery
   queries. Workflow execution itself belongs to millhouse.spools.workflow."
   (:require [clojure.data.json :as json]
-            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [ct.spools.devflow :as devflow]
             [ct.spools.devflow-equivalence :as equivalence]
+            [millstrand.api.authoring.alpha :as authoring]
             [millstrand.api.cli.alpha :as cli-alpha]
             [millstrand.api.current.alpha :as current]
             [millstrand.api.graph.alpha :as graph]
@@ -53,9 +53,28 @@
     (is (nil? (ns-resolve 'ct.spools.devflow sym))
         (str sym " must remain a generic workflow operation"))))
 
+(deftest devflow-declarations-carry-typed-selection-metadata
+  (doseq [sym '[intake agent-review author-task-strands author-card-strands
+                proposal land-proposal decompose review-cards route-after-plan
+                spec-plan run-afk-loop run-afk-manual run-afk-delegated tasks
+                direct-implementation abort devflow-runs devflow-ready
+                devflow-tasks devflow]]
+    (let [var (ns-resolve 'ct.spools.devflow sym)
+          declaration (::authoring/declaration (meta var))]
+      (is (var? var) (str sym " is a declaration Var"))
+      (is (= :registry (:channel declaration))
+          (str sym " uses the registry authoring channel"))
+      (is (= (symbol "ct.spools.devflow" (name sym)) (:var declaration))
+          (str sym " records its exact authored Var"))
+      (is (= (:key declaration)
+             (if (contains? #{'devflow-runs 'devflow-ready 'devflow-tasks} sym)
+               (name sym)
+               (if (= sym 'devflow) (name sym) (keyword sym))))
+          (str sym " keeps its authored registry key")))))
+
 (deftest module-publishes-the-complete-devflow-workflow-catalogue
   (with-runtime
-    (fn [rt]
+    (fn [_rt]
       (is (= stage-names (set (keys (workflow/workflows)))))
       (is (= #{:start} (:entrypoints (workflow/resolve-workflow :intake))))
       (doseq [callee call-only-names]
@@ -71,7 +90,7 @@
 
 (deftest generic-workflow-api-starts-and-drives-a-devflow-run
   (with-runtime
-    (fn [rt]
+    (fn [_rt]
       (let [started (workflow/start! "search-filters" :intake
                                      {:feature "search-filters"
                                       :worktree-check "already-in-worktree-ok"})]
@@ -270,20 +289,20 @@
             (is (= {:subcommand ["guidance"] :guide "proposal"}
                    (parse ["guidance" "proposal"]))))))
       (testing "no argument serves the workspace overview"
-        (let [result (devflow/devflow-op {:op/args {:subcommand ["guidance"]}})]
+        (let [result (devflow/devflow {:op/args {:subcommand ["guidance"]}})]
           (is (= "devflow guidance" (:operation result)))
           (is (= (devflow/guidance) (:guidance result)))
           (t/check-op-return! rt 'devflow {:subcommand ["guidance"]}
                               (wire-value result))))
       (testing "a guide key serves that artifact's live guide"
-        (let [result (devflow/devflow-op
+        (let [result (devflow/devflow
                       {:op/args {:subcommand ["guidance"] :guide "proposal"}})]
           (is (= "proposal" (:guide result)))
           (is (= (devflow/guidance :proposal) (:guidance result)))
           (t/check-op-return! rt 'devflow {:subcommand ["guidance"]}
                               (wire-value result))))
       (testing "an unknown guide fails loudly with the available keys"
-        (let [data (try (devflow/devflow-op
+        (let [data (try (devflow/devflow
                          {:op/args {:subcommand ["guidance"] :guide "nope"}})
                         (catch clojure.lang.ExceptionInfo e (ex-data e)))]
           (is (= :nope (:guide data)))

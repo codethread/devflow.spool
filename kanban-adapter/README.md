@@ -39,7 +39,7 @@ existing `codethread/devflow` entry and declaring the kanban floor:
 {:spools
  {codethread/devflow
   {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "v21" :git/sha "<peeled sha of v21>"
+   :git/tag "v22" :git/sha "<peeled sha of v22>"
    :roots {codethread/devflow "."
            codethread/devflow-kanban-adapter "kanban-adapter"}
    :requires {codethread/kanban "v24"}}
@@ -64,9 +64,9 @@ The `:decompose` re-point lives in the registry's direct layer, so it is a
 lifecycle seed, not a module declaration:
 
 ```clojure
-(lifecycle/defseed devflow-kanban-adapter-decompose
+(lifecycle/defseed! devflow-kanban-adapter-decompose
   "Route the :decompose stage name at the kanban-bound variant."
   {:apply 'ct.spools.devflow-kanban-adapter/repoint-decompose-seed!})
 ```
 
-`defseed` is an idempotent process-lifetime lifecycle effect. The coordinator invokes its `:apply` callable once for each weaver generation, passing a context map whose `:runtime` is the active runtime plus lifecycle metadata. The adapter validates that context against `::repoint-seed-context`, whose open metadata policy accepts additional keyword keys with arbitrary values, then projects it into `repoint-decompose!`; the direct registry entry is therefore re-established after every refresh. The lifecycle result is data, `{:repointed :decompose}`, which the seed runner records as the effect result; it is not a module declaration or a workflow step handle. Without the seed, `decompose-kanban` stays reachable by its own name (`strand workflow show decompose-kanban`) while the routed `:decompose` keeps devflow's strand-native default.
+`defseed!` is an idempotent process-lifetime lifecycle effect. The coordinator invokes its `:apply` callable once for each weaver generation, passing a context map whose `:runtime` is the active runtime plus lifecycle metadata. The adapter validates that context against `::repoint-seed-context`, whose open metadata policy accepts additional keyword keys with arbitrary values, then projects it into `repoint-decompose!`; the direct registry entry is therefore re-established after every refresh. The lifecycle result is data, `{:repointed :decompose}`, which the seed runner records as the effect result; it is not a module declaration or a workflow step handle. Without the seed, `decompose-kanban` stays reachable by its own name (`strand workflow show decompose-kanban`) while the routed `:decompose` keeps devflow's strand-native default.
