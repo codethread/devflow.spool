@@ -2,17 +2,17 @@
  :deps {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}}
  :aliases
  {:test {:extra-paths ["test" "scripts" "kanban-adapter/src" "kanban-adapter/test"]
-         ;; Point these at the Millstrand checkout you want to test against.
-         ;; This repo is developed beside millstrand, so the defaults work for
-         ;; local owner checkouts and CI layouts that place the repos as siblings.
-         ;; millhouse.spools.workflow is a separately approved root, so its
-         ;; exact Git-pinned root joins the test JVM explicitly.
+         ;; Test against the exact authoring API and Workflow commits consumed
+         ;; by this migration. The library roots remain separately approved
+         ;; dependencies in the test JVM.
          ;; The kanban pin is the adapter root's declared floor (peeled v24
          ;; sha), so the suite proves the floor rather than a newer release.
-         :extra-deps {io.millstrand/millstrand {:local/root "../millstrand"}
+         :extra-deps {io.millstrand/millstrand
+                      {:git/url "https://github.com/codethread/millstrand.git"
+                       :git/sha "3bbe5dc15359975a8e8203ef47b3a7514177e75b"}
                       millhouse.spools/workflow
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "d1affd4065fcf69b81c0191944791475108d7bea"
+                       :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
                        :deps/root "spools/workflow"}
                       io.github.codethread/kanban.spool
                       {:git/url "https://github.com/codethread/kanban.spool.git"
@@ -23,10 +23,10 @@
   :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
                           :extra-deps {io.millstrand/millstrand
                                        {:git/url "https://github.com/codethread/millstrand.git"
-                                        :git/sha "fb6c9057d594bfa4b5ea8531b9774b5e9a23a4b4"}
+                                        :git/sha "3bbe5dc15359975a8e8203ef47b3a7514177e75b"}
                                        millhouse.spools/workflow
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "d1affd4065fcf69b81c0191944791475108d7bea"
+                                        :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
                                         :deps/root "spools/workflow"}
                                        io.github.codethread/kanban.spool
                                        {:git/url "https://github.com/codethread/kanban.spool.git"

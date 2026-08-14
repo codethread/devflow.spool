@@ -1,6 +1,6 @@
 # Devflow
 
-A feature-delivery lifecycle, built as [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/d1affd4065fcf69b81c0191944791475108d7bea/spools/workflow). You name a feature; each stage hands you the next step or the next decision.
+A feature-delivery lifecycle, built as [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/b0ac2268685e53510df01dcd0cc533b8fd40a25d/spools/workflow). You name a feature; each stage hands you the next step or the next decision.
 
 ```sh
 strand workflow start search-filters --workflow intake \
@@ -11,6 +11,30 @@ strand workflow start search-filters --workflow intake \
 ```
 
 **The feature name is the handle.** It *is* the `workflow/run-id`, so there is no separate run handle to keep. Devflow owns static workflow definitions; Millstrand's generic workflow API owns execution.
+
+## Declaration and selection
+
+Devflow's workflow, query, and operation Vars use Millstrand's three-form
+authoring convention. The unbanged form defines an inert declaration, the
+typed `use-<kind>!` form selects an existing declaration for the current module,
+and the bang form defines and selects in one expression.
+
+The root module uses explicit `use-workflow!`, `use-query!`, and `use-op!` forms
+to publish its complete catalogue. A consumer that requires `ct.spools.devflow`
+from its own module can select only the declarations it needs, for example:
+
+```clojure
+(require '[ct.spools.devflow :as devflow]
+         '[millhouse.spools.workflow :as workflow]
+         '[millstrand.api.millstrand.alpha :as millstrand])
+
+(workflow/use-workflow! devflow/intake devflow/proposal)
+(millstrand/use-query! devflow/devflow-ready)
+(millstrand/use-op! devflow/devflow)
+```
+
+Selection is the publication boundary. Loading the namespace or evaluating a
+definition outside module collection does not publish it.
 
 | You have | You call |
 |---|---|
@@ -554,6 +578,6 @@ dependencies resolved.
 ### See also
 
 - [README.md](./README.md) — installation, source approval, and activation.
-- [Millhouse workflow](https://github.com/codethread/millhouse.spool/tree/d1affd4065fcf69b81c0191944791475108d7bea/spools/workflow) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
+- [Millhouse workflow](https://github.com/codethread/millhouse.spool/tree/b0ac2268685e53510df01dcd0cc533b8fd40a25d/spools/workflow) — the engine underneath: run lifecycle, checkpoints and routing, gates, molecule ops, and the full `workflow/*` vocabulary.
 - `(millhouse.spools.workflow/explain topic)` — machine-readable builder contracts.
 - [Writing shared spools](./docs/spools/writing-shared-spools.md) — the pinned Millstrand contract for publishing and CLI shape.

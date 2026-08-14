@@ -91,9 +91,7 @@
   (let [[node children] (hook-children :defop context 5 false)
         [form-node name-node docstring-node opts-node argv-node & body] children
         name (symbol-name :defop name-node)
-        handler-node (with-meta
-                       (api/token-node (symbol (str name "-op")))
-                       (meta name-node))
+        handler-node (with-meta (api/token-node name) (meta name-node))
         defn-node (api/list-node
                    (list* (api/token-node 'defn)
                           handler-node docstring-node argv-node body))
@@ -153,3 +151,32 @@
                   (list (api/token-node 'def)
                         name-node docstring-node value-node))]
     {:node (with-meta def-node (meta node))}))
+
+(defn use-vars
+  "Analyze a typed use form as Var references without defining Vars."
+  [{:keys [node]}]
+  (let [[form-node & args] (:children node)
+        [options var-nodes] (if (= :map (:tag (first args)))
+                              [(first args) (next args)]
+                              [nil args])]
+    (when (empty? var-nodes)
+      (throw (ex-info "Typed authoring use form requires a declaration Var"
+                      {:form (api/sexpr node)})))
+    (doseq [var-node var-nodes]
+      (when-not (symbol? (api/sexpr var-node))
+        (throw (ex-info "Typed authoring use form accepts Var symbols only"
+                        {:form (api/sexpr node)
+                         :value (api/sexpr var-node)}))))
+    {:node (with-meta
+             (api/list-node
+              (into [(api/token-node 'do)
+                     (api/list-node
+                      (list (api/token-node 'identity) form-node))]
+                    (concat (when options
+                              [(api/list-node
+                                (list (api/token-node 'identity) options))])
+                            (map (fn [var-node]
+                                   (api/list-node
+                                    (list (api/token-node 'var) var-node)))
+                                 var-nodes))))
+             (meta node))}))
