@@ -74,7 +74,7 @@
                 :received received
                 :explain (s/explain-data ::repoint-seed-context context)})))))
 
-(workflow/defworkflow author-kanban-cards
+(workflow/defworkflow! author-kanban-cards
   "The kanban card-authoring target for devflow's decompose defer.
 
   Authors the decompose breakdown as kanban cards: one epic card grouping the
@@ -109,7 +109,7 @@
                                      "card's strand id is its card id — and leave the "
                                      "grouping-only epic out of the review set.")})))
 
-(workflow/defworkflow decompose-kanban
+(workflow/defworkflow! decompose-kanban
   "The decompose stage bound for kanban workspaces.
 
   Binds devflow's `decompose-open` template with the kanban authoring target
