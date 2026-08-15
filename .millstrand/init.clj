@@ -7,6 +7,11 @@
   {:ns 'millstrand.spools.batteries
    :spools ['millstrand.spools/batteries]
    :required? true})
+(runtime/module! runtime :codethread/config
+  {:ns 'ct.spools.codethread.config
+   :spools ['codethread/config 'millstrand.spools/batteries]
+   :after [:millstrand/spools-batteries]
+   :required? true})
 
 ;; Devflow is a module so its named workflow routes are published as one
 ;; owner-complete contribution. Keep workflow first: it declares the route kind.

@@ -26,4 +26,5 @@
           codethread/kanban {:git/url "https://github.com/codethread/kanban.spool.git"
                              :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"
                              :git/tag "v24"
-                             :roots {codethread/kanban "."}}}}
+                             :roots {codethread/kanban "."}}
+          codethread/config {:local/root "../../codethread.spool/spools/config"}}}
