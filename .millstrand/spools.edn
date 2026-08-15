@@ -1,30 +1,36 @@
-{:spools {millstrand.spools/batteries {:millstrand/source-root "spools/batteries"}
-          millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
-                            :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
-                            :roots {millhouse.spools/workflow "spools/workflow"
-                                    millhouse.spools/millstrand-workflows "spools/millstrand-workflows"
-                                    millhouse.spools.executors/shell "spools/shell-executor"}}
-          codethread/spools {:git/url "https://github.com/codethread/codethread.spool.git"
-                             :git/sha "26fdf691649e8c92ae6366c627e0a77cd8219549"
-                             :roots {codethread/agents "spools/agents"
-                                     codethread/devflow-setup "spools/devflow-setup"
-                                     codethread/ralph "spools/ralph"}}
-          ct.spools/agent-run {:git/url "https://github.com/codethread/agent-harness.spool.git"
-                               :git/sha "911bc4cb3364ce23516963761820ca0a55d01a39"
-                               :roots {ct.spools/agent-run "agent-run"
-                                       ct.spools/harness-core "harness-core"
-                                       ct.spools/claude-harness "claude-harness"
-                                       ct.spools/codex-harness "codex-harness"
-                                       ct.spools/pi-harness "pi-harness"
-                                       ct.spools/agent-cli "agent-cli"
-                                       ct.spools/delegation "delegation"}}
-          ;; dev world for this repo: both roots load from the enclosing
-          ;; checkout, mirroring the mapping consumers write against the pin
-          codethread/devflow {:local/root ".."
-                              :roots {codethread/devflow "."
-                                      codethread/devflow-kanban-adapter "kanban-adapter"}}
-          codethread/kanban {:git/url "https://github.com/codethread/kanban.spool.git"
-                             :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"
-                             :git/tag "v24"
-                             :roots {codethread/kanban "."}}
-          codethread/config {:local/root "../../codethread.spool/spools/config"}}}
+{:spools {millstrand.spools/batteries
+ {:millstrand/source-root "spools/batteries"},
+ millhouse/spools
+ {:git/url "https://github.com/codethread/millhouse.spool.git",
+  :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d",
+  :roots
+  {millhouse.spools/workflow "spools/workflow",
+   millhouse.spools/millstrand-workflows "spools/millstrand-workflows",
+   millhouse.spools.executors/shell "spools/shell-executor"}},
+ codethread/spools
+ {:git/url "https://github.com/codethread/codethread.spool.git",
+  :git/sha "09eab40d06c97adcdca4de2c7372ca7fd530ecf6",
+  :roots
+  {codethread/config "spools/config",
+   codethread/ralph "spools/ralph"}},
+ ct.spools/agent-run
+ {:git/url "https://github.com/codethread/agent-harness.spool.git",
+  :git/sha "1f06dfd046828f86c262537c190f854b87d90f6f",
+  :roots
+  {ct.spools/agent-run "agent-run",
+   ct.spools/harness-core "harness-core",
+   ct.spools/claude-harness "claude-harness",
+   ct.spools/codex-harness "codex-harness",
+   ct.spools/pi-harness "pi-harness",
+   ct.spools/agent-cli "agent-cli",
+   ct.spools/delegation "delegation"}},
+ codethread/devflow
+ {:local/root "..",
+  :roots
+  {codethread/devflow ".",
+   codethread/devflow-kanban-adapter "kanban-adapter"}},
+ codethread/kanban
+ {:git/url "https://github.com/codethread/kanban.spool.git",
+  :git/sha "87f61bc2750e7026f3650235907db25f19b1536e",
+  :git/tag "v24",
+  :roots {codethread/kanban "."}},}}
