@@ -19,16 +19,16 @@
 (defn- activate! [rt]
   (doseq [namespace '[millhouse.spools.workflow
                       ct.spools.devflow
-                      ct.spools.kanban
+                      millhouse.spools.kanban
                       ct.spools.devflow-kanban-adapter]]
     (require namespace))
   (doseq [[key config] [[:millhouse/spools-workflow {:ns 'millhouse.spools.workflow}]
                         [:devflow {:ns 'ct.spools.devflow
                                    :after [:millhouse/spools-workflow]}]
-                        [:kanban {:ns 'ct.spools.kanban}]
+                        [:millhouse/spools-kanban {:ns 'millhouse.spools.kanban}]
                         [:devflow-kanban-adapter
                          {:ns 'ct.spools.devflow-kanban-adapter
-                          :after [:millhouse/spools-workflow :devflow :kanban]}]]]
+                          :after [:millhouse/spools-workflow :devflow :millhouse/spools-kanban]}]]]
     (runtime/module! rt key config))
   rt)
 

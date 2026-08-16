@@ -6,7 +6,8 @@
   :roots
   {millhouse.spools/workflow "spools/workflow",
    millhouse.spools/millstrand-workflows "spools/millstrand-workflows",
-   millhouse.spools.executors/shell "spools/shell-executor"}},
+   millhouse.spools.executors/shell "spools/shell-executor",
+   millhouse.spools/kanban "spools/kanban"}},
  codethread/spools
  {:git/url "https://github.com/codethread/codethread.spool.git",
   :git/sha "cdded90bba0009377c2d9e58021735d5baa5cf88",
@@ -28,9 +29,4 @@
  {:local/root "..",
   :roots
   {codethread/devflow ".",
-   codethread/devflow-kanban-adapter "kanban-adapter"}},
- codethread/kanban
- {:git/url "https://github.com/codethread/kanban.spool.git",
-  :git/sha "87f61bc2750e7026f3650235907db25f19b1536e",
-  :git/tag "v24",
-  :roots {codethread/kanban "."}},}}
+   codethread/devflow-kanban-adapter "kanban-adapter"}}}

@@ -13,8 +13,8 @@
   - `repoint-decompose!` — a lifecycle-seed callable for workspaces that want
     the routed `:decompose` stage name to resolve to the kanban-bound variant.
 
-  Requires the `codethread/devflow` and `codethread/kanban` roots; see this
-  root's README for the consumer entry shape and floors."
+  Requires the `codethread/devflow` and `millhouse.spools/kanban` roots; see
+  this root's README for the consumer entry shape."
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [ct.spools.devflow :as devflow]

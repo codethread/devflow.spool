@@ -40,6 +40,9 @@ done
 # Frozen tests run the working devflow source. Mirror the :test alias's
 # approved Millstrand and Millhouse roots so this alarm proves the archived
 # suite against the candidate rather than failing before either namespace loads.
+# Archived suites still require ct.spools.kanban. Keep that published pin on
+# the alarm classpath so the v20 tests load far enough to hit the identity
+# break instead of failing at the old kanban import.
 millstrand_sha="3bbe5dc15359975a8e8203ef47b3a7514177e75b"
 millhouse_sha="b0ac2268685e53510df01dcd0cc533b8fd40a25d"
 kanban_sha="87f61bc2750e7026f3650235907db25f19b1536e"

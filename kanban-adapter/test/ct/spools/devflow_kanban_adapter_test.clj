@@ -7,9 +7,9 @@
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow-kanban-adapter :as adapter]
             ;; The adapter no longer requires the kanban namespace itself, so
-            ;; the test world loads it for the :kanban module activation below
-            ;; (a real world gets it as an approved spool root).
-            [ct.spools.kanban]
+            ;; the test world loads it for the :millhouse/spools-kanban module
+            ;; activation below (a real world gets it as an approved spool root).
+            [millhouse.spools.kanban]
             [millstrand.api.authoring.alpha :as authoring]
             [millstrand.api.current.alpha :as current]
             [millstrand.api.runtime.alpha :as runtime]
@@ -20,9 +20,9 @@
   (doseq [[key config] [[:millhouse/spools-workflow {:ns 'millhouse.spools.workflow}]
                         [:devflow {:ns 'ct.spools.devflow
                                    :after [:millhouse/spools-workflow]}]
-                        [:kanban {:ns 'ct.spools.kanban}]
+                        [:millhouse/spools-kanban {:ns 'millhouse.spools.kanban}]
                         [:devflow-kanban-adapter {:ns 'ct.spools.devflow-kanban-adapter
-                                          :after [:millhouse/spools-workflow :devflow :kanban]}]]]
+                                          :after [:millhouse/spools-workflow :devflow :millhouse/spools-kanban]}]]]
     (let [result (runtime/module! rt key config)
           status (get-in result [:modules key :status])]
       (when-not (contains? #{:applied :unchanged} status)

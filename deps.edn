@@ -5,8 +5,8 @@
          ;; Test against the exact authoring API and Workflow commits consumed
          ;; by this migration. The library roots remain separately approved
          ;; dependencies in the test JVM.
-         ;; The kanban pin is the adapter root's declared floor (peeled v24
-         ;; sha), so the suite proves the floor rather than a newer release.
+         ;; The kanban pin is the adapter root's millhouse.spools/kanban root at
+         ;; the same millhouse SHA as workflow, so the suite proves that binding.
          :extra-deps {io.millstrand/millstrand
                       {:git/url "https://github.com/codethread/millstrand.git"
                        :git/sha "3bbe5dc15359975a8e8203ef47b3a7514177e75b"}
@@ -14,10 +14,10 @@
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
                        :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
                        :deps/root "spools/workflow"}
-                      io.github.codethread/kanban.spool
-                      {:git/url "https://github.com/codethread/kanban.spool.git"
-                       :git/tag "v24"
-                       :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"}}
+                      millhouse.spools/kanban
+                      {:git/url "https://github.com/codethread/millhouse.spool.git"
+                       :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+                       :deps/root "spools/kanban"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}
   :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
@@ -28,10 +28,10 @@
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
                                         :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
                                         :deps/root "spools/workflow"}
-                                       io.github.codethread/kanban.spool
-                                       {:git/url "https://github.com/codethread/kanban.spool.git"
-                                        :git/tag "v24"
-                                        :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"}}
+                                       millhouse.spools/kanban
+                                       {:git/url "https://github.com/codethread/millhouse.spool.git"
+                                        :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+                                        :deps/root "spools/kanban"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
                           :main-opts ["-m" "ct.spools.devflow-equivalence"]}
   :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.06.05"}}

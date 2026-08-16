@@ -2,18 +2,17 @@
 
 The kanban binding for devflow's pluggable seams, shipped as its own root
 (`codethread/devflow-kanban-adapter`) so the main `codethread/devflow` root stays
-coupled to no card system. If your workspace runs both devflow and the
-[kanban spool](https://github.com/codethread/kanban.spool), activate this root
-instead of hand-rolling the same glue.
+coupled to no card system. If your workspace runs both devflow and Millhouse
+kanban, activate this root instead of hand-rolling the same glue.
 
 ## Dependencies
 
-Unlike the main devflow root, this root **requires the kanban spool**:
+Unlike the main devflow root, this root **requires the Millhouse kanban root**:
 
-| Root | Floor |
+| Root | Source |
 |---|---|
 | `codethread/devflow` | same repository, same marker |
-| `codethread/kanban` | `v24` |
+| `millhouse.spools/kanban` | `millhouse/spools` family, SHA-pinned (no release marker) |
 
 ## What it ships
 
@@ -31,32 +30,36 @@ Unlike the main devflow root, this root **requires the kanban spool**:
 
 ## Consuming it
 
-One repository is one family entry; opt into this root by mapping it in your
-existing `codethread/devflow` entry and declaring the kanban floor:
+Approve devflow and add the kanban root to your existing `millhouse/spools`
+family entry (same SHA for every Millhouse root you use):
 
 ```clojure
 ;; .millstrand/spools.edn
 {:spools
- {codethread/devflow
+ {millhouse/spools
+  {:git/url "https://github.com/codethread/millhouse.spool.git"
+   :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+   :roots {millhouse.spools/kanban "spools/kanban"
+           millhouse.spools/workflow "spools/workflow"}}
+  codethread/devflow
   {:git/url "https://github.com/codethread/devflow.spool.git"
    :git/tag "v22" :git/sha "<peeled sha of v22>"
    :roots {codethread/devflow "."
-           codethread/devflow-kanban-adapter "kanban-adapter"}
-   :requires {codethread/kanban "v24"}}
-  codethread/kanban
-  {:git/url "https://github.com/codethread/kanban.spool.git"
-   :git/tag "v24" :git/sha "87f61bc2750e7026f3650235907db25f19b1536e"
-   :roots {codethread/kanban "."}}}}
+           codethread/devflow-kanban-adapter "kanban-adapter"}}}}
 ```
 
-Activate it after both providers:
+Activate kanban and the adapter after devflow and workflow:
 
 ```clojure
 ;; .millstrand/init.clj
+(runtime/module! runtime :millhouse/spools-kanban
+  {:ns 'millhouse.spools.kanban
+   :spools ['millhouse.spools/kanban]
+   :required? true})
 (runtime/module! runtime :devflow/kanban-adapter
   {:ns 'ct.spools.devflow-kanban-adapter
-   :spools ['codethread/devflow-kanban-adapter 'codethread/devflow 'codethread/kanban]
-   :after [:devflow :millstrand/spools-kanban]
+   :spools ['codethread/devflow-kanban-adapter 'codethread/devflow 'millhouse.spools/kanban]
+   :after [:devflow :millhouse/spools-kanban]
    :required? true})
 ```
 

@@ -86,17 +86,17 @@
 
 ;; kanban board for this repo's own coordination cards: local tracking choice,
 ;; deliberately absent from the published devflow root.
-(runtime/module! runtime :millstrand/spools-kanban
-  {:ns 'ct.spools.kanban
-   :spools ['codethread/kanban]
+(runtime/module! runtime :millhouse/spools-kanban
+  {:ns 'millhouse.spools.kanban
+   :spools ['millhouse.spools/kanban]
    :required? true})
 
 ;; the kanban adapter root, dogfooded from this checkout.
 (runtime/module! runtime :devflow/kanban-adapter
   {:ns 'ct.spools.devflow-kanban-adapter
    :spools ['codethread/devflow-kanban-adapter 'codethread/devflow
-            'codethread/kanban 'millhouse.spools/workflow]
-   :after [:devflow :millstrand/spools-kanban
+            'millhouse.spools/kanban 'millhouse.spools/workflow]
+   :after [:devflow :millhouse/spools-kanban
            :millhouse/spools-workflow]
    :required? true})
 

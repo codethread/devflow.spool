@@ -102,10 +102,10 @@ In the **consumer's** `spools.edn`:
 ```
 
 This repository also ships a second, optional root: `codethread/devflow-kanban-adapter`
-(`kanban-adapter/`), the adapter binding devflow's pluggable seams to the
-kanban spool. It carries its own dependency floor and consumer entry shape —
-see [kanban-adapter/README.md](./kanban-adapter/README.md); the main
-`codethread/devflow` root has no card-system dependency.
+(`kanban-adapter/`), the adapter binding devflow's pluggable seams to
+`millhouse.spools/kanban`. It carries its own Millhouse kanban approval and
+consumer entry shape — see [kanban-adapter/README.md](./kanban-adapter/README.md);
+the main `codethread/devflow` root has no card-system dependency.
 
 For local development only, overlay the approved family in `spools.local.edn` (usually gitignored):
 
