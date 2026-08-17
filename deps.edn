@@ -12,11 +12,11 @@
                        :git/sha "e0ca975cd0d2d546249f63c9d699ae33e1c9b688"}
                       millhouse.spools/workflow
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
+                       :git/sha "5325e88dd3e5703d56bd4714665f0a8c377d9059"
                        :deps/root "spools/workflow"}
                       millhouse.spools/kanban
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
+                       :git/sha "5325e88dd3e5703d56bd4714665f0a8c377d9059"
                        :deps/root "spools/kanban"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}
@@ -26,11 +26,11 @@
                                         :git/sha "e0ca975cd0d2d546249f63c9d699ae33e1c9b688"}
                                        millhouse.spools/workflow
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
+                                        :git/sha "5325e88dd3e5703d56bd4714665f0a8c377d9059"
                                         :deps/root "spools/workflow"}
                                        millhouse.spools/kanban
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
+                                        :git/sha "5325e88dd3e5703d56bd4714665f0a8c377d9059"
                                         :deps/root "spools/kanban"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
                           :main-opts ["-m" "ct.spools.devflow-equivalence"]}
