@@ -29,4 +29,4 @@
  {:local/root "..",
   :roots
   {codethread/devflow ".",
-   codethread/devflow-kanban-adapter "kanban-adapter"}}}
+   codethread/devflow-kanban-adapter "kanban-adapter"}}}}
