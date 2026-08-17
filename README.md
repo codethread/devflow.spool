@@ -1,6 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/b0ac2268685e53510df01dcd0cc533b8fd40a25d/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -78,9 +78,9 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Millstrand at immutable SHA `3bbe5dc15359975a8e8203ef47b3a7514177e75b`**, the selectable-authoring alpha contract, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
+- **Millstrand at immutable SHA `e0ca975cd0d2d546249f63c9d699ae33e1c9b688`**, with the retired vocabulary API and command removed, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
-  Millhouse commit `b0ac2268685e53510df01dcd0cc533b8fd40a25d`.
+  Millhouse commit `8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f`.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -89,10 +89,10 @@ In the **consumer's** `spools.edn`:
 
 ```clojure
 {:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
-                                    :git/sha "3bbe5dc15359975a8e8203ef47b3a7514177e75b"
+                                    :git/sha "e0ca975cd0d2d546249f63c9d699ae33e1c9b688"
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
-                            :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+                            :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
                             :roots {millhouse.spools/workflow "spools/workflow"
                                     millhouse.spools/millstrand-workflows "spools/millstrand-workflows"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"

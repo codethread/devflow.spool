@@ -16,9 +16,9 @@ run clojure -M:test
 run ./bin/identity-check
 run ./bin/verify-card-authoring-equivalence
 
-# MSR-07 is the deliberate alpha identity break. The alarm must fire against
-# the previous v20 suite; a green alarm would mean the breaking boundary was
-# not actually exercised.
+# The retired Millstrand vocabulary API is a deliberate break. The alarm must
+# fire against the previous v20 suite; a green alarm would mean the breaking
+# boundary was not actually exercised.
 printf '\n[land-quality] expected compatibility break: timeout 30 ./bin/compat-alarm v20\n'
 compat_output=$(mktemp)
 set +e
@@ -27,11 +27,11 @@ compat_status=$?
 set -e
 cat "$compat_output"
 
-# The archived v20 suite must stop at the intentional old-identity import
-# failure. A timeout, missing tool/dependency, setup error, or any other test
-# failure is a land failure and must remain visible to the caller.
-expected_signature='Could not locate skein/api/current/alpha__init.class, skein/api/current/alpha.clj or skein/api/current/alpha.cljc on classpath.'
-expected_execution='^Execution error \(FileNotFoundException\) at ct\.spools\.devflow-kanban-adapter-test/'
+# The archived v20 suite must stop at the intentional retired-vocabulary
+# import failure. A timeout, missing tool/dependency, setup error, or any
+# other test failure is a land failure and must remain visible to the caller.
+expected_signature='Could not locate millstrand/api/vocab/alpha__init.class, millstrand/api/vocab/alpha.clj or millstrand/api/vocab/alpha.cljc on classpath.'
+expected_execution='^Execution error \(FileNotFoundException\) at ct\.spools\.kanban/'
 unexpected_output=$(grep -Ev "^(WARNING:.*|$|${expected_execution}.*|${expected_signature}|Full report at:|/.*/clojure-[^ ]+\\.edn)$" "$compat_output" || true)
 if [[ "$compat_status" -eq 1 ]] \
   && [[ "$(grep -Fc "$expected_signature" "$compat_output")" -eq 1 ]] \

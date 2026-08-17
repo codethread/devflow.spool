@@ -9,28 +9,28 @@
          ;; the same millhouse SHA as workflow, so the suite proves that binding.
          :extra-deps {io.millstrand/millstrand
                       {:git/url "https://github.com/codethread/millstrand.git"
-                       :git/sha "3bbe5dc15359975a8e8203ef47b3a7514177e75b"}
+                       :git/sha "e0ca975cd0d2d546249f63c9d699ae33e1c9b688"}
                       millhouse.spools/workflow
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+                       :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
                        :deps/root "spools/workflow"}
                       millhouse.spools/kanban
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+                       :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
                        :deps/root "spools/kanban"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}
   :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
                           :extra-deps {io.millstrand/millstrand
                                        {:git/url "https://github.com/codethread/millstrand.git"
-                                        :git/sha "3bbe5dc15359975a8e8203ef47b3a7514177e75b"}
+                                        :git/sha "e0ca975cd0d2d546249f63c9d699ae33e1c9b688"}
                                        millhouse.spools/workflow
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+                                        :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
                                         :deps/root "spools/workflow"}
                                        millhouse.spools/kanban
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+                                        :git/sha "8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
                                         :deps/root "spools/kanban"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
                           :main-opts ["-m" "ct.spools.devflow-equivalence"]}

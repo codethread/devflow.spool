@@ -43,8 +43,8 @@ done
 # Archived suites still require ct.spools.kanban. Keep that published pin on
 # the alarm classpath so the v20 tests load far enough to hit the identity
 # break instead of failing at the old kanban import.
-millstrand_sha="3bbe5dc15359975a8e8203ef47b3a7514177e75b"
-millhouse_sha="b0ac2268685e53510df01dcd0cc533b8fd40a25d"
+millstrand_sha="e0ca975cd0d2d546249f63c9d699ae33e1c9b688"
+millhouse_sha="8ed8b1c299b826ad5d77d04f0fca58e7a4d6336f"
 kanban_sha="87f61bc2750e7026f3650235907db25f19b1536e"
 
 exec clojure -Sdeps "{:paths [${src_paths}${test_paths}]
