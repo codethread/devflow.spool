@@ -22,7 +22,7 @@ while (($# > 0)); do
 done
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
-core_sha=e0ca975cd0d2d546249f63c9d699ae33e1c9b688
+core_sha=9bc90d1c8e421699f72098a8ca59a058be6ff88b
 kanban_sha=87f61bc2750e7026f3650235907db25f19b1536e
 
 if [[ -n "$core_release" ]]; then

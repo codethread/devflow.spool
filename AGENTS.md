@@ -8,6 +8,5 @@ This repo ships a Millstrand spool (a spool is a Millstrand library) with two ro
 
 This repo uses Millstrand strands to track work. Orientation ships in the `mill` CLI:
 
-- `mill prime millstrand` — where the Millstrand source and docs live, and how to extend this repo's `.millstrand/` config.
-- `mill prime strand` — the strand planning/tracking workflow; run it before multi-step work.
+Start with `strand --help`. Run `mill prime millstrand` on demand when building on this repo's `.millstrand/` config or spools.
 <!-- /mill:millstrand-prime -->
