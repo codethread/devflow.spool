@@ -9,7 +9,7 @@ This release is the next `codethread/devflow` marker after the Millstrand alpha 
 - Coordinate: `codethread/devflow`.
 - Core coordinate: `io.millstrand/millstrand`.
 - Core reference: immutable SHA `3bbe5dc15359975a8e8203ef47b3a7514177e75b`.
-- Workflow coordinate: `millhouse.spools/workflow` at immutable SHA `b0ac2268685e53510df01dcd0cc533b8fd40a25d`.
+- Workflow coordinate: `millhouse.spools/workflow` at immutable SHA `f1cdda3b46706b186f547251d285791be650d232`.
 - Kanban release: `codethread/kanban` `v24`, `87f61bc2750e7026f3650235907db25f19b1536e`.
 - Peeled Devflow SHA: recorded by the coordinator after the annotated tag is cut; it must equal the landed canonical-main commit.
 

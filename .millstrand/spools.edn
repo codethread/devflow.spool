@@ -2,11 +2,9 @@
  {:millstrand/source-root "spools/batteries"},
  millhouse/spools
  {:git/url "https://github.com/codethread/millhouse.spool.git",
-  :git/sha "5325e88dd3e5703d56bd4714665f0a8c377d9059",
+  :git/sha "f1cdda3b46706b186f547251d285791be650d232",
   :roots
   {millhouse.spools/workflow "spools/workflow",
-   millhouse.spools/millstrand-workflows "spools/millstrand-workflows",
-   millhouse.spools.executors/shell "spools/shell-executor",
    millhouse.spools/kanban "spools/kanban"}},
  codethread/spools
  {:git/url "https://github.com/codethread/codethread.spool.git",

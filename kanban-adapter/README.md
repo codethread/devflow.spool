@@ -38,7 +38,7 @@ family entry (same SHA for every Millhouse root you use):
 {:spools
  {millhouse/spools
   {:git/url "https://github.com/codethread/millhouse.spool.git"
-   :git/sha "5325e88dd3e5703d56bd4714665f0a8c377d9059"
+   :git/sha "f1cdda3b46706b186f547251d285791be650d232"
    :roots {millhouse.spools/kanban "spools/kanban"
            millhouse.spools/workflow "spools/workflow"}}
   codethread/devflow

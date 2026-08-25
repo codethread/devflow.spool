@@ -1,6 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/5325e88dd3e5703d56bd4714665f0a8c377d9059/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/f1cdda3b46706b186f547251d285791be650d232/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -80,7 +80,7 @@ and how to drive a run.
 
 - **Millstrand at immutable SHA `9bc90d1c8e421699f72098a8ca59a058be6ff88b`**, with the retired vocabulary API and command removed, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
-  Millhouse commit `5325e88dd3e5703d56bd4714665f0a8c377d9059`.
+  Millhouse commit `f1cdda3b46706b186f547251d285791be650d232`.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Approve the sources
@@ -92,9 +92,8 @@ In the **consumer's** `spools.edn`:
                                     :git/sha "9bc90d1c8e421699f72098a8ca59a058be6ff88b"
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
-                            :git/sha "5325e88dd3e5703d56bd4714665f0a8c377d9059"
+                            :git/sha "f1cdda3b46706b186f547251d285791be650d232"
                             :roots {millhouse.spools/workflow "spools/workflow"
-                                    millhouse.spools/millstrand-workflows "spools/millstrand-workflows"}}
           codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
                               :git/tag "v22"
                               :git/sha "<peeled sha of v22>"
@@ -114,7 +113,6 @@ For local development only, overlay the approved family in `spools.local.edn` (u
                                     :roots {millstrand.spools/batteries "spools/batteries"}}
           millhouse/spools {:local/root "/Users/you/dev/millhouse.spool"
                             :roots {millhouse.spools/workflow "spools/workflow"
-                                    millhouse.spools/millstrand-workflows "spools/millstrand-workflows"}}
           codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
 ```
 
@@ -153,10 +151,9 @@ From trusted `init.clj` or REPL code:
    :required? true})
 
 (runtime/module! runtime
-  :millhouse/millstrand-workflows
-  {:ns 'millhouse.spools.millstrand-workflows
-   :spools ['millhouse.spools/millstrand-workflows
-            'millhouse.spools/workflow]
+  :millhouse/workflow-providers
+  {:ns 'millhouse.spools.workflow.spool
+   :spools ['millhouse.spools/workflow]
    :after [:millhouse/spools-workflow]
    :required? true})
 
