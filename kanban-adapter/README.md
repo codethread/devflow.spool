@@ -39,16 +39,13 @@ Add Devflow, the adapter, and its Kanban dependency to `deps.edn`:
   millhouse.spools/kanban
   {:git/url "https://github.com/codethread/millhouse.spool.git"
    :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
-   :deps/root "spools/kanban"}
-  codethread/devflow
-  {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "<release tag>"
-   :deps/root "."}
-  codethread/devflow-kanban-adapter
-  {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "<release tag>"
-   :deps/root "kanban-adapter"}}}
+   :deps/root "spools/kanban"}}}
 ```
+
+The deps-native Devflow and adapter release has not yet been landed and
+published, so its immutable peeled SHA is not available. The coordinated publish
+task will record that marker before this guide provides copyable Devflow and
+adapter dependencies. Until then, use local checkouts for development.
 
 Activate kanban and the adapter after devflow and workflow:
 

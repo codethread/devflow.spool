@@ -20,6 +20,11 @@ family/root selection are removed with no compatibility path.
 - The root test suite and published card-authoring equivalence proof resolve
   those coordinates directly. The adapter remains the only root that depends
   on Kanban.
+- Land-quality passed: `git diff --check`; 19 tests and 226 assertions; identity;
+  and card-authoring equivalence. `bin/compat-alarm v20` produced the expected
+  retired-vocabulary `FileNotFoundException` for
+  `millstrand.api.vocab.alpha`, confirming this deliberate break.
+- Authorization: epic `p9o64`, the coordinated deps-native cutover.
 
 ## v22 — selectable authoring on the pinned Millstrand and Millhouse APIs
 
