@@ -1,12 +1,10 @@
 # Writing shared spools
 
-This spool follows Millstrand's [shared-spool publishing contract](https://github.com/codethread/millstrand/blob/9bc90d1c8e421699f72098a8ca59a058be6ff88b/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution). The consumer approval example in [README.md](../../README.md) uses one SHA-pinned family entry and maps each published root with `:roots`.
-
-Use `:local/root` only in a gitignored `spools.local.edn` overlay for local development. A published approval must name the Git URL, the full commit SHA, and every root the consumer loads.
+This spool follows Millstrand's [shared-spool publishing contract](https://github.com/codethread/millstrand/blob/71c0ed3d80fcad090b74a704a8eb165a3fad996e/docs/spools/writing-shared-spools.md#publishing-a-shared-spool-with-git-distribution). The consumer example in [README.md](../../README.md) uses one ordinary tools.deps coordinate per root.
 
 ## CLI style, vocabulary, and argument contracts
 
-The following bounded rules are copied from Millstrand's [pinned CLI-style section](https://github.com/codethread/millstrand/blob/9bc90d1c8e421699f72098a8ca59a058be6ff88b/docs/spools/writing-shared-spools.md#cli-style) and are the applicable contract for this spool:
+The following bounded rules are copied from Millstrand's [pinned CLI-style section](https://github.com/codethread/millstrand/blob/71c0ed3d80fcad090b74a704a8eb165a3fad996e/docs/spools/writing-shared-spools.md#cli-style) and are the applicable contract for this spool:
 
 - Verbs follow the role already named by the primitive: entity lifecycles use `start`, `finish --outcome`, `abort`, `status <id>`, and `list`; workflow steps use `start`, `next`, `complete`, `choose`, and `status`; processes use `spawn`, `kill`, `retry`, `await`, `logs`, and `ps`. A wrapper keeps the primitive's verb rather than inventing a domain synonym.
 - Use `--by` for attribution. Name attribute flags after the attribute, such as `--owner`, `--branch`, `--worktree`, and `--feature`; use seconds-first duration names such as `--timeout-secs` and `--outcome` for closing state.

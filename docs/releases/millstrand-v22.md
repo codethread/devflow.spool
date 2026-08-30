@@ -8,9 +8,9 @@ This release is the next `codethread/devflow` marker after the Millstrand alpha 
 - Repository: `codethread/devflow.spool`.
 - Coordinate: `codethread/devflow`.
 - Core coordinate: `io.millstrand/millstrand`.
-- Core reference: immutable SHA `3bbe5dc15359975a8e8203ef47b3a7514177e75b`.
-- Workflow coordinate: `millhouse.spools/workflow` at immutable SHA `f1cdda3b46706b186f547251d285791be650d232`.
-- Kanban release: `codethread/kanban` `v24`, `87f61bc2750e7026f3650235907db25f19b1536e`.
+- Core reference: immutable SHA `71c0ed3d80fcad090b74a704a8eb165a3fad996e`.
+- Workflow coordinate: `millhouse.spools/workflow` at immutable SHA `f487eb42ea9523e8bd405e64a7c319013217d988`.
+- Kanban coordinate: `millhouse.spools/kanban` at immutable SHA `f487eb42ea9523e8bd405e64a7c319013217d988`.
 - Peeled Devflow SHA: recorded by the coordinator after the annotated tag is cut; it must equal the landed canonical-main commit.
 
 ## Verification
@@ -19,4 +19,4 @@ The release proof covers the test suite, clj-kondo across every maintained root,
 
 ## Non-goals
 
-This release does not rename `strand`, `mill`, `weaver`, or the Devflow domain and repository coordinate. It retains the external Kanban v24 pairing.
+This release does not rename `strand`, `mill`, `weaver`, or the Devflow domain and repository coordinate. It uses ordinary tools.deps roots and explicit module activation.

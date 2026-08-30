@@ -8,6 +8,19 @@ its `bin/compat-alarm` result against the previous marker, and who authorized
 it. (Older tag messages reference `release-exception.md` / `release-v16.md`;
 those records are folded into this file.)
 
+## Unreleased — deps-native roots
+
+**Deliberate break under published names.** Devflow and its Kanban adapter now
+use ordinary tools.deps coordinates and explicit module activation. The legacy
+`spool.edn` and workspace `spools.edn` manifests, `:spools` module guards, and
+family/root selection are removed with no compatibility path.
+
+- Millstrand: `io.millstrand/millstrand` at `71c0ed3d80fcad090b74a704a8eb165a3fad996e`.
+- Millhouse Workflow and Kanban: `f487eb42ea9523e8bd405e64a7c319013217d988`.
+- The root test suite and published card-authoring equivalence proof resolve
+  those coordinates directly. The adapter remains the only root that depends
+  on Kanban.
+
 ## v22 — selectable authoring on the pinned Millstrand and Millhouse APIs
 
 Peeled sha: recorded by the coordinator after the annotated v22 tag is cut.
