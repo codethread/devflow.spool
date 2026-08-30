@@ -89,7 +89,10 @@ In the consumer's `deps.edn`:
 
 ```clojure
 {:deps
- {io.millstrand/millstrand
+ {codethread/devflow
+  {:git/url "https://github.com/codethread/devflow.spool.git"
+   :git/sha "90799b8c950b4509167137562fbf18853524d41c"}
+  io.millstrand/millstrand
   {:git/url "https://github.com/codethread/millstrand.git"
    :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
   millhouse.spools/workflow
@@ -97,8 +100,6 @@ In the consumer's `deps.edn`:
    :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
    :deps/root "spools/workflow"}}}
 ```
-
-The deps-native Devflow release has not yet been landed and published, so its immutable peeled SHA is not available. The coordinated publish task will record that marker before this guide provides a copyable Devflow dependency.
 
 This repository also ships a second, optional root: `codethread/devflow-kanban-adapter` (`kanban-adapter/`), the adapter binding devflow's pluggable seams to `millhouse.spools/kanban`. Its consumer entry shape is in [kanban-adapter/README.md](./kanban-adapter/README.md); the main `codethread/devflow` root has no card-system dependency.
 
