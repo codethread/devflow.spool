@@ -29,7 +29,14 @@ Add Devflow, the adapter, and its Kanban dependency to `deps.edn`:
 
 ```clojure
 {:deps
- {io.millstrand/millstrand
+ {codethread/devflow
+  {:git/url "https://github.com/codethread/devflow.spool.git"
+   :git/sha "90799b8c950b4509167137562fbf18853524d41c"}
+  codethread/devflow-kanban-adapter
+  {:git/url "https://github.com/codethread/devflow.spool.git"
+   :git/sha "90799b8c950b4509167137562fbf18853524d41c"
+   :deps/root "kanban-adapter"}
+  io.millstrand/millstrand
   {:git/url "https://github.com/codethread/millstrand.git"
    :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
   millhouse.spools/workflow
@@ -41,8 +48,6 @@ Add Devflow, the adapter, and its Kanban dependency to `deps.edn`:
    :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
    :deps/root "spools/kanban"}}}
 ```
-
-The deps-native Devflow and adapter release has not yet been landed and published, so its immutable peeled SHA is not available. The coordinated publish task will record that marker before this guide provides copyable Devflow and adapter dependencies.
 
 Activate kanban and the adapter after devflow and workflow:
 
