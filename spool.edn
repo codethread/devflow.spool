@@ -1,8 +1,0 @@
-;; Advisory manifest for tooling that materializes consumer spool entries.
-;; The Millstrand core loader does not read this file.
-;; The adapter root requires millhouse.spools/kanban from the millhouse/spools
-;; family (SHA-pinned; no release marker). Devflow-only consumers drop the
-;; adapter root mapping; they do not need kanban approval.
-{:spool/format 1
- :roots {codethread/devflow {:root "."}
-         codethread/devflow-kanban-adapter {:root "kanban-adapter"}}}

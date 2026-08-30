@@ -1,6 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/f1cdda3b46706b186f547251d285791be650d232/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/f487eb42ea9523e8bd405e64a7c319013217d988/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -78,47 +78,29 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Millstrand at immutable SHA `9bc90d1c8e421699f72098a8ca59a058be6ff88b`**, with the retired vocabulary API and command removed, and a live weaver. Published consumers pin the repository and this full commit SHA; no tag or release marker is part of the contract.
+- **Millstrand at immutable SHA `71c0ed3d80fcad090b74a704a8eb165a3fad996e`**, with a live weaver.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
-  Millhouse commit `f1cdda3b46706b186f547251d285791be650d232`.
+  Millhouse commit `f487eb42ea9523e8bd405e64a7c319013217d988`.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
-### Approve the sources
+### Add the dependencies
 
-In the **consumer's** `spools.edn`:
-
-```clojure
-{:spools {io.millstrand/millstrand {:git/url "https://github.com/codethread/millstrand.git"
-                                    :git/sha "9bc90d1c8e421699f72098a8ca59a058be6ff88b"
-                                    :roots {millstrand.spools/batteries "spools/batteries"}}
-          millhouse/spools {:git/url "https://github.com/codethread/millhouse.spool.git"
-                            :git/sha "f1cdda3b46706b186f547251d285791be650d232"
-                            :roots {millhouse.spools/workflow "spools/workflow"
-          codethread/devflow {:git/url "https://github.com/codethread/devflow.spool.git"
-                              :git/tag "v22"
-                              :git/sha "<peeled sha of v22>"
-                              :roots {codethread/devflow "."}}}}
-```
-
-This repository also ships a second, optional root: `codethread/devflow-kanban-adapter`
-(`kanban-adapter/`), the adapter binding devflow's pluggable seams to
-`millhouse.spools/kanban`. It carries its own Millhouse kanban approval and
-consumer entry shape — see [kanban-adapter/README.md](./kanban-adapter/README.md);
-the main `codethread/devflow` root has no card-system dependency.
-
-For local development only, overlay the approved family in `spools.local.edn` (usually gitignored):
+In the consumer's `deps.edn`:
 
 ```clojure
-{:spools {io.millstrand/millstrand {:local/root "/Users/you/dev/millstrand"
-                                    :roots {millstrand.spools/batteries "spools/batteries"}}
-          millhouse/spools {:local/root "/Users/you/dev/millhouse.spool"
-                            :roots {millhouse.spools/workflow "spools/workflow"
-          codethread/devflow {:local/root "/Users/you/dev/devflow.spool"}}}
+{:deps
+ {io.millstrand/millstrand
+  {:git/url "https://github.com/codethread/millstrand.git"
+   :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
+  millhouse.spools/workflow
+  {:git/url "https://github.com/codethread/millhouse.spool.git"
+   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :deps/root "spools/workflow"}}}
 ```
 
-> This repo's `spool.edn` is advisory producer metadata, not consumer approval.
+The deps-native Devflow release has not yet been landed and published, so its immutable peeled SHA is not available. The coordinated publish task will record that marker before this guide provides a copyable Devflow dependency.
 
-The published example uses SHA-pinned Millstrand and Millhouse families and maps their approved roots with `:roots`; the local overlay replaces those families with checkouts. Do not use `:local/root` in a published approval file.
+This repository also ships a second, optional root: `codethread/devflow-kanban-adapter` (`kanban-adapter/`), the adapter binding devflow's pluggable seams to `millhouse.spools/kanban`. Its consumer entry shape is in [kanban-adapter/README.md](./kanban-adapter/README.md); the main `codethread/devflow` root has no card-system dependency.
 
 ### Activate the modules
 
@@ -134,38 +116,27 @@ From trusted `init.clj` or REPL code:
 (runtime/module! runtime
   :millstrand/spools-batteries
   {:ns 'millstrand.spools.batteries
-   :spools ['millstrand.spools/batteries]
    :required? true})
 
 (runtime/module! runtime
   :millhouse/spools-workflow
   {:ns 'millhouse.spools.workflow
-   :spools ['millhouse.spools/workflow]
-   :required? true})
-
-(runtime/module! runtime
-  :millhouse/spools-workflow-cli
-  {:ns 'millhouse.spools.workflow.cli
-   :spools ['millhouse.spools/workflow]
-   :after [:millhouse/spools-workflow]
    :required? true})
 
 (runtime/module! runtime
   :millhouse/workflow-providers
   {:ns 'millhouse.spools.workflow.spool
-   :spools ['millhouse.spools/workflow]
    :after [:millhouse/spools-workflow]
    :required? true})
 
 (runtime/module! runtime
   :devflow
-  {:spools ['codethread/devflow]
-   :ns 'ct.spools.devflow
+  {:ns 'ct.spools.devflow
    :after [:millhouse/spools-workflow]
    :required? true})
 ```
 
-Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed prerequisite explicit. The batteries module provides the `strand list`, `ready`, and `query` commands used for discovery; the workflow CLI provides lifecycle commands. Devflow's namespace defines inert declarations and explicitly selects its full catalogue when the `:devflow` module loads. Consumers that require the library outside module collection can select individual declarations with the matching typed use form. There is no `spool`, `contribute`, or `reconcile` Var to call.
+Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed prerequisite explicit. The batteries module provides the `strand list`, `ready`, and `query` commands used for discovery; the workflow module provides lifecycle commands. Devflow's namespace defines inert declarations and explicitly selects its full catalogue when the `:devflow` module loads. Consumers that require the library outside module collection can select individual declarations with the matching typed use form. There is no `spool`, `contribute`, or `reconcile` Var to call.
 
 ### Check it worked
 

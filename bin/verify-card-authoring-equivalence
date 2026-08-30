@@ -22,8 +22,7 @@ while (($# > 0)); do
 done
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
-core_sha=9bc90d1c8e421699f72098a8ca59a058be6ff88b
-kanban_sha=87f61bc2750e7026f3650235907db25f19b1536e
+core_sha=71c0ed3d80fcad090b74a704a8eb165a3fad996e
 
 if [[ -n "$core_release" ]]; then
   [[ -f "$core_release" ]] || { echo "missing core release: $core_release" >&2; exit 1; }
@@ -63,12 +62,11 @@ PY
 fi
 
 [[ "$core_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid core SHA" >&2; exit 1; }
-[[ "$kanban_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid Kanban SHA" >&2; exit 1; }
 command -v clojure >/dev/null 2>&1 || { echo "missing command clojure" >&2; exit 1; }
 
 # The fixture is deliberately a merged-proposal shape rather than a storage
 # id. Both targets author through workflow steps, so storage ids are absent at
 # this boundary; the normalized contract is what downstream card systems must
 # preserve.
-(cd "$repo_root" && MSR04_CORE_SHA="$core_sha" KANBAN_V24_SHA="$kanban_sha" \
+(cd "$repo_root" && MSR04_CORE_SHA="$core_sha" \
   clojure -M:equivalence-published)

@@ -7,12 +7,7 @@ kanban, activate this root instead of hand-rolling the same glue.
 
 ## Dependencies
 
-Unlike the main devflow root, this root **requires the Millhouse kanban root**:
-
-| Root | Source |
-|---|---|
-| `codethread/devflow` | same repository, same marker |
-| `millhouse.spools/kanban` | `millhouse/spools` family, SHA-pinned (no release marker) |
+Unlike the main devflow root, this root requires `millhouse.spools/kanban`.
 
 ## What it ships
 
@@ -30,35 +25,33 @@ Unlike the main devflow root, this root **requires the Millhouse kanban root**:
 
 ## Consuming it
 
-Approve devflow and add the kanban root to your existing `millhouse/spools`
-family entry (same SHA for every Millhouse root you use):
+Add Devflow, the adapter, and its Kanban dependency to `deps.edn`:
 
 ```clojure
-;; .millstrand/spools.edn
-{:spools
- {millhouse/spools
+{:deps
+ {io.millstrand/millstrand
+  {:git/url "https://github.com/codethread/millstrand.git"
+   :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
+  millhouse.spools/workflow
   {:git/url "https://github.com/codethread/millhouse.spool.git"
-   :git/sha "f1cdda3b46706b186f547251d285791be650d232"
-   :roots {millhouse.spools/kanban "spools/kanban"
-           millhouse.spools/workflow "spools/workflow"}}
-  codethread/devflow
-  {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/tag "v22" :git/sha "<peeled sha of v22>"
-   :roots {codethread/devflow "."
-           codethread/devflow-kanban-adapter "kanban-adapter"}}}}
+   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :deps/root "spools/workflow"}
+  millhouse.spools/kanban
+  {:git/url "https://github.com/codethread/millhouse.spool.git"
+   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :deps/root "spools/kanban"}}}
 ```
+
+The deps-native Devflow and adapter release has not yet been landed and published, so its immutable peeled SHA is not available. The coordinated publish task will record that marker before this guide provides copyable Devflow and adapter dependencies.
 
 Activate kanban and the adapter after devflow and workflow:
 
 ```clojure
-;; .millstrand/init.clj
 (runtime/module! runtime :millhouse/spools-kanban
   {:ns 'millhouse.spools.kanban
-   :spools ['millhouse.spools/kanban]
    :required? true})
 (runtime/module! runtime :devflow/kanban-adapter
   {:ns 'ct.spools.devflow-kanban-adapter
-   :spools ['codethread/devflow-kanban-adapter 'codethread/devflow 'millhouse.spools/kanban]
    :after [:devflow :millhouse/spools-kanban]
    :required? true})
 ```

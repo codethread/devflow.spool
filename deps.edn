@@ -1,36 +1,24 @@
 {:paths ["src" "resources"]
- :deps {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}}
+ :deps {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
+        io.millstrand/millstrand
+        {:git/url "https://github.com/codethread/millstrand.git"
+         :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
+        millhouse.spools/workflow
+        {:git/url "https://github.com/codethread/millhouse.spool.git"
+         :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+         :deps/root "spools/workflow"}}
  :aliases
  {:test {:extra-paths ["test" "scripts" "kanban-adapter/src" "kanban-adapter/test"]
-         ;; Test against the exact authoring API and Workflow commits consumed
-         ;; by this migration. The library roots remain separately approved
-         ;; dependencies in the test JVM.
-         ;; The kanban pin is the adapter root's millhouse.spools/kanban root at
-         ;; the same millhouse SHA as workflow, so the suite proves that binding.
-         :extra-deps {io.millstrand/millstrand
-                      {:git/url "https://github.com/codethread/millstrand.git"
-                       :git/sha "9bc90d1c8e421699f72098a8ca59a058be6ff88b"}
-                      millhouse.spools/workflow
+         :extra-deps {millhouse.spools/kanban
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "f1cdda3b46706b186f547251d285791be650d232"
-                       :deps/root "spools/workflow"}
-                      millhouse.spools/kanban
-                      {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "f1cdda3b46706b186f547251d285791be650d232"
+                       :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
                        :deps/root "spools/kanban"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}
   :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
-                          :extra-deps {io.millstrand/millstrand
-                                       {:git/url "https://github.com/codethread/millstrand.git"
-                                        :git/sha "9bc90d1c8e421699f72098a8ca59a058be6ff88b"}
-                                       millhouse.spools/workflow
+                          :extra-deps {millhouse.spools/kanban
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "f1cdda3b46706b186f547251d285791be650d232"
-                                        :deps/root "spools/workflow"}
-                                       millhouse.spools/kanban
-                                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "f1cdda3b46706b186f547251d285791be650d232"
+                                        :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
                                         :deps/root "spools/kanban"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
                           :main-opts ["-m" "ct.spools.devflow-equivalence"]}
