@@ -12,23 +12,17 @@ those records are folded into this file.)
 
 Peeled sha: `90799b8c950b4509167137562fbf18853524d41c`
 
-Devflow and its Kanban adapter use ordinary tools.deps coordinates and explicit
-module activation.
+Devflow and its Kanban adapter use ordinary tools.deps coordinates and explicit module activation.
 
-- `codethread/devflow` resolves from
-  `https://github.com/codethread/devflow.spool.git` at
-  `90799b8c950b4509167137562fbf18853524d41c`.
-- `codethread/devflow-kanban-adapter` resolves from the same repository and
-  commit with `:deps/root "kanban-adapter"`.
+- `codethread/devflow` resolves from `https://github.com/codethread/devflow.spool.git` at `90799b8c950b4509167137562fbf18853524d41c`.
+- `codethread/devflow-kanban-adapter` resolves from the same repository and commit with `:deps/root "kanban-adapter"`.
 - Millstrand: `io.millstrand/millstrand` at `71c0ed3d80fcad090b74a704a8eb165a3fad996e`.
 - Millhouse Workflow and Kanban: `f487eb42ea9523e8bd405e64a7c319013217d988`.
-- The root test suite and published card-authoring equivalence proof resolve
-  those coordinates directly. The adapter remains the only root that depends
-  on Kanban.
+- The root test suite and published card-authoring equivalence proof resolve those coordinates directly. The adapter remains the only root that depends on Kanban.
 
 ## v22 — selectable authoring on the pinned Millstrand and Millhouse APIs
 
-Peeled sha: recorded by the coordinator after the annotated v22 tag is cut.
+Peeled sha: `3a96415df0429c245191a22e66cc0bfc91524199`
 
 The release keeps the Devflow domain and repository identity unchanged while pinning its published proof to the Millstrand selectable-authoring commit and the Millhouse Workflow commit consumed by the test and equivalence gates.
 
