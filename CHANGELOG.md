@@ -10,20 +10,12 @@ those records are folded into this file.)
 
 ## Unreleased — deps-native roots
 
-**Deliberate break under published names.** Devflow and its Kanban adapter now
-use ordinary tools.deps coordinates and explicit module activation. The legacy
-`spool.edn` and workspace `spools.edn` manifests, `:spools` module guards, and
-family/root selection are removed with no compatibility path.
+**Deliberate break under published names.** Devflow and its Kanban adapter now use ordinary tools.deps coordinates and explicit module activation. The legacy `spool.edn` and workspace `spools.edn` manifests, `:spools` module guards, and family/root selection are removed with no compatibility path.
 
 - Millstrand: `io.millstrand/millstrand` at `71c0ed3d80fcad090b74a704a8eb165a3fad996e`.
 - Millhouse Workflow and Kanban: `f487eb42ea9523e8bd405e64a7c319013217d988`.
-- The root test suite and published card-authoring equivalence proof resolve
-  those coordinates directly. The adapter remains the only root that depends
-  on Kanban.
-- Land-quality passed: `git diff --check`; 19 tests and 226 assertions; identity;
-  and card-authoring equivalence. `bin/compat-alarm v20` produced the expected
-  retired-vocabulary `FileNotFoundException` for
-  `millstrand.api.vocab.alpha`, confirming this deliberate break.
+- The root test suite and published card-authoring equivalence proof resolve those coordinates directly. The adapter remains the only root that depends on Kanban.
+- Land-quality passed: `git diff --check`; 19 tests and 226 assertions; identity; and card-authoring equivalence. `bin/compat-alarm v20` produced the expected retired-vocabulary `FileNotFoundException` for `millstrand.api.vocab.alpha`, confirming this deliberate break.
 - Authorization: epic `p9o64`, the coordinated deps-native cutover.
 
 ## v22 — selectable authoring on the pinned Millstrand and Millhouse APIs

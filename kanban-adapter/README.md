@@ -42,10 +42,7 @@ Add Devflow, the adapter, and its Kanban dependency to `deps.edn`:
    :deps/root "spools/kanban"}}}
 ```
 
-The deps-native Devflow and adapter release has not yet been landed and
-published, so its immutable peeled SHA is not available. The coordinated publish
-task will record that marker before this guide provides copyable Devflow and
-adapter dependencies.
+The deps-native Devflow and adapter release has not yet been landed and published, so its immutable peeled SHA is not available. The coordinated publish task will record that marker before this guide provides copyable Devflow and adapter dependencies.
 
 Activate kanban and the adapter after devflow and workflow:
 

@@ -98,15 +98,9 @@ In the consumer's `deps.edn`:
    :deps/root "spools/workflow"}}}
 ```
 
-The deps-native Devflow release has not yet been landed and published, so its
-immutable peeled SHA is not available. The coordinated publish task will record
-that marker before this guide provides a copyable Devflow dependency.
+The deps-native Devflow release has not yet been landed and published, so its immutable peeled SHA is not available. The coordinated publish task will record that marker before this guide provides a copyable Devflow dependency.
 
-This repository also ships a second, optional root: `codethread/devflow-kanban-adapter`
-(`kanban-adapter/`), the adapter binding devflow's pluggable seams to
-`millhouse.spools/kanban`. Its consumer entry shape is in
-[kanban-adapter/README.md](./kanban-adapter/README.md);
-the main `codethread/devflow` root has no card-system dependency.
+This repository also ships a second, optional root: `codethread/devflow-kanban-adapter` (`kanban-adapter/`), the adapter binding devflow's pluggable seams to `millhouse.spools/kanban`. Its consumer entry shape is in [kanban-adapter/README.md](./kanban-adapter/README.md); the main `codethread/devflow` root has no card-system dependency.
 
 ### Activate the modules
 
