@@ -100,8 +100,7 @@ In the consumer's `deps.edn`:
 
 The deps-native Devflow release has not yet been landed and published, so its
 immutable peeled SHA is not available. The coordinated publish task will record
-that marker before this guide provides a copyable Devflow dependency. Until
-then, use a local checkout for development.
+that marker before this guide provides a copyable Devflow dependency.
 
 This repository also ships a second, optional root: `codethread/devflow-kanban-adapter`
 (`kanban-adapter/`), the adapter binding devflow's pluggable seams to
