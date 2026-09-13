@@ -1,1 +1,11 @@
-{:paths ["src"]}
+{:paths ["src"]
+ :deps {codethread/devflow {:local/root ".."}
+        millhouse.spools/kanban
+        {:git/url "https://github.com/codethread/millhouse.spool.git"
+         :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+         :deps/root "spools/kanban"}}
+ :aliases
+ {:test {:extra-paths ["test"]
+         :main-opts ["-m" "ct.spools.devflow-kanban-adapter-test"]}
+  :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.08.04"}}
+         :main-opts ["-m" "clj-kondo.main"]}}}

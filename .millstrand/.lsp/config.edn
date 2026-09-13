@@ -1,0 +1,4 @@
+{:copy-kondo-configs? true
+ :source-paths ["."]
+ :project-specs [{:project-path "deps.edn"
+                  :classpath-cmd ["clojure" "-Srepro" "-Spath"]}]}

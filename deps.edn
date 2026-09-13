@@ -22,5 +22,5 @@
                                         :deps/root "spools/kanban"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
                           :main-opts ["-m" "ct.spools.devflow-equivalence"]}
-  :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.06.05"}}
+  :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.08.04"}}
          :main-opts ["-m" "clj-kondo.main"]}}}
