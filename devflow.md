@@ -147,6 +147,24 @@ genuinely wants its implementation driven here — small, settled, one sitting.
 Both routes are fully supported. Reach for the single-run route deliberately;
 otherwise take the cards route.
 
+### Headless agent gates
+
+Devflow publishes delegated work as Workflow `:agent` gates. A workspace
+activates the Harnesses `:agent` executor after its shared alias catalog and
+repository reviewer policy. Inspect available seats and review declarations
+with `strand agent list` and `strand agent reviewers`; inspect a run with
+`strand agent show <run-id>`, and wait for provider settlement with:
+
+```sh
+strand await --query agent-run-settled --param run-id=<run-id> --min-count 1
+```
+
+Work-target assignments use `strand agent assign <agent> --task <id> --cwd <worktree>`.
+Assignment accepts a ready run but does not create a worktree or
+claim the target, and blocked targets wait for their `depends-on` prerequisites.
+The gate adapter uses `harness/alias`, `harness/prompt`, and optional
+`harness/cwd`; completed output is copied back as `harness/result`.
+
 ### The cards route, end to end
 
 ```mermaid
@@ -214,8 +232,8 @@ strand workflow start search-filters --workflow intake --params \
 strand workflow choose search-filters review --input \
   '{"cards":[{"id":"card-43","title":"Filter query contract"},\
              {"id":"card-44","title":"Filter result UI"}]}'
-;; => {:ready [{:gate "subagent" :title "Focused review of card card-43: ..."}
-;;             {:gate "subagent" :title "Focused review of card card-44: ..."}]
+;; => {:ready [{:gate "agent" :title "Focused review of card card-43: ..."}
+;;             {:gate "agent" :title "Focused review of card card-44: ..."}]
 ;;     :done false}
 ```
 
@@ -270,7 +288,7 @@ strand workflow choose search-filters approved --input \
   '{"tasks":[{"id":"impl","title":"Implement filters","body":"Use the signed-off plan."},\
               {"id":"tests","title":"Add regression tests"}],\
     "delegate-harness":"pi-main","delegate-cwd":"/path/to/feature/worktree"}'
-;; => {:ready [{:gate "subagent" :title "Delegate AFK task impl for search-filters" ...}]
+;; => {:ready [{:gate "agent" :title "Delegate AFK task impl for search-filters" ...}]
 ;;     :done false}
 ```
 
@@ -554,9 +572,10 @@ What devflow writes on the graph, if you're building tooling over it.
 | `workflow/artifact` | What a step produces: `"brief"`, `"proposal.md"`, `"specs/*.delta.md"`, `"<feature>.plan.md"`, `"task strands"`, `"implementation cards"` |
 | `workflow/decision-point` | What a checkpoint decides, e.g. `"proposal-signed-off"` |
 | `workflow/action-ref` | The action/skill an agent should invoke, e.g. `"devflow.proposal.orient"` |
-| `workflow/gate` | `"subagent"` on delegated AFK and card-review gates; `"human"` on the proposal merge gate |
+| `workflow/gate` | `"agent"` on delegated AFK and card-review gates; `"human"` on the proposal merge gate |
 | `workflow/instruction` | Freeform guidance surfaced in the step view |
-| `agent-run/harness`, `agent-run/prompt`, `agent-run/cwd` | What a delegated run gets |
+| `harness/alias`, `harness/prompt`, `harness/cwd` | Alias, prompt, and optional working directory passed to the headless agent executor |
+| `harness/result` | Result copied from a completed headless agent run onto its workflow gate |
 
 Every Devflow root carries a known `devflow/stage`; use the root attributes when
 building a projection that needs the current stage. The generic step view remains

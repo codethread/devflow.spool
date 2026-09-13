@@ -55,7 +55,7 @@ Card set:
 ### Reconcile reviews
 
 1. Wait for all focused card-review gates and the later set-level cohesion gate to close.
-2. Read `agent-run/result` from every review gate; keep focused findings attached to their card and set-level findings attached to slicing, coverage, or edges.
+2. Read `harness/result` from every review gate; keep focused findings attached to their card and set-level findings attached to slicing, coverage, or edges.
 3. Apply valid findings to the cards where they live — strand bodies and `depends-on` edges for the shipped target, or the bound card system — without editing the merged proposal.
 4. If any material card changed, choose review-again with the current full card set; otherwise choose accepted and let the card loop own implementation.
 

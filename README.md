@@ -66,9 +66,9 @@ and markdown template. No external skill file needed.
   `decompose-open` templates without touching devflow.
 - **Revision loops that don't waste work.** "Revise" re-runs a stage and skips
   the setup steps it already did.
-- **Delegated review and execution.** Card reviews fan out to subagents
+- **Delegated review and execution.** Card reviews fan out to tracked headless agents
   (focused per-card reviews, then one set-level cohesion review); approved task
-  queues can run as sequential subagent gates.
+  queues can run as sequential `:agent` gates.
 - **An abort path from every human decision point**, with a required reason.
 
 👉 **[devflow.md](./devflow.md) is the guide** — the documents, the stage flows,

@@ -11,6 +11,7 @@
             [millstrand.api.current.alpha :as current]
             [millstrand.api.graph.alpha :as graph]
             [millstrand.api.runtime.alpha :as runtime]
+            [millstrand.api.spool.alpha :refer [attr-get]]
             [millstrand.api.weaver.alpha :as weaver]
             [millhouse.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
@@ -205,6 +206,30 @@
                    "Focused review of card c2: Two"}
                  (set (map :title (:ready result))))
               "focused reviews fan out over exactly the supplied refs"))))))
+
+(deftest agent-gates-use-the-harnesses-executor-contract
+  (with-runtime
+    (fn [rt]
+      (workflow/start! "agent-gates" #'devflow/review-cards
+                       {:feature "agent-gates"
+                        :card-reviewer "reviewer"
+                        :card-set-reviewer "oracle"
+                        :cards [{:id "card-a" :title "A"}
+                                {:id "card-b" :title "B"}]})
+      (let [gates (workflow/ready-gates "agent-gates")
+            strands (mapv #(weaver/show rt (:id %)) gates)]
+        (is (= #{"agent"} (set (map :gate gates))))
+        (is (= #{"reviewer"}
+               (set (map #(attr-get % :harness/alias) strands))))
+        (is (every? #(string? (attr-get % :harness/prompt)) strands))
+        (doseq [gate gates]
+          (workflow/complete! "agent-gates" {:step (:id gate)
+                                             :by "test"}))
+        (let [set-gate (first (workflow/ready-gates "agent-gates"))
+              set-strand (weaver/show rt (:id set-gate))]
+          (is (= "agent" (:gate set-gate)))
+          (is (= "oracle" (attr-get set-strand :harness/alias)))
+          (is (string? (attr-get set-strand :harness/prompt))))))))
 
 (deftest devflow-tasks-query-serves-the-strand-native-queue
   (with-runtime

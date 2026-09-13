@@ -17,7 +17,7 @@ queue is exhausted, blocked, or a run fails.
 
 ## Modes
 
-- **Delegated** — Approve the task queue (`choose! :approved`) with choice input `:tasks` (vector of `{:id :title :body :harness}` maps — copy each map's `:body` from the task strand's body) plus `:delegate-harness` / `:delegate-cwd` / `:delegate-preamble`; devflow pours one sequential subagent gate per task and finishes with a human acceptance checkpoint.
+- **Delegated** — Approve the task queue (`choose! :approved`) with choice input `:tasks` (vector of `{:id :title :body :harness}` maps — copy each map's `:body` from the task strand's body) plus `:delegate-harness` / `:delegate-cwd` / `:delegate-preamble`; devflow pours one sequential `:agent` gate per task and finishes with a human acceptance checkpoint.
 - **External** — Approve without `:tasks` to keep the single run-afk-loop step, run or hand off an external loop runner, then `complete!` the step.
 
 ## Queue states

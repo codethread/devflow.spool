@@ -207,20 +207,20 @@
 
   Every value renders from resolved params, which is what lets the stage be a
   static definition: nothing here is decided when the definition is written.
-  `agent-run/cwd` is always declared and renders nil when no `:delegate-cwd`
-  was supplied, which the subagent executor reads exactly as an absent cwd."
+  `harness/cwd` is always declared and renders nil when no `:delegate-cwd`
+  was supplied, which the agent executor reads exactly as an absent cwd."
   []
   (workflow/gate :task
                  (fn [{:keys [feature item]}]
                    (str "Delegate AFK task " (task-value item :id) " for " feature))
-                 :subagent
+                 :agent
                  :loop {:each :tasks :chain true}
                  :attributes {"devflow/task" (fn [{:keys [item]}] (task-value item :id))
-                              "agent-run/harness" (fn [{:keys [item delegate-harness]}]
-                                                    (or (task-value item :harness) delegate-harness))
-                              "agent-run/cwd" (param-value :delegate-cwd)
-                              "agent-run/prompt" (fn [{:keys [feature item delegate-preamble]}]
-                                                   (afk-task-prompt feature item delegate-preamble))}))
+                              "harness/alias" (fn [{:keys [item delegate-harness]}]
+                                                (or (task-value item :harness) delegate-harness))
+                              "harness/cwd" (param-value :delegate-cwd)
+                              "harness/prompt" (fn [{:keys [feature item delegate-preamble]}]
+                                                 (afk-task-prompt feature item delegate-preamble))}))
 
 (defn- card-review-prompt
   "Render the focused review prompt for one card."
@@ -546,7 +546,7 @@
   "Review authored implementation cards at focused and set-level scopes.
 
   The card gate expands without a chain, so every focused review is ready
-  together and the subagent executor may run them up to its fan-out ceiling.
+  together and the agent executor may run them up to its fan-out ceiling.
   The set gate depends on the loop's base id, which fans in over all focused
   reviews, and its prompt deliberately judges only cross-card cohesion. How
   cards are grouped (a parent card, a milestone, nothing) is the caller's own
@@ -563,14 +563,14 @@
                    (fn [{:keys [item]}]
                      (str "Focused review of card " (card-value item :id) ": "
                           (card-value item :title)))
-                   :subagent
+                   :agent
                    :loop {:each :cards}
                    :attributes {"devflow/review" "agent"
                                 "devflow/review-scope" "card"
                                 "devflow/card" (fn [{:keys [item]}] (card-value item :id))
-                                "agent-run/harness" (param-value :card-reviewer)
-                                "agent-run/cwd" (param-value :review-cwd)
-                                "agent-run/prompt" card-review-prompt
+                                "harness/alias" (param-value :card-reviewer)
+                                "harness/cwd" (param-value :review-cwd)
+                                "harness/prompt" card-review-prompt
                                 "workflow/instruction" (str "Executor-owned focused card review. "
                                                             "The configured card reviewer must "
                                                             "inspect exactly this card and return "
@@ -578,13 +578,13 @@
                                                             "review the other cards.")})
     (workflow/gate :card-set-review
                    (titled "Cohesion review of the card set for ")
-                   :subagent
+                   :agent
                    :depends-on [:card-review]
                    :attributes {"devflow/review" "agent"
                                 "devflow/review-scope" "card-set"
-                                "agent-run/harness" (param-value :card-set-reviewer)
-                                "agent-run/cwd" (param-value :review-cwd)
-                                "agent-run/prompt" card-set-review-prompt
+                                "harness/alias" (param-value :card-set-reviewer)
+                                "harness/cwd" (param-value :review-cwd)
+                                "harness/prompt" card-set-review-prompt
                                 "workflow/instruction" (str "Executor-owned set-level cohesion "
                                                             "review. It starts only after every "
                                                             "focused card review closes and must "
@@ -595,7 +595,7 @@
                    :depends-on [:card-set-review]
                    :attributes {"workflow/action-ref" "devflow.decompose.reconcile-reviews"
                                 "devflow/guide" "decompose"
-                                "workflow/instruction" (str "Read agent-run/result from every closed "
+                                "workflow/instruction" (str "Read harness/result from every closed "
                                                             "card-review-* gate and from the "
                                                             "card-set-review gate. Apply valid focused "
                                                             "findings to their cards and valid cohesion "
