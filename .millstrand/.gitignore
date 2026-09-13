@@ -1,6 +1,7 @@
 config.local.json
 init.local.clj
 spools.local.edn
+/.land-merge-lock.acquire
 state/
 data/
 weaver.*
