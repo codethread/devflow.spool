@@ -81,7 +81,7 @@
   set, one feature card per independently landable outcome, and landing-order
   constraints as depends-on edges. Card bodies carry the cold-card contract
   from `strand devflow guidance decompose`; board discipline comes from
-  `strand kanban prime`. A card's strand id is the card id the review handoff
+  `strand prime kanban`. A card's strand id is the card id the review handoff
   expects. The epic is grouping-only — kanban refuses to claim one — so it
   stays out of the review set."
   {:entrypoints #{:call}
@@ -97,7 +97,7 @@
                                 "workflow/instruction"
                                 (str "Author this feature's implementation cards on the kanban "
                                      "board. Run `strand devflow guidance decompose` for the "
-                                     "cold-card contract and `strand kanban prime` for board "
+                                     "cold-card contract and `strand prime kanban` for board "
                                      "discipline first. Create one epic card grouping the set "
                                      "(`strand kanban add \"<epic title>\" --type epic`), then "
                                      "one feature card per independently landable outcome "
