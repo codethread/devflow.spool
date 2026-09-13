@@ -262,3 +262,7 @@ strand ready --query devflow-tasks
 `strand devflow guidance [<guide>]` serves the static authoring knowledge
 (`(devflow/guidance)` is its Clojure twin). See [devflow.md](./devflow.md) for
 lifecycle flows and generic workflow commands.
+
+## Development
+
+Follow the shared [Kondo and Clojure LSP process](https://github.com/codethread/codethread.spool/blob/main/docs/processes/kondo-and-lsp.md) when refreshing static-analysis configuration.
