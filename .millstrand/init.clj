@@ -4,9 +4,10 @@
 
 (def runtime (current/runtime))
 
-;; Register shared identity, Workflow, Harnesses, aliases, and reviewers before
-;; this workspace's modules. The sole :agent executor is activated last, after
-;; every consumer workflow and alias election is available to its first scan.
+;; Register shared identity, Workflow, Harnesses, aliases, reviewers, and
+;; landing before this workspace's modules. The sole :agent executor is
+;; activated last, after every consumer workflow and alias election is available
+;; to its first scan.
 (codethread/register! runtime)
 
 (runtime/module! runtime :millstrand/spools-batteries
@@ -16,10 +17,6 @@
 (runtime/module! runtime :millhouse/spools-workflow-providers
                  {:ns 'millhouse.spools.workflow.spool
                   :after [:millhouse/spools-workflow]
-                  :required? true})
-
-(runtime/module! runtime :millhouse/spools-kanban
-                 {:ns 'millhouse.spools.kanban
                   :required? true})
 
 (runtime/module! runtime :devflow
@@ -63,7 +60,6 @@
 (codethread/register-executor!
  runtime
  [:millhouse/spools-workflow-providers
-  :millhouse/spools-kanban
   :devflow
   :devflow/kanban-adapter
   :codethread/config
