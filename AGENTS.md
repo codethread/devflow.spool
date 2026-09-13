@@ -6,6 +6,7 @@ This repo ships a Millstrand spool (a spool is a Millstrand library) with two ro
 
 - Run `strand prime kanban`, claim a feature card, and use its recorded worktree.
 - Never edit `main` or push directly to `main`; feature-branch pushes are expected.
+- Never stop the mill; only the user may stop it.
 - Inspect `strand workflow show land` and `strand prime merge-queue`, then drive
   shared `land` for quality, one basic review, FIFO merge, card completion, and
   branch/worktree cleanup.
