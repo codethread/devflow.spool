@@ -78,9 +78,13 @@ and how to drive a run.
 
 ### Prerequisites
 
-- **Millstrand at immutable SHA `71c0ed3d80fcad090b74a704a8eb165a3fad996e`**, with a live weaver.
+- **Millstrand Batteries at immutable SHA `310368dff9174bd889ad21d4ed8196952684eaf9`**, with a live weaver.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
   Millhouse commit `f487eb42ea9523e8bd405e64a7c319013217d988`.
+- **Harnesses** at immutable SHA `9548390ce621461ba0a289859fe9b0af963f5805`,
+  plus the shared Codethread config at
+  `252eeaee216a5e4d4e82c6b2948dd9eba1dafc9d` when using Devflow's `:agent`
+  gates.
 - **`camel-snake-kebab/camel-snake-kebab`**, declared in this spool's `deps.edn`.
 
 ### Add the dependencies
@@ -91,17 +95,42 @@ In the consumer's `deps.edn`:
 {:deps
  {codethread/devflow
   {:git/url "https://github.com/codethread/devflow.spool.git"
-   :git/sha "90799b8c950b4509167137562fbf18853524d41c"}
-  io.millstrand/millstrand
+   :git/sha "99313b48f14ab0892cb90264d100dce4ff2a25e0"
+   :deps/root "."}
+  codethread/devflow-kanban-adapter
+  {:git/url "https://github.com/codethread/devflow.spool.git"
+   :git/sha "99313b48f14ab0892cb90264d100dce4ff2a25e0"
+   :deps/root "kanban-adapter"}
+  ct.spools/harnesses
+  {:git/url "https://github.com/codethread/harnesses.spool.git"
+   :git/sha "9548390ce621461ba0a289859fe9b0af963f5805"
+   :deps/root "."}
+  codethread/config
+  {:git/url "https://github.com/codethread/codethread.spool.git"
+   :git/sha "252eeaee216a5e4d4e82c6b2948dd9eba1dafc9d"
+   :deps/root "spools/config"}
+  io.millstrand/batteries
   {:git/url "https://github.com/codethread/millstrand.git"
-   :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
+   :git/sha "310368dff9174bd889ad21d4ed8196952684eaf9"
+   :deps/root "spools/batteries"}
   millhouse.spools/workflow
   {:git/url "https://github.com/codethread/millhouse.spool.git"
    :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
-   :deps/root "spools/workflow"}}}
+   :deps/root "spools/workflow"}
+  millhouse.spools/identity
+  {:git/url "https://github.com/codethread/millhouse.spool.git"
+   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :deps/root "spools/identity"}
+  millhouse.spools/kanban
+  {:git/url "https://github.com/codethread/millhouse.spool.git"
+   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :deps/root "spools/kanban"}}}
 ```
 
-This repository also ships a second, optional root: `codethread/devflow-kanban-adapter` (`kanban-adapter/`), the adapter binding devflow's pluggable seams to `millhouse.spools/kanban`. Its consumer entry shape is in [kanban-adapter/README.md](./kanban-adapter/README.md); the main `codethread/devflow` root has no card-system dependency.
+The `io.millstrand/batteries` key is intentional: use it consistently with the
+shared config so the workspace does not resolve duplicate Batteries copies.
+The adapter is optional for consumers that do not bind Devflow's Kanban seam;
+the main `codethread/devflow` root has no card-system dependency.
 
 ### Activate the modules
 
@@ -109,25 +138,29 @@ From trusted `init.clj` or REPL code:
 
 ```clojure
 (require '[millstrand.api.current.alpha :as current]
-         '[millstrand.api.runtime.alpha :as runtime])
+         '[millstrand.api.runtime.alpha :as runtime]
+         '[ct.spools.codethread.bootstrap :as codethread])
 
 (def runtime (current/runtime))
 
-;; Provides strand list, ready, and query for Devflow discovery.
+(codethread/register! runtime)
+
+;; Consumer modules follow the shared catalog. Keep this order so all aliases,
+;; elections, and workflows exist before the executor's first ready-gate scan.
 (runtime/module! runtime
   :millstrand/spools-batteries
   {:ns 'millstrand.spools.batteries
    :required? true})
 
 (runtime/module! runtime
-  :millhouse/spools-workflow
-  {:ns 'millhouse.spools.workflow
+  :millhouse/spools-workflow-providers
+  {:ns 'millhouse.spools.workflow.spool
+   :after [:millhouse/spools-workflow]
    :required? true})
 
 (runtime/module! runtime
-  :millhouse/workflow-providers
-  {:ns 'millhouse.spools.workflow.spool
-   :after [:millhouse/spools-workflow]
+  :millhouse/spools-kanban
+  {:ns 'millhouse.spools.kanban
    :required? true})
 
 (runtime/module! runtime
@@ -135,9 +168,65 @@ From trusted `init.clj` or REPL code:
   {:ns 'ct.spools.devflow
    :after [:millhouse/spools-workflow]
    :required? true})
+
+(runtime/module! runtime
+  :devflow/kanban-adapter
+  {:ns 'ct.spools.devflow-kanban-adapter
+   :after [:devflow :millhouse/spools-kanban :millhouse/spools-workflow]
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/config-help
+  {:ns 'ct.spools.codethread.help
+   :after [:millstrand/spools-batteries]
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/config-devflow
+  {:ns 'ct.spools.codethread.devflow
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/config
+  {:ns 'ct.spools.codethread.config
+   :after [:codethread/config-help
+           :codethread/config-devflow
+           :millstrand/spools-batteries
+           :devflow/kanban-adapter]
+   :required? true})
+
+(runtime/module! runtime
+  :codethread/ralph
+  {:ns 'ct.spools.codethread.ralph
+   :after [:millhouse/spools-workflow]
+   :required? true})
+
+(runtime/module! runtime
+  :devflow/reviewers
+  {:file "me/reviewers.clj"
+   :after [:codethread/config]
+   :required? true})
+
+;; This is the only :agent executor. Activate it after all consumer modules.
+(codethread/register-executor!
+ runtime
+ [:millhouse/spools-workflow-providers
+  :millhouse/spools-kanban
+  :devflow
+  :devflow/kanban-adapter
+  :codethread/config
+  :codethread/ralph
+  :devflow/reviewers])
 ```
 
-Devflow needs `:millhouse/spools-workflow` declared first, and its `:after` keeps a failed prerequisite explicit. The batteries module provides the `strand list`, `ready`, and `query` commands used for discovery; the workflow module provides lifecycle commands. Devflow's namespace defines inert declarations and explicitly selects its full catalogue when the `:devflow` module loads. Consumers that require the library outside module collection can select individual declarations with the matching typed use form. There is no `spool`, `contribute`, or `reconcile` Var to call.
+`codethread/register!` supplies shared identity, Workflow, Harnesses, role
+aliases, and review lenses without activating an executor. Consumer modules then
+register their own Batteries, provider, card, Devflow, adapter, and workspace
+config surfaces. The final `codethread/register-executor!` call activates the
+sole Harnesses `:agent` executor and takes the consumer module ids that must
+reconcile before its initial scan. Consumers that do not use the adapter or
+Ralph may omit those modules and their corresponding `:after` entries. There is
+no `spool`, `contribute`, or `reconcile` Var to call.
 
 ### Check it worked
 

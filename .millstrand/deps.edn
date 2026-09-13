@@ -1,7 +1,7 @@
 {:deps
- {millstrand.spools/batteries
+ {io.millstrand/batteries
   {:git/url "https://github.com/codethread/millstrand.git"
-   :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"
+   :git/sha "310368dff9174bd889ad21d4ed8196952684eaf9"
    :deps/root "spools/batteries"}
   millhouse.spools/workflow
   {:git/url "https://github.com/codethread/millhouse.spool.git"
@@ -19,14 +19,13 @@
   {:git/url "https://github.com/codethread/harnesses.spool.git"
    :git/sha "9548390ce621461ba0a289859fe9b0af963f5805"
    :deps/root "."}
-  ;; Coordinator updates this pin after the shared config migration lands.
   codethread/config
   {:git/url "https://github.com/codethread/codethread.spool.git"
-   :git/sha "cdded90bba0009377c2d9e58021735d5baa5cf88"
+   :git/sha "252eeaee216a5e4d4e82c6b2948dd9eba1dafc9d"
    :deps/root "spools/config"}
   codethread/ralph
   {:git/url "https://github.com/codethread/codethread.spool.git"
-   :git/sha "cdded90bba0009377c2d9e58021735d5baa5cf88"
+   :git/sha "252eeaee216a5e4d4e82c6b2948dd9eba1dafc9d"
    :deps/root "spools/ralph"}
   codethread/devflow {:local/root ".."}
   codethread/devflow-kanban-adapter {:local/root "../kanban-adapter"}}}

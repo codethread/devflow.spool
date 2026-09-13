@@ -231,6 +231,47 @@
           (is (= "oracle" (attr-get set-strand :harness/alias)))
           (is (string? (attr-get set-strand :harness/prompt))))))))
 
+(deftest delegated-afk-gates-render-the-harness-contract
+  (with-runtime
+    (fn [rt]
+      (workflow/start! "afk-contract" #'devflow/run-afk-delegated
+                       {:feature "afk-contract"
+                        :delegate-harness "reviewer"
+                        :delegate-cwd "/tmp/afk-contract"
+                        :delegate-preamble "Use the approved task brief."
+                        :tasks [{:id "override"
+                                 :title "Override harness"
+                                 :body "Use the task-level assignment."
+                                 :harness "oracle"}
+                                {:id "default"
+                                 :title "Default harness"
+                                 :body "Inherit the stage assignment."}]})
+      (let [first-gate (first (workflow/ready-gates "afk-contract"))
+            first-strand (weaver/show rt (:id first-gate))]
+        (testing "the task-level override is an agent gate with cwd and prompt"
+          (is (= "agent" (:gate first-gate)))
+          (is (= "oracle" (attr-get first-strand :harness/alias)))
+          (is (= "/tmp/afk-contract" (attr-get first-strand :harness/cwd)))
+          (is (str/includes? (attr-get first-strand :harness/prompt)
+                             "Use the approved task brief."))
+          (is (str/includes? (attr-get first-strand :harness/prompt)
+                             "Use the task-level assignment.")))
+        (testing "the new mapping leaves no legacy agent-run attributes"
+          (is (not-any? #(str/starts-with? (str %) "agent-run/")
+                        (keys (:attributes first-strand)))))
+        (workflow/complete! "afk-contract" {:step (:id first-gate)
+                                            :by "test"})
+        (let [second-gate (first (workflow/ready-gates "afk-contract"))
+              second-strand (weaver/show rt (:id second-gate))]
+          (testing "the default harness is used by the next agent gate"
+            (is (= "agent" (:gate second-gate)))
+            (is (= "reviewer" (attr-get second-strand :harness/alias)))
+            (is (= "/tmp/afk-contract" (attr-get second-strand :harness/cwd)))
+            (is (str/includes? (attr-get second-strand :harness/prompt)
+                               "Inherit the stage assignment.")))
+          (is (not-any? #(str/starts-with? (str %) "agent-run/")
+                        (keys (:attributes second-strand)))))))))
+
 (deftest devflow-tasks-query-serves-the-strand-native-queue
   (with-runtime
     (fn [rt]

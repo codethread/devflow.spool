@@ -1,82 +1,71 @@
 (require '[millstrand.api.current.alpha :as current]
-         '[millstrand.api.runtime.alpha :as runtime])
+         '[millstrand.api.runtime.alpha :as runtime]
+         '[ct.spools.codethread.bootstrap :as codethread])
 
 (def runtime (current/runtime))
 
-(runtime/module! runtime :millstrand/spools-batteries
-  {:ns 'millstrand.spools.batteries
-   :required? true})
-;; Devflow is a module so its named workflow routes are published as one
-;; owner-complete contribution. Keep workflow first: it declares the route kind.
-(runtime/module! runtime :millhouse/spools-workflow
-  {:ns 'millhouse.spools.workflow
-   :required? true})
-(runtime/module! runtime :millhouse/spools-workflow-providers
-  {:ns 'millhouse.spools.workflow.spool
-   :after [:millhouse/spools-workflow]
-   :required? true})
-(runtime/module! runtime :millhouse/spools-identity
-  {:ns 'millhouse.spools.identity
-   :required? true})
+;; Register shared identity, Workflow, Harnesses, aliases, and reviewers before
+;; this workspace's modules. The sole :agent executor is activated last, after
+;; every consumer workflow and alias election is available to its first scan.
+(codethread/register! runtime)
 
-;; Harnesses owns provider-neutral runs and the provider implementations. The
-;; shared Codethread config publishes aliases after this module and before the
-;; workflow adapter, whose initial scan must resolve every ready gate.
-(runtime/module! runtime :harnesses
-  {:ns 'ct.spools.harnesses.spool
-   :after [:millhouse/spools-identity]
-   :required? true})
+(runtime/module! runtime :millstrand/spools-batteries
+                 {:ns 'millstrand.spools.batteries
+                  :required? true})
+
+(runtime/module! runtime :millhouse/spools-workflow-providers
+                 {:ns 'millhouse.spools.workflow.spool
+                  :after [:millhouse/spools-workflow]
+                  :required? true})
+
+(runtime/module! runtime :millhouse/spools-kanban
+                 {:ns 'millhouse.spools.kanban
+                  :required? true})
 
 (runtime/module! runtime :devflow
-  {:ns 'ct.spools.devflow
-   :after [:millhouse/spools-workflow]
-   :required? true})
+                 {:ns 'ct.spools.devflow
+                  :after [:millhouse/spools-workflow]
+                  :required? true})
 
-;; kanban board for this repo's own coordination cards: local tracking choice,
-;; deliberately absent from the published devflow root.
-(runtime/module! runtime :millhouse/spools-kanban
-  {:ns 'millhouse.spools.kanban
-   :required? true})
-
-;; the kanban adapter root, dogfooded from this checkout.
+;; The adapter and workspace config are consumer-owned composition. The
+;; published Devflow library itself remains independent of Codethread config.
 (runtime/module! runtime :devflow/kanban-adapter
-  {:ns 'ct.spools.devflow-kanban-adapter
-   :after [:devflow :millhouse/spools-kanban
-           :millhouse/spools-workflow]
-   :required? true})
+                 {:ns 'ct.spools.devflow-kanban-adapter
+                  :after [:devflow
+                          :millhouse/spools-kanban
+                          :millhouse/spools-workflow]
+                  :required? true})
 
-(runtime/module! runtime :codethread/config-agents
-  {:ns 'ct.spools.codethread.agents
-   :after [:harnesses]
-   :required? true})
 (runtime/module! runtime :codethread/config-help
-  {:ns 'ct.spools.codethread.help
-   :after [:millstrand/spools-batteries]
-   :required? true})
+                 {:ns 'ct.spools.codethread.help
+                  :after [:millstrand/spools-batteries]
+                  :required? true})
 (runtime/module! runtime :codethread/config-devflow
-  {:ns 'ct.spools.codethread.devflow
-   :required? true})
+                 {:ns 'ct.spools.codethread.devflow
+                  :required? true})
 (runtime/module! runtime :codethread/config
-  {:ns 'ct.spools.codethread.config
-   :after [:codethread/config-agents
-           :codethread/config-help
-           :codethread/config-devflow
-           :millstrand/spools-batteries
-           :harnesses
-           :devflow/kanban-adapter]
-   :required? true})
-(runtime/module! runtime :devflow/reviewers
-  {:file "me/reviewers.clj"
-   :after [:codethread/config]
-   :required? true})
-(runtime/module! runtime :harnesses/agent-executor
-  {:ns 'ct.spools.harnesses.executors.agent.spool
-   :after [:millhouse/spools-workflow
-           :harnesses
-           :codethread/config
-           :devflow/reviewers]
-   :required? true})
+                 {:ns 'ct.spools.codethread.config
+                  :after [:codethread/config-help
+                          :codethread/config-devflow
+                          :millstrand/spools-batteries
+                          :devflow/kanban-adapter]
+                  :required? true})
 (runtime/module! runtime :codethread/ralph
-  {:ns 'ct.spools.codethread.ralph
-   :after [:millhouse/spools-workflow]
-   :required? true})
+                 {:ns 'ct.spools.codethread.ralph
+                  :after [:millhouse/spools-workflow]
+                  :required? true})
+
+(runtime/module! runtime :devflow/reviewers
+                 {:file "me/reviewers.clj"
+                  :after [:codethread/config]
+                  :required? true})
+
+(codethread/register-executor!
+ runtime
+ [:millhouse/spools-workflow-providers
+  :millhouse/spools-kanban
+  :devflow
+  :devflow/kanban-adapter
+  :codethread/config
+  :codethread/ralph
+  :devflow/reviewers])
