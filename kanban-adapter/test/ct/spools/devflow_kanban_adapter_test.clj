@@ -2,7 +2,9 @@
   "Tests the kanban adapter root: its registered catalogue additions and the
   kanban-bound decompose variant. Kanban itself and devflow each own their
   behavior; this suite covers only the binding."
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [ct.spools.devflow-kanban-adapter :as adapter]
@@ -15,6 +17,19 @@
             [millstrand.api.runtime.alpha :as runtime]
             [millhouse.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
+
+(defn- adapter-manifest []
+  (let [source (io/file (io/resource "ct/spools/devflow_kanban_adapter.clj"))
+        adapter-root (-> source .getParentFile .getParentFile .getParentFile .getParentFile)]
+    (edn/read-string (slurp (io/file adapter-root "deps.edn")))))
+
+(deftest adapter-publishes-devflow-as-a-peer-dependency
+  (let [{:keys [deps aliases]} (adapter-manifest)]
+    (is (not (contains? deps 'codethread/devflow))
+        "the published adapter must not leak its development checkout as a local dependency")
+    (is (= {:local/root ".."}
+           (get-in aliases [:test :extra-deps 'codethread/devflow]))
+        "adapter tests retain the local development bridge to the sibling Devflow root")))
 
 (defn- activate! [rt]
   (doseq [[key config] [[:millhouse/spools-workflow {:ns 'millhouse.spools.workflow}]
