@@ -1,6 +1,6 @@
 # devflow.spool
 
-An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/f487eb42ea9523e8bd405e64a7c319013217d988/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
+An opinionated **feature-delivery lifecycle**, built on [Millhouse workflows](https://github.com/codethread/millhouse.spool/tree/f80b80c8697e48a6ce56344372a32136d2bf279c/spools/workflow) and shipped as a git-distributed spool for [Millstrand](https://github.com/codethread/millstrand).
 
 You give it a feature name. It walks you and your agents from "here's a rough
 idea" to either **reviewed implementation cards on mainline** or **accepted,
@@ -80,7 +80,7 @@ and how to drive a run.
 
 - **Millstrand Batteries at immutable SHA `310368dff9174bd889ad21d4ed8196952684eaf9`**, with a live weaver.
 - **`millhouse.spools.workflow`** — the engine devflow builds on, pinned at
-  Millhouse commit `f487eb42ea9523e8bd405e64a7c319013217d988`.
+  Millhouse commit `f80b80c8697e48a6ce56344372a32136d2bf279c`.
 - **Harnesses** at immutable SHA `9548390ce621461ba0a289859fe9b0af963f5805`,
   plus the shared Codethread config at
   `252eeaee216a5e4d4e82c6b2948dd9eba1dafc9d` when using Devflow's `:agent`
@@ -115,15 +115,15 @@ In the consumer's `deps.edn`:
    :deps/root "spools/batteries"}
   millhouse.spools/workflow
   {:git/url "https://github.com/codethread/millhouse.spool.git"
-   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
    :deps/root "spools/workflow"}
   millhouse.spools/identity
   {:git/url "https://github.com/codethread/millhouse.spool.git"
-   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
    :deps/root "spools/identity"}
   millhouse.spools/kanban
   {:git/url "https://github.com/codethread/millhouse.spool.git"
-   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
    :deps/root "spools/kanban"}}}
 ```
 

@@ -44,7 +44,7 @@ done
 # the alarm classpath so the v20 tests load far enough to hit the identity
 # break instead of failing at the old kanban import.
 millstrand_sha="e0ca975cd0d2d546249f63c9d699ae33e1c9b688"
-millhouse_sha="f1cdda3b46706b186f547251d285791be650d232"
+millhouse_sha="f80b80c8697e48a6ce56344372a32136d2bf279c"
 kanban_sha="87f61bc2750e7026f3650235907db25f19b1536e"
 
 exec clojure -Sdeps "{:paths [${src_paths}${test_paths}]
