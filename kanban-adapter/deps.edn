@@ -1,7 +1,7 @@
 {:paths ["src"]
  :deps {millhouse.spools/kanban
         {:git/url "https://github.com/codethread/millhouse.spool.git"
-         :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+         :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
          :deps/root "spools/kanban"}}
  :aliases
  {:test {:extra-paths ["test"]

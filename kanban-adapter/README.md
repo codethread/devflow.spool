@@ -41,11 +41,11 @@ Add Devflow, the adapter, and its Kanban dependency to `deps.edn`:
    :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
   millhouse.spools/workflow
   {:git/url "https://github.com/codethread/millhouse.spool.git"
-   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
    :deps/root "spools/workflow"}
   millhouse.spools/kanban
   {:git/url "https://github.com/codethread/millhouse.spool.git"
-   :git/sha "f487eb42ea9523e8bd405e64a7c319013217d988"
+   :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
    :deps/root "spools/kanban"}}}
 ```
 
