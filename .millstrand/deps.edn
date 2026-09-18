@@ -15,6 +15,10 @@
   {:git/url "https://github.com/codethread/millhouse.spool.git"
    :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
    :deps/root "spools/identity"}
+  millhouse.spools/land
+  {:git/url "https://github.com/codethread/millhouse.spool.git"
+   :git/sha "f80b80c8697e48a6ce56344372a32136d2bf279c"
+   :deps/root "spools/land"}
   ct.spools/harnesses
   {:git/url "https://github.com/codethread/harnesses.spool.git"
    :git/sha "e8a26477852216bca2579b050a2356c86af132b7"
