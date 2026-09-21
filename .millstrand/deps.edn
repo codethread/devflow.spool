@@ -25,11 +25,11 @@
    :deps/root "."}
   codethread/config
   {:git/url "https://github.com/codethread/codethread.spool.git"
-   :git/sha "45a49d538b1073f35d5e3b32c1baa7d2309be483"
+   :git/sha "45ebeb292e11ffcd32f390788d4f85c66becb307"
    :deps/root "spools/config"}
   codethread/ralph
   {:git/url "https://github.com/codethread/codethread.spool.git"
-   :git/sha "3dcf5f051842512d444b9d111d3998f4078081f6"
+   :git/sha "45ebeb292e11ffcd32f390788d4f85c66becb307"
    :deps/root "spools/ralph"}
   codethread/devflow {:local/root ".."}
   codethread/devflow-kanban-adapter {:local/root "../kanban-adapter"}}}
