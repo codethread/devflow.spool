@@ -187,7 +187,7 @@ sequenceDiagram
 
   Note over Run: proposal is now frozen
   Run-->>You: land it on mainline (external gate)
-  You-->>Run: complete! :by "you"
+  You-->>Run: complete! run-id {:step gate-id :by-identity "you"}
   Agent->>Run: choose! :landed
 
   Note over Agent,Run: decompose stage
