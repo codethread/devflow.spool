@@ -21,7 +21,7 @@
    :deps/root "spools/land"}
   ct.spools/harnesses
   {:git/url "https://github.com/codethread/harnesses.spool.git"
-   :git/sha "e8a26477852216bca2579b050a2356c86af132b7"
+   :git/sha "6b5ad39d8711a033dc7f33fd52c78901393ea44e"
    :deps/root "."}
   codethread/config
   {:git/url "https://github.com/codethread/codethread.spool.git"
