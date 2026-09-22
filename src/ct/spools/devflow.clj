@@ -442,7 +442,7 @@
   authored\", so the frozen proposal must land before decomposition reads it.
   The merge is an external wait-point rather than driving-agent work: the gate
   stays repo-agnostic — any mainline merge process counts — and `complete!`
-  records who landed it through `:by`. The follow-up `:agent` checkpoint then
+  records who landed it through `:by-identity`. The follow-up `:agent` checkpoint then
   routes to the decompose stage, or aborts a feature whose proposal will not
   land."
   {:entrypoints #{:continue :call}
@@ -457,7 +457,7 @@
                    :attributes {"workflow/action-ref" "devflow.proposal.land"
                                 "workflow/instruction" (str "Merge the approved proposal to the repository "
                                                             "mainline through the workspace's own landing "
-                                                            "process, then complete this gate with :by "
+                                                            "process, then complete this gate with :by-identity "
                                                             "recording who merged it.")})
     (workflow/checkpoint :confirm-proposal-landed
                          (titled "Confirm the proposal landed for ")
