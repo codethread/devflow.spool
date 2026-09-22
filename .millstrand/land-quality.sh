@@ -12,7 +12,7 @@ run() {
 }
 
 run git diff --check
-run clojure -M:test
+run flock -w 180 /tmp/millstrand-test.lock clojure -M:test
 run ./bin/identity-check
 run ./bin/verify-card-authoring-equivalence
 

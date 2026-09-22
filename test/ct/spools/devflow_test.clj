@@ -224,7 +224,7 @@
         (is (every? #(string? (attr-get % :harness/prompt)) strands))
         (doseq [gate gates]
           (workflow/complete! "agent-gates" {:step (:id gate)
-                                             :by "test"}))
+                                             :by-identity "test"}))
         (let [set-gate (first (workflow/ready-gates "agent-gates"))
               set-strand (weaver/show rt (:id set-gate))]
           (is (= "agent" (:gate set-gate)))
@@ -260,7 +260,7 @@
           (is (not-any? #(str/starts-with? (str %) "agent-run/")
                         (keys (:attributes first-strand)))))
         (workflow/complete! "afk-contract" {:step (:id first-gate)
-                                            :by "test"})
+                                            :by-identity "test"})
         (let [second-gate (first (workflow/ready-gates "afk-contract"))
               second-strand (weaver/show rt (:id second-gate))]
           (testing "the default harness is used by the next agent gate"

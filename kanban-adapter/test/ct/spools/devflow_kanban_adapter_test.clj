@@ -11,6 +11,7 @@
             ;; The adapter no longer requires the kanban namespace itself, so
             ;; the test world loads it for the :millhouse/spools-kanban module
             ;; activation below (a real world gets it as an approved spool root).
+            [millhouse.spools.identity]
             [millhouse.spools.kanban]
             [millstrand.api.authoring.alpha :as authoring]
             [millstrand.api.current.alpha :as current]
@@ -33,6 +34,7 @@
 
 (defn- activate! [rt]
   (doseq [[key config] [[:millhouse/spools-workflow {:ns 'millhouse.spools.workflow}]
+                        [:millhouse/spools-identity {:ns 'millhouse.spools.identity}]
                         [:devflow {:ns 'ct.spools.devflow
                                    :after [:millhouse/spools-workflow]}]
                         [:millhouse/spools-kanban {:ns 'millhouse.spools.kanban}]
