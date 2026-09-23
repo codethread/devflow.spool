@@ -11,17 +11,34 @@ Unlike the main devflow root, this root requires `millhouse.spools/kanban`.
 
 ## What it ships
 
-- **`author-kanban-cards`** — a call-only card-authoring target for devflow's
-  decompose defer. It instructs the driving agent to author the breakdown on
-  the board: one epic card grouping the set (`kanban add --type epic`), one
-  feature card per independently landable outcome (`--epic <id>`, body per the
-  cold-card contract), and landing-order constraints as `depends-on` edges via
-  `strand update <dependent> --edge depends-on:<blocker>` (kanban has no verb
-  for card-to-card dependencies). The feature cards' strand ids are the card
-  ids the review handoff expects; the grouping-only epic stays out of the
-  review set.
+- **`author-kanban-cards`** — a call-only card-authoring target with four
+  ordered boundaries: draft breakdown → publish/recover epic → publish/recover
+  feature graph → record exact review set. Its explicit defer params include
+  `feature` and the verified `repository`, `mainline`, `merged-revision`,
+  `proposal-path`, `merge-evidence` receipt; parent context is not inherited.
+  The feature graph uses `strand weave --pattern kanban-batch` for atomic card
+  and dependency creation. That pattern does **not** create the epic or parent
+  its features. The epic is created separately, then missing `parent-of` links
+  are reconciled. The grouping epic stays out of the review set.
 - **`decompose-kanban`** — devflow's published `decompose-open` template bound with `#{author-card-strands author-kanban-cards}`, so the defer's worker chooses between the strand-native default and the board per feature.
 - **`repoint-decompose!`** — re-points the routed `:decompose` stage name at `decompose-kanban` in the registry's direct layer, so `land-proposal`'s landed choice routes into the kanban-bound variant. Its exact public input is `{:runtime <active Millstrand runtime>}` and its exact result is `{:repointed :decompose}`; extra or missing keys fail with allowed/received diagnostics. The lifecycle-context adapter is `repoint-decompose-seed!`, which validates the owning `::repoint-seed-context` spec: `:runtime` is required, and any additional keyword metadata keys with arbitrary values are accepted.
+
+## Publication receipts
+
+The ordered steps record `devflow/breakdown-draft`, `devflow/epic-receipt`,
+`devflow/card-publication` and `devflow/review-set` on their own strands. Read
+completed outputs with the run subgraph and `strand show <step-id>`; they do not
+appear automatically in a later ready prompt. Store external ids immediately,
+before closing the step. The final review set is the exact `{id, title}` vector
+read by the parent's review handoff.
+
+The draft reference links the epic source, feature bodies and publication
+mapping. On interruption, reuse verified recorded outputs. Atomic batch creation
+is not idempotent: if a response was lost, inspect and reconcile the exact draft
+inventory before retrying; ambiguity requires intervention, not another batch.
+Neither this workflow nor process success authenticates a human decision or
+proves an external mutation. Completion receipts are driver obligations on the
+engine's existing attribute surface; no unsupported output-validation API is used.
 
 ## Consuming it
 

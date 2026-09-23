@@ -56,9 +56,19 @@
         (let [run-id (str "equivalence-" (name target))
               started (workflow/start! run-id stage (execution-params))
               defer (workflow/ready-step run-id)
-              filled (workflow/defer! run-id target {:feature (:feature fixture)})
+              filled (workflow/defer! run-id target
+                                       {:feature (:feature fixture)
+                                        :repository "repo" :mainline "main"
+                                        :merged-revision "abc123"
+                                        :proposal-path "proposal.md"
+                                        :merge-evidence "merge-record"})
               authored-step (workflow/ready-step run-id)
-              after-authoring (workflow/complete! run-id)
+              after-authoring (last
+                                (doall
+                                  (for [_ (range (if (= target :author-kanban-cards) 4 1))]
+                                    (workflow/complete! run-id
+                                                        {:attributes
+                                                         {"devflow/review-set" (:cards fixture)}}))))
               handoff (workflow/ready-step run-id)]
           {:target target
            :binding (:workflows defer)
@@ -113,7 +123,7 @@
     (fail-mismatch! "card-authoring same-name contract divergence" strand kanban))
   true)
 
-(s/def ::divergent-params (s/keys :req-un [::devflow/feature]))
+(s/def ::divergent-params (s/keys :req-un [:ct.spools.devflow.internal.definition/feature]))
 
 ;; This definition exists only to prove that the verifier notices a published
 ;; target's behavior changing behind the same registered name. It is never one

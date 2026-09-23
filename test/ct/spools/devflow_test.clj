@@ -5,6 +5,9 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [ct.spools.devflow :as devflow]
+            [ct.spools.devflow.execution :as execution]
+            [ct.spools.devflow.cards :as cards]
+            [ct.spools.devflow.planning :as planning]
             [ct.spools.devflow-equivalence :as equivalence]
             [millstrand.api.authoring.alpha :as authoring]
             [millstrand.api.cli.alpha :as cli-alpha]
@@ -15,6 +18,13 @@
             [millstrand.api.weaver.alpha :as weaver]
             [millhouse.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
+
+(def ^:private worktree-receipt
+  {:repository "repo" :worktree "/tmp/feature-worktree" :branch "feature"})
+
+(def ^:private merge-receipt
+  {:repository "repo" :mainline "main" :merged-revision "abc123"
+   :proposal-path "devflow/feat/carded/proposal.md" :merge-evidence "merge-record-1"})
 
 (def ^:private stage-names
   #{:intake :proposal :land-proposal :decompose :review-cards :spec-plan
@@ -60,12 +70,20 @@
                 spec-plan run-afk-loop run-afk-manual run-afk-delegated tasks
                 direct-implementation abort devflow-runs devflow-ready
                 devflow-tasks devflow]]
-    (let [var (ns-resolve 'ct.spools.devflow sym)
+    (let [owner (cond
+                  (contains? '#{intake proposal land-proposal} sym)
+                  'ct.spools.devflow.planning
+                  (= sym 'review-cards) 'ct.spools.devflow.cards
+                  (contains? '#{route-after-plan spec-plan run-afk-loop run-afk-manual
+                                run-afk-delegated tasks direct-implementation} sym)
+                  'ct.spools.devflow.execution
+                  :else 'ct.spools.devflow)
+          var (ns-resolve owner sym)
           declaration (::authoring/declaration (meta var))]
       (is (var? var) (str sym " is a declaration Var"))
       (is (= :registry (:channel declaration))
           (str sym " uses the registry authoring channel"))
-      (is (= (symbol "ct.spools.devflow" (name sym)) (:var declaration))
+      (is (= (symbol (str owner) (name sym)) (:var declaration))
           (str sym " records its exact authored Var"))
       (is (= (:key declaration)
              (if (contains? #{'devflow-runs 'devflow-ready 'devflow-tasks} sym)
@@ -103,7 +121,7 @@
         (is (= "intake"
                (get-in (workflow/current-root "search-filters")
                        [:attributes :devflow/stage])))
-        (workflow/choose! "search-filters" :already-in-worktree)
+        (workflow/choose! "search-filters" :already-in-worktree worktree-receipt)
         (is (= ["Capture user brief for search-filters"]
                (mapv :title (workflow/ready "search-filters"))))
         (workflow/complete! "search-filters")
@@ -140,7 +158,7 @@
         (is (= #{"Create or confirm feature worktree for paused"}
                (set (map :title
                          (weaver/ready rt (graph/resolve-query rt "devflow-ready") {})))))
-        (workflow/choose! "paused" :already-in-worktree)
+        (workflow/choose! "paused" :already-in-worktree worktree-receipt)
         (is (= #{"Capture user brief for paused"}
                (set (map :title
                          (weaver/ready rt (graph/resolve-query rt "devflow-ready") {}))))))
@@ -155,7 +173,7 @@
 (deftest tasks-stage-defers-queue-authoring-to-a-pluggable-target
   (with-runtime
     (fn [_]
-      (workflow/start! "queued" #'devflow/tasks {:feature "queued"})
+      (workflow/start! "queued" #'execution/tasks {:feature "queued"})
       (let [step (workflow/ready-step "queued")]
         (is (= "author-tasks" (:defer step)))
         (is (= ["author-task-strands"] (:workflows step))
@@ -188,7 +206,7 @@
       (let [step (workflow/ready-step "carded")]
         (is (= "author-cards" (:defer step)))
         (is (= ["author-card-strands"] (:workflows step))))
-      (workflow/defer! "carded" :author-card-strands {:feature "carded"})
+      (workflow/defer! "carded" :author-card-strands (assoc merge-receipt :feature "carded"))
       (is (= ["Author strand-native implementation cards for carded"]
              (mapv :title (workflow/ready "carded"))))
       (workflow/complete! "carded")
@@ -210,7 +228,7 @@
 (deftest agent-gates-use-the-harnesses-executor-contract
   (with-runtime
     (fn [rt]
-      (workflow/start! "agent-gates" #'devflow/review-cards
+      (workflow/start! "agent-gates" #'cards/review-cards
                        {:feature "agent-gates"
                         :card-reviewer "reviewer"
                         :card-set-reviewer "oracle"
@@ -234,7 +252,7 @@
 (deftest delegated-afk-gates-render-the-harness-contract
   (with-runtime
     (fn [rt]
-      (workflow/start! "afk-contract" #'devflow/run-afk-delegated
+      (workflow/start! "afk-contract" #'execution/run-afk-delegated
                        {:feature "afk-contract"
                         :delegate-harness "reviewer"
                         :delegate-cwd "/tmp/afk-contract"
@@ -302,7 +320,7 @@
     (is (str/includes? overview "devflow/specs/` is canonical for current contracts")))
   (with-runtime
     (fn [_]
-      (workflow/start! "guided" #'devflow/proposal {:feature "guided"})
+      (workflow/start! "guided" #'planning/proposal {:feature "guided"})
       (workflow/complete! "guided")
       (let [step (workflow/ready-step "guided")]
         (is (= "proposal.md" (:artifact step)))
@@ -375,7 +393,9 @@
           (is (some #{:proposal} (:guides data))))))))
 
 (defn -main [& _]
-  (require 'ct.spools.devflow-kanban-adapter-test)
+  (require 'ct.spools.devflow-kanban-adapter-test
+           'ct.spools.devflow-receipts-test)
   (let [summary (clojure.test/run-tests 'ct.spools.devflow-test
-                                        'ct.spools.devflow-kanban-adapter-test)]
+                                        'ct.spools.devflow-kanban-adapter-test
+                                        'ct.spools.devflow-receipts-test)]
     (System/exit (if (pos? (+ (:fail summary) (:error summary))) 1 0))))
