@@ -5,20 +5,20 @@
          :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
         millhouse.spools/workflow
         {:git/url "https://github.com/codethread/millhouse.spool.git"
-         :git/sha "62723b7b1820c7e1723de4a2ff985b069871159e"
+         :git/sha "c66adcca2cdc05e38c789b802e6d34532af0d6cd"
          :deps/root "spools/workflow"}}
  :aliases
  {:test {:extra-paths ["test" "scripts" "kanban-adapter/src" "kanban-adapter/test"]
          :extra-deps {millhouse.spools/kanban
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "62723b7b1820c7e1723de4a2ff985b069871159e"
+                       :git/sha "c66adcca2cdc05e38c789b802e6d34532af0d6cd"
                        :deps/root "spools/kanban"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}
   :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
                           :extra-deps {millhouse.spools/kanban
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "62723b7b1820c7e1723de4a2ff985b069871159e"
+                                        :git/sha "c66adcca2cdc05e38c789b802e6d34532af0d6cd"
                                         :deps/root "spools/kanban"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
                           :main-opts ["-m" "ct.spools.devflow-equivalence"]}
