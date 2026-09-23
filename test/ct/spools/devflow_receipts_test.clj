@@ -2,11 +2,21 @@
   "Ready-frontier regressions for delegation and external evidence boundaries."
   (:require [clojure.test :refer [deftest is testing]]
             [ct.spools.devflow.execution :as execution]
+            [ct.spools.devflow.cards :as cards]
+            [ct.spools.devflow :as devflow]
             [ct.spools.devflow.planning :as planning]
             [ct.spools.devflow-test :refer [with-runtime]]
             [millhouse.spools.workflow :as workflow]
+            [millhouse.spools.workflow.cli :as cli]
+            [millstrand.api.cli.alpha :as cli-alpha]
+            [millstrand.api.runtime.alpha :as runtime]
+            [millstrand.api.lifecycle.alpha :as lifecycle]
+            [millstrand.api.millstrand.alpha :as millstrand]
             [millstrand.api.spool.alpha :refer [attr-get]]
             [millstrand.api.weaver.alpha :as weaver]))
+
+(millstrand/use-op! cli/workflow)
+(lifecycle/use-seed! cli/workflow-glossary-seed)
 
 (deftest task-approval-without-inline-queue-can-delegate-or-run-manually
   (with-runtime
@@ -31,7 +41,7 @@
             (is (= (:id choice) (:id (workflow/ready-step "queue"))))
             (is (empty? (workflow/ready-gates "queue")))))
         (workflow/choose! "queue" :delegate
-                          {:tasks [{"id" "a" "title" "A" "harness" "specific"}
+                          {:tasks [{:id "a" :title "A" :harness "specific"}
                                    {:id "b" :title "B"}]
                            :delegate-harness "default"})
         (let [first-gate (workflow/ready-step "queue")]
@@ -108,3 +118,67 @@
           (is (= ["implementation"]
                  (mapv #(attr-get (weaver/show rt (:id %)) :devflow/card)
                        (workflow/ready-gates "landing")))))))))
+
+(deftest direct-loop-input-requires-keyword-keyed-maps
+  (with-runtime
+    (fn [_]
+      (doseq [item [{"id" "alpha" "title" "Alpha"}
+                    {:id "alpha" "title" "Alpha"}
+                    {:id "alpha" :title "Alpha" "harness" "ignored"}]
+              [definition params] [[#'execution/run-afk-delegated
+                                    {:feature "invalid" :tasks [item]
+                                     :delegate-harness "worker"}]
+                                   [#'cards/review-cards
+                                    {:feature "invalid" :cards [item]
+                                     :card-reviewer "reviewer"
+                                     :card-set-reviewer "set-reviewer"}]]]
+        (is (thrown? clojure.lang.ExceptionInfo
+                     (workflow/start! "invalid" definition params)))
+        (is (nil? (workflow/current-root "invalid")))))))
+
+(deftest cli-json-preserves-named-task-and-card-loop-ids
+  (with-runtime
+    (fn [rt]
+      (runtime/module! rt :workflow-cli {:ns 'ct.spools.devflow-receipts-test
+                                         :after [:millhouse/spools-workflow]})
+      (let [arg-spec (:arg-spec (weaver/resolve-op rt 'workflow))
+            invoke (fn [argv]
+                     (cli/workflow {:op/args (cli-alpha/parse arg-spec argv)
+                                    :op/argv argv}))]
+        (workflow/start! "json-tasks" #'execution/run-afk-loop {:feature "json-tasks"})
+        (invoke ["choose" "json-tasks" "delegate" "--input"
+                 "{\"tasks\":[{\"id\":\"alpha\",\"title\":\"Alpha\",\"harness\":\"specific\"},
+                             {\"id\":\"beta\",\"title\":\"Beta\"}],\"delegate-harness\":\"worker\"}"])
+        (let [params (attr-get (workflow/current-root "json-tasks") :workflow/context)
+              steps (:steps (workflow/describe #'execution/run-afk-delegated params))]
+          (is (= [{:id "alpha" :title "Alpha" :harness "specific"}
+                  {:id "beta" :title "Beta"}]
+                 (:tasks params)))
+          (is (= [:task-alpha :task-beta :human-acceptance-afk] (mapv :id steps)))
+          (is (= [:task-alpha] (:depends-on (second steps)))))
+        (is (= ["Delegate AFK task alpha for json-tasks"]
+               (mapv :title (workflow/ready "json-tasks"))))
+        (invoke ["complete" "json-tasks" "--step" (:id (workflow/ready-step "json-tasks"))
+                 "--by-identity" "test-worker"])
+        (is (= ["Delegate AFK task beta for json-tasks"]
+               (mapv :title (workflow/ready "json-tasks"))))
+
+        (workflow/start! "json-cards" #'devflow/decompose
+                         {:feature "json-cards" :card-reviewer "reviewer"
+                          :card-set-reviewer "set-reviewer"})
+        (workflow/defer! "json-cards" :author-card-strands
+                         {:feature "json-cards" :repository "repo" :mainline "main"
+                          :merged-revision "abc123" :proposal-path "proposal.md"
+                          :merge-evidence "merge-record"})
+        (workflow/complete! "json-cards")
+        (invoke ["choose" "json-cards" "review" "--input"
+                 "{\"cards\":[{\"id\":\"alpha\",\"title\":\"Alpha\"},
+                             {\"id\":\"beta\",\"title\":\"Beta\"}]}"])
+        (let [params (attr-get (workflow/current-root "json-cards") :workflow/context)
+              steps (:steps (workflow/describe #'cards/review-cards params))]
+          (is (= [{:id "alpha" :title "Alpha"} {:id "beta" :title "Beta"}] (:cards params)))
+          (is (= [:card-review-alpha :card-review-beta] (mapv :id (take 2 steps))))
+          (is (= #{:card-review-alpha :card-review-beta}
+                 (set (:depends-on (nth steps 2))))))
+        (is (= #{"Focused review of card alpha: Alpha" "Focused review of card beta: Beta"}
+               (set (map :title (workflow/ready "json-cards")))))))))

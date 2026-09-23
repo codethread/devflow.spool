@@ -155,8 +155,8 @@
   "Run the approved AFK task queue as sequential subagent gates.
 
   One gate per task, chained, then a `:human` acceptance checkpoint. Task maps
-  may be keyword- or string-keyed; `::definition/run-afk-delegated-params` judges the whole
-  queue — including that every task resolves a harness — before anything pours."
+  use keyword keys; the CLI converts JSON object keys recursively. The param
+  spec checks the whole queue, including harness resolution, before pouring."
   {:entrypoints #{:continue :call}
    :param-spec ::definition/run-afk-delegated-params
    :defaults {:revision false}}

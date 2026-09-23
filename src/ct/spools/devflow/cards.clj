@@ -2,7 +2,7 @@
   "Focused card reviews, their set-level join and explicit reconciliation."
   (:require [millstrand.api.format.alpha :as format-alpha]
             [ct.spools.devflow.internal.definition :as definition
-             :refer [titled stage-attributes param-value card-value card-review-prompt
+             :refer [titled stage-attributes param-value card-review-prompt
                      card-set-review-prompt abort-reason-input]]
             [millhouse.spools.workflow :as workflow]))
 
@@ -25,13 +25,13 @@
     {:attributes (stage-attributes "card-review")}
     (workflow/gate :card-review
                    (fn [{:keys [item]}]
-                     (str "Focused review of card " (card-value item :id) ": "
-                          (card-value item :title)))
+                     (str "Focused review of card " (:id item) ": "
+                          (:title item)))
                    :agent
                    :loop {:each :cards}
                    :attributes {"devflow/review" "agent"
                                 "devflow/review-scope" "card"
-                                "devflow/card" (fn [{:keys [item]}] (card-value item :id))
+                                "devflow/card" (fn [{:keys [item]}] (:id item))
                                 "harness/alias" (param-value :card-reviewer)
                                 "harness/cwd" (param-value :review-cwd)
                                 "harness/prompt" card-review-prompt

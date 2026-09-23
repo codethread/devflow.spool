@@ -300,8 +300,10 @@ checkpoint changes or any task gate is poured. Supply the complete queue again
 at this choice even if it was provided earlier; it must match the user's approved
 task graph, not a newly invented plan.
 
-Task maps may be keyword- or string-keyed (choice input often round-trips
-through JSON). Ids must be token-safe and distinct — they become step ids. Every
+Task and card-ref maps use keyword keys in Clojure (`:id`, `:title`, etc.).
+The workflow CLI recursively converts JSON object keys to keywords. Direct
+string-keyed or mixed-keyed maps are rejected, rather than silently producing
+positional loop ids. Ids must be token-safe and distinct — they become step ids. Every
 task must resolve a harness, either its own `:harness` or the stage's
 `:delegate-harness`. An optional `:delegate-preamble` is prepended to each task
 prompt verbatim; devflow adds no policy of its own.

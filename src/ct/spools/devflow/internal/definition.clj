@@ -65,11 +65,6 @@
    "devflow/stage" stage
    "devflow/feature" (param-value :feature)})
 
-(defn- task-value
-  "Return task field `k`, accepting keyword or string keyed task maps."
-  [task k]
-  (or (get task k) (get task (name k))))
-
 (def ^:private loop-item-id-pattern
   "Loop item ids become workflow step ids, so they must be token-safe: no
   whitespace, slashes, colons, or leading punctuation."
@@ -81,8 +76,8 @@
 ;; Param contracts. Each stage names one whole-map spec the engine validates
 ;; before anything compiles or pours, so a bad param map fails at the
 ;; boundary with the spec's own explanation rather than part-way through a
-;; stage. Task maps stay keyword- or string-keyed (`task-value`), which is why
-;; their shape is predicates over that reader rather than `s/keys`.
+;; stage. Task and card maps use keyword keys, matching loop expansion and
+;; the workflow CLI's recursive JSON-to-keyword conversion.
 (s/def ::feature non-blank-string?)
 (s/def ::revision boolean?)
 (s/def ::worktree-check #{"required" "already-in-worktree-ok"})
@@ -98,46 +93,32 @@
 (defn- workflow-step-id? [v]
   (and (non-blank-string? v) (some? (re-matches loop-item-id-pattern v))))
 
-(defn- optional-non-blank? [v]
-  (or (nil? v) (non-blank-string? v)))
+(s/def ::id workflow-step-id?)
+(s/def ::title non-blank-string?)
+(s/def ::body non-blank-string?)
+(s/def ::harness non-blank-string?)
 
 (s/def ::afk-task
-  (s/and map?
-         #(workflow-step-id? (task-value % :id))
-         #(non-blank-string? (task-value % :title))
-         #(optional-non-blank? (task-value % :body))
-         #(optional-non-blank? (task-value % :harness))))
+  (s/and (s/map-of keyword? any?)
+         (s/keys :req-un [::id ::title] :opt-un [::body ::harness])))
 
-(defn- distinct-task-ids?
-  "AFK task ids become workflow step ids, so a duplicate would collide."
-  [tasks]
-  (let [ids (map #(task-value % :id) tasks)]
+(defn- distinct-item-ids? [items]
+  (let [ids (map :id items)]
     (= (count ids) (count (distinct ids)))))
 
 (s/def ::tasks
-  (s/and (s/coll-of ::afk-task :kind vector? :min-count 1) distinct-task-ids?))
-
-(defn card-value
-  "Return card-ref field `k`, accepting keyword or string keyed maps."
-  [card k]
-  (or (get card k) (get card (name k))))
+  (s/and (s/coll-of ::afk-task :kind vector? :min-count 1) distinct-item-ids?))
 
 (s/def ::review-card
-  (s/and map?
-         #(workflow-step-id? (card-value % :id))
-         #(non-blank-string? (card-value % :title))))
-
-(defn- distinct-card-ids? [cards]
-  (let [ids (map #(card-value % :id) cards)]
-    (= (count ids) (count (distinct ids)))))
+  (s/and (s/map-of keyword? any?) (s/keys :req-un [::id ::title])))
 
 (s/def ::cards
-  (s/and (s/coll-of ::review-card :kind vector? :min-count 1) distinct-card-ids?))
+  (s/and (s/coll-of ::review-card :kind vector? :min-count 1) distinct-item-ids?))
 
 (defn- harnesses-resolve?
   "Every delegated task names a harness, or inherits the stage's default one."
   [{:keys [tasks delegate-harness]}]
-  (every? #(non-blank-string? (or (task-value % :harness) delegate-harness)) tasks))
+  (every? #(non-blank-string? (or (:harness %) delegate-harness)) tasks))
 
 (s/def ::intake-params
   (s/keys :req-un [::feature]
@@ -201,8 +182,8 @@
     {body}
     "
     {:preamble (or delegate-preamble "") :feature feature
-     :title (task-value task :title)
-     :body (or (task-value task :body) (task-value task :title))}))
+     :title (:title task)
+     :body (or (:body task) (:title task))}))
 
 (defn afk-task-gate
   "The per-task subagent gate the delegated AFK stage expands one of per task.
@@ -214,12 +195,12 @@
   []
   (workflow/gate :task
                  (fn [{:keys [feature item]}]
-                   (str "Delegate AFK task " (task-value item :id) " for " feature))
+                   (str "Delegate AFK task " (:id item) " for " feature))
                  :agent
                  :loop {:each :tasks :chain true}
-                 :attributes {"devflow/task" (fn [{:keys [item]}] (task-value item :id))
+                 :attributes {"devflow/task" (fn [{:keys [item]}] (:id item))
                               "harness/alias" (fn [{:keys [item delegate-harness]}]
-                                                (or (task-value item :harness) delegate-harness))
+                                                (or (:harness item) delegate-harness))
                               "harness/cwd" (param-value :delegate-cwd)
                               "harness/prompt" (fn [{:keys [feature item delegate-preamble]}]
                                                  (afk-task-prompt feature item delegate-preamble))}))
@@ -242,7 +223,7 @@
     Return `VERDICT: pass` or `VERDICT: revise`, followed by concrete findings
     ordered by severity. Say plainly when the card passes.
     "
-    {:feature feature :id (card-value item :id) :title (card-value item :title)}))
+    {:feature feature :id (:id item) :title (:title item)}))
 
 (defn card-set-review-prompt
   "Render the set-level review prompt after every focused card review fans in."
@@ -265,7 +246,7 @@
     findings ordered by severity. Say plainly when the decomposition is cohesive.
     "
     {:feature feature
-     :cards (str/join "\n" (map #(str "- " (card-value % :id) ": " (card-value % :title))
+     :cards (str/join "\n" (map #(str "- " (:id %) ": " (:title %))
                                 cards))}))
 
 (def abort-reason-input
