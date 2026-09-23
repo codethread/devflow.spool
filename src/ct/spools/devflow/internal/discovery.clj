@@ -18,7 +18,7 @@
                       "
                       Guide key, as advertised by a step's devflow/guide attribute (e.g. proposal).
                       Omit for the workspace overview, which indexes every key.
-                      ")}]
+                      " {})}]
      :annotations
      {:use-when [(str "A ready step carries a devflow/guide attribute and you "
                       "are about to author its artifact.")
@@ -26,13 +26,13 @@
                    "
                    Working outside a run: rfc and finish-archive have no workflow step, and the
                    overview orients any devflow workspace work.
-                   ")]
+                   " {})]
       :notes [(format-alpha/prose
         "
         The payload is resolved live from the loaded spool on every call, never from
         run state, so it is always the current guide. The Clojure equivalent is
         (ct.spools.devflow/guidance <key>).
-        ")]}}}})
+        " {})]}}}})
 
 (def devflow-returns
   {:subcommands

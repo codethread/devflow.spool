@@ -129,7 +129,7 @@
                      board for the exact draft source and reconcile the id before retrying;
                      do not create another epic just because completion was interrupted.
                      The kanban-batch pattern creates features, never an epic.
-                     "))
+                     " {}))
     (workflow/step :publish-feature-graph
                    (titled "Publish or recover kanban feature cards and dependencies for ")
                    :self
@@ -154,7 +154,7 @@
                      with `strand update <epic-id> --edge parent-of:<feature-id>`.
                      Verify every feature, body, dependency and epic membership against
                      the draft before completing with the full publication receipt.
-                     "))
+                     " {}))
     (workflow/step :record-review-set
                    (titled "Record the exact kanban review set for ")
                    :self
@@ -171,7 +171,7 @@
                      epic. This returns to the parent's handoff-card-review checkpoint;
                      its review input must be this recorded set. Later review corrections
                      update these same cards, not a fresh epic or duplicated publication.
-                     "))))
+                     " {}))))
 
 (workflow/defworkflow! decompose-kanban
   "The decompose stage bound for kanban workspaces.

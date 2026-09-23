@@ -105,7 +105,7 @@
                                                    order. Every task must name a harness or inherit
                                                    delegate-harness. Optional delegate-cwd and
                                                    delegate-preamble apply to this execution.
-                                                   ")}}
+                                                   " {})}}
                                    {:key :abort
                                     :label "Abort"
                                     :description "Stop or abandon this feature before AFK execution."
@@ -121,7 +121,7 @@
                                         harness assignments in the choice input, even if supplied
                                         earlier. Do not invent missing tasks or approval. Inspect
                                         `strand workflow choices <run-id>` for the input contract.
-                                        ")})))
+                                        " {})})))
 
 (workflow/defworkflow run-afk-manual
   "Run or hand off the AFK task loop in the current worker."
@@ -149,7 +149,7 @@
                                   for blockage/failure include the reason and next owner. Verify the
                                   graph and external acceptance, not merely an empty ready frontier.
                                   Closing this workflow records the outcome, not feature delivery.
-                                  ")})))
+                                  " {})})))
 
 (workflow/defworkflow run-afk-delegated
   "Run the approved AFK task queue as sequential subagent gates.
@@ -203,7 +203,7 @@
                                    '<explicit-target-params-json>'`. Targets receive only the params passed at the
                                    fill, so pass the feature explicitly. Run `strand devflow guidance tasks` for
                                    the queue contract before filling.
-                                   ")})
+                                   " {})})
     (workflow/call :agent-review-tasks
                    :agent-review
                    {:artifact "task queue"}

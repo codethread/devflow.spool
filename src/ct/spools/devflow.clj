@@ -53,7 +53,7 @@
                      and its Devflow guide. Record concrete findings and their resolution
                      as devflow/artifact-review on completion. Do not treat reviewer
                      process success as a pass, or replace the following human sign-off.
-                     "))))
+                     " {}))))
 
 (workflow/defworkflow author-task-strands
   "The shipped strand-native task-authoring target for the tasks stage's defer.
@@ -133,7 +133,7 @@
                                    repository/mainline/merged-revision/proposal-path receipt from this run's root
                                    workflow/context and pass it explicitly to the target; defer does not inherit
                                    it.
-                                   ")})
+                                   " {})})
     (workflow/checkpoint :handoff-card-review
                          (titled "Hand authored cards to review for ")
                          :depends-on [:author-cards]
@@ -148,7 +148,7 @@
                                               The non-empty vector of authored card refs; each requires token-safe id and
                                               title. Include every card the review should judge — grouping cards are the
                                               workspace's own convention, not devflow's.
-                                              ")}}
+                                              " {})}}
                                    {:key :abort
                                     :label "Abort"
                                     :description "Stop this feature because a reviewable implementation-card set could not be authored."
@@ -161,7 +161,7 @@
                                         run subgraph and strand show. Choose review with that exact complete card set,
                                         not a reconstructed list. The review stage uses the configured card-reviewer
                                         and card-set-reviewer seats.
-                                        ")})))
+                                        " {})})))
 
 (workflow/defworkflow decompose
   "Author implementation cards through a pluggable target, then hand their

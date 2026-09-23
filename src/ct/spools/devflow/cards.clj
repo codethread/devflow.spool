@@ -40,7 +40,7 @@
                                   Executor-owned focused card review. The configured card reviewer must inspect
                                   exactly this card and return its verdict; parallel sibling gates review the
                                   other cards.
-                                  ")})
+                                  " {})})
     (workflow/gate :card-set-review
                    (titled "Cohesion review of the card set for ")
                    :agent
@@ -54,7 +54,7 @@
                                   "
                                   Executor-owned set-level cohesion review. It starts only after every focused
                                   card review closes and must not repeat those per-card checks.
-                                  ")})
+                                  " {})})
     (workflow/step :reconcile-card-reviews
                    (titled "Reconcile implementation-card reviews for ")
                    :self
@@ -68,7 +68,7 @@
                                   cohesion findings to card slicing or dependency edges. Do not collapse the two
                                   review scopes. If any material card changed, choose review-again and supply
                                   the current full card set.
-                                  ")})
+                                  " {})})
     (workflow/checkpoint :card-review-verdict
                          (titled "Decide whether implementation cards are reviewed for ")
                          :depends-on [:reconcile-card-reviews]

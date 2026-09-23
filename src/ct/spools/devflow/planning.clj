@@ -51,7 +51,7 @@
 
                                         Follow the user's worktree policy. This human checkpoint is
                                         a real approval boundary; an actor label is not authorization.
-                                        ")})
+                                        " {})})
     (workflow/step :capture-brief
                    (titled "Capture user brief for ")
                    :self
@@ -67,7 +67,7 @@
 
                      On revision read the saved receipt from the root workflow/context;
                      do not create a second worktree. Context does not rewrite this prompt.
-                     "))
+                     " {}))
     (workflow/checkpoint :discuss-scope
                          (titled "Discuss scope and open questions for ")
                          :depends-on [:capture-brief]
@@ -131,7 +131,7 @@
                                       Proposal is accepted and frozen as the agreed intent; land it on mainline,
                                       decompose it into implementation cards, and end the run there. Implementation
                                       belongs to the card loop, not to this run.
-                                      ")
+                                      " {})
                                     :next 'ct.spools.devflow.planning/land-proposal}
                                    {:key :revise
                                     :label "Revise"
@@ -139,7 +139,7 @@
                                                    "
                                                    Revise the proposal and re-review before proceeding.
                                                    Revision is the only window for rewriting it.
-                                                   ")
+                                                   " {})
                                     :revise {:params {:revision true}}}
                                    {:key :abort
                                     :label "Abort"
@@ -153,7 +153,7 @@
                                         date and make no further content edits. Later divergence belongs in the spec
                                         deltas and plan, not in a rewritten proposal. Choose revise while the document
                                         still needs to change.
-                                        ")})))
+                                        " {})})))
 
 (workflow/defworkflow land-proposal
   "The proposal landing stage on the cards route.
@@ -189,7 +189,7 @@
                                   merge record). Use the exact landed revision, not a moving branch.
                                   If interrupted, inspect the external merge before retrying; never
                                   repeat a merge whose outcome is uncertain. Include --by-identity.
-                                  ")})
+                                  " {})})
     (workflow/checkpoint :confirm-proposal-landed
                          (titled "Confirm the proposal landed for ")
                          :depends-on [:merge-proposal]
@@ -214,4 +214,4 @@
                                         the exact revision on mainline, then supply that receipt to
                                         landed. A closed gate alone is not merge evidence. If the
                                         receipt is absent, obtain the external result before routing.
-                                        ")})))
+                                        " {})})))
