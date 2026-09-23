@@ -12,10 +12,14 @@
             ;; the test world loads it for the :millhouse/spools-kanban module
             ;; activation below (a real world gets it as an approved spool root).
             [millhouse.spools.identity]
-            [millhouse.spools.kanban]
+            [millhouse.spools.kanban :as kanban]
+            [millstrand.api.patterns.alpha :as patterns]
+            [millstrand.api.graph.alpha :as graph]
             [millstrand.api.authoring.alpha :as authoring]
             [millstrand.api.current.alpha :as current]
             [millstrand.api.runtime.alpha :as runtime]
+            [millstrand.api.weaver.alpha :as weaver]
+            [millstrand.api.spool.alpha :refer [attr-get]]
             [millhouse.spools.workflow :as workflow]
             [millstrand.test.alpha :as t]))
 
@@ -86,13 +90,15 @@
         (is (= "author-cards" (:defer step)))
         (is (= ["author-card-strands" "author-kanban-cards"] (:workflows step))
             "the binding allows the strand default and the kanban target"))
-      (workflow/defer! "kb" :author-kanban-cards {:feature "kb"})
+      (workflow/defer! "kb" :author-kanban-cards
+                       {:feature "kb" :repository "repo" :mainline "main"
+                        :merged-revision "abc123" :proposal-path "proposal.md"
+                        :merge-evidence "merge-record"})
       (let [step (workflow/ready-step "kb")]
-        (is (= "Author kanban epic and feature cards for kb" (:title step)))
+        (is (= "Draft kanban breakdown for kb" (:title step)))
         (is (= "implementation cards" (:artifact step)))
-        (is (str/includes? (:instruction step) "--edge depends-on:")
-            "the instruction spells out the core edge command kanban lacks"))
-      (workflow/complete! "kb")
+        (is (= "step" (:role step))))
+      (dotimes [_ 4] (workflow/complete! "kb"))
       (is (= "handoff-card-review" (:checkpoint (workflow/ready-step "kb")))
           "the filled target returns into the declaring stage"))))
 
@@ -143,6 +149,75 @@
           (is (= received (:received (ex-data error))))
           (is (str/includes? (.getMessage error) "allowed shape"))
           (is (str/includes? (.getMessage error) "received")))))))
+
+(deftest publication-receipts-survive-resume-and-return-the-exact-review-set
+  (with-runtime
+    (fn [rt]
+      (workflow/start! "published" #'adapter/decompose-kanban
+                       {:feature "published" :card-reviewer "reviewer"
+                        :card-set-reviewer "set-reviewer"})
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (workflow/defer! "published" :author-kanban-cards {:feature "published"})))
+      (is (= "author-cards" (:defer (workflow/ready-step "published"))))
+      (workflow/defer! "published" :author-kanban-cards
+                       {:feature "published" :repository "repo" :mainline "main"
+                        :merged-revision "abc123" :proposal-path "proposal.md"
+                        :merge-evidence "merge-record"})
+      (let [draft-step (workflow/ready-step "published")
+            draft {:reference "draft-42" :repository "repo"
+                   :proposal-path "proposal.md" :merged-revision "abc123"}]
+        (workflow/complete! "published" {:attributes {"devflow/breakdown-draft" draft}})
+        (is (= draft (attr-get (weaver/show rt (:id draft-step)) :devflow/breakdown-draft)))
+        (let [epic-step (workflow/ready-step "published")
+              epic-id (get-in (kanban/add! rt "Published epic"
+                                          {"--type" "epic" "--source" "draft-42"}) [:card :id])
+              epic-receipt {:id epic-id :draft "draft-42"}]
+          (is (= "Publish or recover the kanban epic for published" (:title epic-step)))
+          ;; Simulate interruption after external creation and receipt storage,
+          ;; before workflow completion. Resumption reads, not republishes.
+          (weaver/update! rt (:id epic-step) {:attributes {"devflow/epic-receipt" epic-receipt}})
+          (is (= (:id epic-step) (:id (workflow/ready-step "published"))))
+          (workflow/complete! "published"
+                              {:attributes {"devflow/epic-receipt"
+                                            (attr-get (weaver/show rt (:id epic-step))
+                                                      :devflow/epic-receipt)}})
+          (let [publication-step (workflow/ready-step "published")
+                result (patterns/weave! rt :kanban-batch
+                                        {:items [{:key "a" :title "A" :body "draft-42 A"}
+                                                 {:key "b" :title "B" :body "draft-42 B"
+                                                  :depends-on ["a"]}]})
+                a (get-in result [:refs "a"])
+                b (get-in result [:refs "b"])
+                receipt {:draft "draft-42" :refs (:refs result)
+                         :edges [[b a]]}]
+            (is (= "Publish or recover kanban feature cards and dependencies for published"
+                   (:title publication-step)))
+            (weaver/update! rt (:id publication-step)
+                            {:attributes {"devflow/card-publication" receipt}})
+            (is (= (:id publication-step) (:id (workflow/ready-step "published"))))
+            (is (= (assoc receipt :refs {:a a :b b})
+                   (attr-get (weaver/show rt (:id publication-step))
+                                    :devflow/card-publication)))
+            (weaver/update! rt epic-id {:edges [{:type "parent-of" :to a}
+                                              {:type "parent-of" :to b}]})
+            (is (= #{[b a "depends-on"]}
+                   (set (map (juxt :from_strand_id :to_strand_id :edge_type)
+                             (:edges (graph/subgraph rt [b] {:type "depends-on"}))))))
+            (workflow/complete! "published" {:attributes {"devflow/card-publication" receipt}})
+            (let [review-step (workflow/ready-step "published")
+                  refs (mapv #(select-keys (weaver/show rt %) [:id :title]) [a b])]
+              (is (= "Record the exact kanban review set for published" (:title review-step)))
+              (workflow/complete! "published" {:attributes {"devflow/review-set" refs}})
+              (is (= "handoff-card-review" (:checkpoint (workflow/ready-step "published"))))
+              (is (thrown? clojure.lang.ExceptionInfo
+                           (workflow/choose! "published" :review {:cards []})))
+              (workflow/choose! "published" :review
+                                {:cards (attr-get (weaver/show rt (:id review-step))
+                                                  :devflow/review-set)})
+              (is (= #{a b}
+                     (set (map #(attr-get (weaver/show rt (:id %)) :devflow/card)
+                               (workflow/ready-gates "published")))))
+              (is (not (contains? (set (map :id refs)) epic-id))))))))))
 
 (defn -main [& _]
   (let [summary (clojure.test/run-tests 'ct.spools.devflow-kanban-adapter-test)]

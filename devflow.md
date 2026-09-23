@@ -20,10 +20,11 @@ The root module uses explicit `use-workflow!`, `use-query!`, and `use-op!` forms
 
 ```clojure
 (require '[ct.spools.devflow :as devflow]
+         '[ct.spools.devflow.planning :as planning]
          '[millhouse.spools.workflow :as workflow]
          '[millstrand.api.millstrand.alpha :as millstrand])
 
-(workflow/use-workflow! devflow/intake devflow/proposal)
+(workflow/use-workflow! planning/intake planning/proposal)
 (millstrand/use-query! devflow/devflow-ready)
 (millstrand/use-op! devflow/devflow)
 ```
@@ -260,10 +261,10 @@ sequenceDiagram
   alt task breakdown
     Agent->>Run: complete! task queue + agent review
     Run-->>You: sign off the queue?
-    You-->>Run: approved {tasks, delegate-harness}
+    You-->>Run: approved
     Run-->>You: run the queue manually, or delegate?
     alt delegate
-      You-->>Run: delegate
+      You-->>Run: delegate {tasks, delegate-harness}
       Run->>Subs: task gates, one at a time
       Subs-->>Run: results
       Run-->>You: accept the AFK run?
@@ -280,11 +281,12 @@ sequenceDiagram
   Run-->>Agent: done
 ```
 
-Delegating the queue is opt-in. Pass the tasks when you approve it, then choose
-`:delegate`:
+Delegating the queue is opt-in. Approve the task graph first (no inline queue
+is required). At the execution choice, supply the **complete approved queue**
+and harness assignments as Delegate's required input:
 
 ```sh
-strand workflow choose search-filters approved --input \
+strand workflow choose search-filters delegate --input \
   '{"tasks":[{"id":"impl","title":"Implement filters","body":"Use the signed-off plan."},\
               {"id":"tests","title":"Add regression tests"}],\
     "delegate-harness":"pi-main","delegate-cwd":"/path/to/feature/worktree"}'
@@ -292,14 +294,45 @@ strand workflow choose search-filters approved --input \
 ;;     :done false}
 ```
 
+`workflow choices` exposes this contract at the decision that needs it. Missing
+queues, duplicate/unsafe ids and unresolved harness assignments fail before the
+checkpoint changes or any task gate is poured. Supply the complete queue again
+at this choice even if it was provided earlier; it must match the user's approved
+task graph, not a newly invented plan.
+
 Task maps may be keyword- or string-keyed (choice input often round-trips
 through JSON). Ids must be token-safe and distinct — they become step ids. Every
 task must resolve a harness, either its own `:harness` or the stage's
 `:delegate-harness`. An optional `:delegate-preamble` is prepended to each task
 prompt verbatim; devflow adds no policy of its own.
 
-Choosing `:manual` needs no task data at all — it's a single step for running or
-handing off the loop yourself.
+Choosing `:manual` needs no inline task data — the task graph remains the progress
+owner. Its single step records `devflow/afk-outcome`: queue reference, outcome
+(`exhausted`, `blocked`, `failed` or `handed-off`), completed/remaining task ids,
+validation evidence and the next owner. Handoffs also record the exact accepting
+run/target. Closing this workflow records that outcome, not feature delivery.
+
+## External receipts and resumption
+
+- Both intake worktree choices require `repository`, absolute `worktree` and
+  `branch`. The choice stores `workflow/outcome-input` on its checkpoint.
+  Capture-brief reads that exact receipt, verifies cwd, and copies it into
+  `--context` on completion so revisions and continuations retain it.
+- The external proposal gate records `devflow/merge-receipt` with repository,
+  mainline, merged revision, proposal path and external merge evidence. The
+  following `landed` choice requires those fields after verification. A closed
+  gate or a supplied actor label is not evidence of merge or human approval.
+- Card authors complete with `devflow/review-set`, the exact nonempty vector of
+  `{id, title}` refs. The parent handoff reads that closed-step receipt before
+  passing it to the scoped reviews. The Kanban adapter additionally records
+  draft, epic and publication receipts; see its README for interruption handling.
+
+Read receipts through `strand subgraph <root-id>` and `strand show <step-id>`.
+Arbitrary receipt attributes are not projected in `workflow ready`. Ordinary
+instructions are frozen at pour: `complete --context` stores data but does not
+rewrite later prompts. Choice specs validate receipt shape, not external facts;
+ordinary completion attributes remain driver-owned obligations, not a new
+engine-enforced output schema. Verify the named external result before closing.
 
 ## Plugging in your own decomposition
 
@@ -315,7 +348,12 @@ strand workflow defer search-filters --workflow author-task-strands \
 ```
 
 Defer targets receive **only** the params passed at the fill — run context
-never crosses the boundary — so the feature name is passed explicitly.
+never crosses the boundary. Task targets need the feature explicitly. Both
+shipped card targets additionally require the verified landing receipt:
+`repository`, `mainline`, `merged-revision`, `proposal-path`, `merge-evidence`.
+Read it from the decompose root's `workflow/context`, then pass those exact
+values in `--params` alongside `feature`; the feature-only example above is
+for task authoring, not card authoring.
 
 Devflow binds exactly one target per point, and both author **strands**:
 
@@ -333,7 +371,7 @@ yourself from trusted Clojure that can see both spools:
 
 ```clojure
 (require '[millhouse.spools.workflow :as workflow]
-         '[ct.spools.devflow :as devflow])
+         '[ct.spools.devflow.execution :as execution])
 
 ;; 1. Register your own :call-entrypoint authoring workflow.
 (workflow/register-workflow! :jira-tasks 'my.spool/jira-tasks)
@@ -344,7 +382,7 @@ yourself from trusted Clojure that can see both spools:
   {:entrypoints #{:continue :call}
    :param-spec :my.spool/tasks-params
    :defaults {:revision false}}
-  (workflow/bind-defers devflow/tasks-open
+  (workflow/bind-defers execution/tasks-open
                         {:author-tasks #{:author-task-strands :jira-tasks}}))
 
 ;; 3. Re-point the routed stage name at your definition.
@@ -541,8 +579,16 @@ Devflow registers sixteen named workflow definitions: `intake`, `proposal`,
 `intake` is the sole `:start` definition. `agent-review`,
 `author-task-strands`, and `author-card-strands` are call-only procedures —
 the last two are the shipped defer targets; the remaining stages are
-continuations that can also be called. The unbound templates `tasks-open` and
-`decompose-open` are published Vars, not registered definitions.
+continuations that can also be called. The unbound templates `execution/tasks-open` and
+`devflow/decompose-open` are published Vars, not registered definitions.
+
+The root module still publishes the same sixteen registered names. Clojure
+callers select declarations from coherent namespaces: `ct.spools.devflow.planning`
+(intake/proposal/landing), `ct.spools.devflow.execution` (spec-plan, route, tasks
+and implementation), and `ct.spools.devflow.cards` (review-cards). The remaining
+declarations and root selection live in `ct.spools.devflow`. Named boundary specs
+live in `ct.spools.devflow.internal.definition`; inspect the registered definition
+or choice contract instead of assuming a spec keyword from the workflow name.
 Inspect them through the live generic registry:
 
 ```sh
@@ -582,7 +628,8 @@ building a projection that needs the current stage. The generic step view remain
 engine-owned.
 
 The proposal merge gate is repo-agnostic: any mainline merge process counts, and
-generic `workflow complete` records who landed it via `--by`.
+generic `workflow complete` records landing provenance via `--by-identity`.
+This is attribution, not authenticated authorization.
 
 `(devflow/dependency-sentinel)` returns `"devflow-spool"` through this spool's
 declared Maven dependency, so runtime validation can observe that approved spool

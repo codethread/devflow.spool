@@ -248,7 +248,8 @@ Devflow is a set of ordinary Millstrand workflows. Start and drive the `intake` 
 strand workflow start search-filters --workflow intake \
   --params '{"feature":"search-filters","worktree-check":"already-in-worktree-ok"}'
 strand workflow ready search-filters
-strand workflow next search-filters --choice already-in-worktree
+strand workflow next search-filters --choice already-in-worktree --input \
+  '{"repository":"/path/to/repo","worktree":"/path/to/feature","branch":"feature"}'
 ```
 
 Resume and find work across sessions with Devflow's named queries:
