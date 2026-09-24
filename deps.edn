@@ -2,23 +2,23 @@
  :deps {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         io.millstrand/millstrand
         {:git/url "https://github.com/codethread/millstrand.git"
-         :git/sha "71c0ed3d80fcad090b74a704a8eb165a3fad996e"}
+         :git/sha "34f940ddb2e69898554bf76251749715b250ae15"}
         millhouse.spools/workflow
         {:git/url "https://github.com/codethread/millhouse.spool.git"
-         :git/sha "c66adcca2cdc05e38c789b802e6d34532af0d6cd"
+         :git/sha "114ccb0f870c60eeebfaf60739aabd21f6413f7f"
          :deps/root "spools/workflow"}}
  :aliases
  {:test {:extra-paths ["test" "scripts" "kanban-adapter/src" "kanban-adapter/test"]
          :extra-deps {millhouse.spools/kanban
                       {:git/url "https://github.com/codethread/millhouse.spool.git"
-                       :git/sha "c66adcca2cdc05e38c789b802e6d34532af0d6cd"
+                       :git/sha "114ccb0f870c60eeebfaf60739aabd21f6413f7f"
                        :deps/root "spools/kanban"}}
          :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
          :main-opts ["-m" "ct.spools.devflow-test"]}
   :equivalence-published {:extra-paths ["scripts" "kanban-adapter/src"]
                           :extra-deps {millhouse.spools/kanban
                                        {:git/url "https://github.com/codethread/millhouse.spool.git"
-                                        :git/sha "c66adcca2cdc05e38c789b802e6d34532af0d6cd"
+                                        :git/sha "114ccb0f870c60eeebfaf60739aabd21f6413f7f"
                                         :deps/root "spools/kanban"}}
                           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
                           :main-opts ["-m" "ct.spools.devflow-equivalence"]}
